@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from cdft.functions import *
 
 
-def E_kinetic(wave_fun, meshgrid, params, weight):
+def E_kinetic(wave_fun, meshgrid, params, N, weight):
     
     '''
     E_gs = T_s + V_ext + V_Hartree + V_xc
@@ -12,7 +12,7 @@ def E_kinetic(wave_fun, meshgrid, params, weight):
     
     input: 
         meshgrid: (D, 3)
-        wave_fun: (3)-->(2, N)  a function that calculate the wave function. 
+        wave_fun: (3)-->(N)  a function that calculate the wave function. 
         params: parameter array for wavefun
         N: number of electrons.
         weight: (D) 
@@ -20,7 +20,7 @@ def E_kinetic(wave_fun, meshgrid, params, weight):
         kinetic_energy: scalar
     '''
 
-    f = lambda x: wave_fun(params, x)    
+    f = lambda x: wave_fun(params, x, N)
     def laplacian_3d(r):
         
         '''
@@ -36,18 +36,18 @@ def E_kinetic(wave_fun, meshgrid, params, weight):
         output: scalar
         '''
         
-        hessian_diag = jnp.diagonal(jax.jacfwd(jax.jacrev(f))(r), 0, 2, 3)   
-        return jnp.sum(hessian_diag, axis=2)/2
+        hessian_diag = jnp.diagonal(jax.jacfwd(jax.jacrev(f))(r), 0, 1, 2)    
+        return jnp.sum(hessian_diag, axis=1)/2
     
-    wave_at_grid = vmap(f)(meshgrid)   # shape: (D, 2, N)  
-    batched_lap = vmap(laplacian_3d)(meshgrid)    # shape: (D, 2, N)  
-    return -jnp.sum(batched_lap * wave_at_grid * jnp.expand_dims(weight, [1, 2]))   
+    wave_at_grid = vmap(f)(meshgrid)
+    batched_lap = vmap(laplacian_3d)(meshgrid)    
+    return -jnp.sum(batched_lap * wave_at_grid * jnp.expand_dims(weight, 1))
 
 
-def E_ext(wave_fun, meshgrid, nuclei, params, weight, eps=1e-10):
+def E_ext(wave_fun, meshgrid, nuclei, params, N, weight, eps=1e-10):
     '''
     input: 
-        wave_fun: (3)-->(2, N)
+        wave_fun: (3)-->(N)
         meshgrid: (D, 3)
         nuclei: dict {'loc': jnp.array [A, 3], 'charge':jnp.array or a list of scalar}
         weight: (D) 
@@ -55,8 +55,8 @@ def E_ext(wave_fun, meshgrid, nuclei, params, weight, eps=1e-10):
         scalar
     '''
     
-    f = lambda x: wave_fun(params, x)
-    wave_at_grid = vmap(f)(meshgrid) # shape: (D, 2, N)
+    f = lambda x: wave_fun(params, x, N)
+    wave_at_grid = vmap(f)(meshgrid) # shape: (D, N)
     nuclei_loc = nuclei['loc']
     nuclei_charge = nuclei['charge']
     num_ncl = len(nuclei_loc)
@@ -66,12 +66,12 @@ def E_ext(wave_fun, meshgrid, nuclei, params, weight, eps=1e-10):
         x = jnp.abs(meshgrid-nuclei_loc[k].reshape((1, 3)))   # shape: (D, 3)
         x = jnp.sum(x**2, axis=1)**0.5          #shape: (D)
         x = - nuclei_charge[k]/(x + eps)
-        output += jnp.sum(wave_at_grid**2 * jnp.expand_dims(x, [1, 2]) * jnp.expand_dims(weight, [1, 2]))
+        output += jnp.sum(wave_at_grid**2 * jnp.expand_dims(x, 1)* jnp.expand_dims(weight, 1))
     
-    return output   # shape: (2, N)  
+    return output
 
 
-def E_XC_LDA(wave_fun, meshgrid, params, weight):
+def E_XC_LDA(wave_fun, meshgrid, params, N, weight):
     '''
     input:
         meshgrid: (D, 3)
@@ -81,48 +81,47 @@ def E_XC_LDA(wave_fun, meshgrid, params, weight):
     output:
         kinetic_energy: scalar
     '''
-    f = lambda x: wave_fun(params, x)
-    wave_at_grid = vmap(f)(meshgrid)    # shape: (D, 2, N)
-    density = wave_at_grid**2        # shape: (D, 2, N)
+    f = lambda x: wave_fun(params, x, N)
+    wave_at_grid = vmap(f)(meshgrid) # shape: (D, N)
+    density = wave_at_grid**2
     const = -3/4*(3/jnp.pi)**(1/3) 
-    return jnp.sum(density[:, 0, :] ** (4/3) * jnp.expand_dims(weight, 1)) * const,\
-        jnp.sum(density[:, 1, :] ** (4/3) * jnp.expand_dims(weight, 1)) * const
+    return jnp.sum(density ** (4/3) * jnp.expand_dims(weight, 1)) * const 
 
-def E_Hartree(wave_fun, meshgrid, params, weight, eps=1e-10):
+
+def E_Hartree(wave_fun, meshgrid, params, N, weight, eps=1e-10):
     '''
     Warning: this function is computing in a fully pairwised manner, which is prune to out-of-memory issue.
     meshgrid: (D, 3)
     '''
     
-    f = lambda x: wave_fun(params, x)
-    density_at_grid = vmap(f)(meshgrid) # shape: (D,  2,  N)
-    density_at_grid = density_at_grid**2  # shape: (D, 2,  N)
-    density_at_grid *= jnp.expand_dims(weight, [1, 2])
+    f = lambda x: wave_fun(params, x, N)
+    density_at_grid = vmap(f)(meshgrid) # shape: (D, N)
+    density_at_grid = density_at_grid**2  # shape: (D, N)
     
-    density_at_grid = density_at_grid.transpose([2, 1, 0])   # shape: (N, 2, D)
-    
-    dist_pair = distmat(meshgrid)    # shape: (D, D)
-    density_at_grid = jnp.sum(density_at_grid, axis=[0, 1])  # shape: (D)
+    density_at_grid = density_at_grid.transpose(1, 0)   # shape: (N, D)
+    density_at_grid *= jnp.expand_dims(weight, 0)
+
+    dist_pair = distmat(meshgrid)
+    density_at_grid = jnp.sum(density_at_grid, axis=0)  # shape: (D)
     
     # def f(i):        
     #     density_pair = jax.lax.batch_matmul(jnp.expand_dims(density_at_grid, 1), 
     #                                         jnp.expand_dims(density_at_grid, 0))
     #     return jnp.sum(set_diag_zero(density_pair/(dist_pair+eps)))
-    
     density_pair = jax.lax.batch_matmul(jnp.expand_dims(density_at_grid, 1), 
                                         jnp.expand_dims(density_at_grid, 0))
     output = jnp.sum(set_diag_zero(density_pair/(dist_pair+eps)))
     return output
 
 
-def E_gs(wave_fun, meshgrid, params, nuclei, weight, eps=1e-10):
+def E_gs(wave_fun, meshgrid, params, N, nuclei, weight, eps=1e-10,):
 
-    E1 = E_kinetic(wave_fun, meshgrid, params, weight)
-    E2 = E_ext(wave_fun, meshgrid, nuclei, params, weight, eps)
-    E31, E32 = E_XC_LDA(wave_fun, meshgrid, params, weight)  
-    E4 = E_Hartree(wave_fun, meshgrid, params, weight, eps)
+    E1 = E_kinetic(wave_fun, meshgrid, params, N, weight)
+    E2 = E_ext(wave_fun, meshgrid, nuclei, params, N, weight, eps)
+    E3 = E_XC_LDA(wave_fun, meshgrid, params, N, weight)
+    E4 = E_Hartree(wave_fun, meshgrid, params, N, weight, eps)
 
-    return E1 + E2 + E31 + E32 + E4
+    return E1 + E2 + E3 + E4
 
 
 def set_diag_zero(x):

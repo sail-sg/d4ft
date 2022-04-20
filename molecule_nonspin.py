@@ -10,12 +10,12 @@ molecule object:
         charges: np.array
         
 Example：
-    h2o_config = [
+    h20_config = [
         ['o' , (0. , 0.     , 0.)],
         ['H' , (0. , -0.757 , 0.587)],
         ['H' , (0. , 0.757  , 0.587)] ]
     
-    h2o = molecule(h2o_config)
+    h2o = molecule(h20_config)
 
 '''
 
@@ -46,18 +46,10 @@ class molecule(object):
         
         self._get_basis_pople()
         self._init_basis()
-        
-        if spin is None:
-            self.spin = self.tot_electron%2
-        else:
-            self.spin = spin  # number of non-paired electrons.  
-        
-        self.nocc = jnp.zeros([2, self.basis_num])    # number of occupied orbital.
-        self.nocc = self.nocc.at[0, :int((self.tot_electron+self.spin)/2)].set(1)
-        self.nocc = self.nocc.at[1, :int((self.tot_electron-self.spin)/2)].set(1)
-        
+        self.spin = spin
         self.params = None
-        self.tracer = []     # to store training curve.
+        self.tracer = []
+        
         self.nuclei = {'loc': jnp.array(self.location),
                        'charge': jnp.array([int(i) for i in self.atom_num])}
         
@@ -110,8 +102,8 @@ class molecule(object):
         exponents_list = []
         orbital_type_list = []  # s, p, d or f, represented by 0, 1, 2, 3
         atom_exp_list = []
+
         atom_unique = []
-        
         for i in self.atom_num:
             if i not in atom_unique:
                 atom_unique.append(i)
@@ -187,7 +179,7 @@ class molecule(object):
             else:
                 raise NotImplementedError('f orbitals have not been implemented')
         
-        return jnp.array(basis_list)  # shape: (self.basis_num)
+        return jnp.array(basis_list)
         # return basis_list
 
 
@@ -222,20 +214,21 @@ class molecule(object):
         v = jnp.diag(jnp.real(v)**(-1/2)) + jnp.eye(v.shape[0])*1e-10
         ut = jnp.real(u).transpose()
         
-        self.basis_decov = jnp.matmul(v, ut)
+        self.basis_decov = jnp.matmul(v, ut)/(self.basis_num**0.5)
         
               
-    def wave_fun_N(self, param, r):
+    def wave_fun(self, param, r):
         '''
+        
         input: 
         r: location coordinate
             shape: (3)
         param: 
-            shape: (2, self.basis_num, self.basis_num) 
+            shape: (self.basis_num, self.basis_num, self.basis_num) # non-spin involved.
         
         output:
-            value of N wave functions
-            shape: (2, self.basis_num)
+            value of wave function
+            shape: (self.basis_num)
         
         '''
         
@@ -243,21 +236,23 @@ class molecule(object):
         
         def wave_fun_i(param_i, basis_list):
             orthogonal, _ = jnp.linalg.qr(param_i) # q is column-orthogal. 
-            return orthogonal.transpose()@self.basis_decov@basis_list   #(self.basis_num)
+            return jnp.sum(orthogonal.transpose()@self.basis_decov@basis_list)
         
         f = lambda param: wave_fun_i(param, basis_list)
-        return vmap(f)(param) * self.nocc       # shape: (2, self.basis_num)
-        
+        return vmap(f)(param)
+
     
     def _init_param(self,  seed=123):
         key = random.PRNGKey(seed)
-        return random.normal(key, [2, self.basis_num, self.basis_num])/self.basis_num**0.5
+        return random.normal(key, [self.basis_num, self.basis_num, self.basis_num])/self.basis_num**0.5
         
     
     def train(self, epoch, lr=1e-3, sample_method = 'simple grid', seed=123, if_val=True, **args):
         '''
         sample_method should be in ['simple grid', 'pyscf', 'poisson disc' ]
         '''
+        
+        
         
         if sample_method == 'pyscf':
             from pyscf import gto
@@ -297,6 +292,14 @@ class molecule(object):
         opt_state = optimizer.init(params)
         key = jax.random.PRNGKey(seed)
         keys = random.split(key, epoch)
+        
+        def wave_fun_N(param, r, N):
+            # mask_idx = jnp.argsort(self.orbital_energy)  
+            mask_idx = jnp.arange(N)
+            # mask = jnp.zeros(self.basis_num)
+            # mask = mask.at[mask_idx[:N]].set(1)
+            # return self.wave_fun(param, r) * mask
+            return self.wave_fun(param, r).at[mask_idx[:N]].get()
                 
         if sample_method == 'pyscf':
             meshgrid =  self.pyscf_grid
@@ -304,7 +307,7 @@ class molecule(object):
             
             @jit
             def update(params, opt_state, key):
-                loss = lambda params: E_gs(self.wave_fun_N, self.pyscf_grid, params, self.nuclei, weight)
+                loss = lambda params: E_gs(wave_fun_N, self.pyscf_grid, params, self.tot_electron, self.nuclei, weight)
                 loss_value, grads = jax.value_and_grad(loss)(params)
                 updates, opt_state = optimizer.update(grads, opt_state)
                 params = optax.apply_updates(params, updates)
@@ -325,25 +328,25 @@ class molecule(object):
             @jit
             def update(params, opt_state, key):
                 meshgrid = simple_grid(key, limit, cellsize, n)
-                loss = lambda params: E_gs(self.wave_fun_N, meshgrid, params, self.nuclei, weight)
+                loss = lambda params: E_gs(wave_fun_N, meshgrid, params, self.tot_electron, self.nuclei, weight)
                 loss_value, grads = jax.value_and_grad(loss)(params)
                 updates, opt_state = optimizer.update(grads, opt_state)
                 params = optax.apply_updates(params, updates)
                 return params, loss_value
             
-            
-        E_gs_train = [E_gs(self.wave_fun_N, meshgrid, params, self.nuclei, weight)] 
+        E_gs_train = [E_gs(wave_fun_N, meshgrid, params, self.tot_electron, self.nuclei, weight)] 
         if if_val:
-            E_gs_val = [E_gs(self.wave_fun_N, meshgrid, params, self.nuclei, weight)]
+            E_gs_val = [E_gs(wave_fun_N, meshgrid, params, self.tot_electron, self.nuclei, weight)]
         print('Initilization. Ground State Energy: {:.3f}'. \
                     format(E_gs_train[-1]))
+        
         
         for i in range(epoch):
             params, loss_value = update(params, opt_state, keys[i])
             if (i+1)%10 == 0:
                 E_gs_train.append(loss_value)
                 if if_val:
-                    E_gs_val.append(E_gs(self.wave_fun_N, meshgrid, params, self.nuclei, weight))
+                    E_gs_val.append(E_gs(wave_fun_N, meshgrid, params, self.tot_electron, self.nuclei, weight))
                     print('Iter: {}/{}. Ground State Energy: {:.3f}. Val Energy: {:.3f}.'. \
                         format(i+1, epoch, loss_value, E_gs_val[-1]))
                 else: 
@@ -352,10 +355,10 @@ class molecule(object):
                     
             
         self.params = params.copy()
-        print('E_kinetic ', E_kinetic(self.wave_fun_N, meshgrid, params, weight))
-        print('E_ext: ', E_ext(self.wave_fun_N, meshgrid, self.nuclei, params, weight))
-        print('E_Hartree: ', E_Hartree(self.wave_fun_N, meshgrid, params, weight))
-        print('E_xc: ', E_XC_LDA(self.wave_fun_N, meshgrid, params, weight))  
+        print('E_kinetic ', E_kinetic(wave_fun_N, meshgrid, params, self.tot_electron, weight))
+        print('E_ext: ', E_ext(wave_fun_N, meshgrid, self.nuclei, params, self.tot_electron, weight))
+        print('E_Hartree: ', E_Hartree(wave_fun_N, meshgrid, params, self.tot_electron, weight))
+        print('E_xc: ', E_XC_LDA(wave_fun_N, meshgrid, params, self.tot_electron, weight))  
                   
         self.tracer += E_gs_train
         return E_gs_train, E_gs_val
