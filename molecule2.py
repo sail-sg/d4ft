@@ -34,13 +34,8 @@ from cdft.visualization import *
 import time
 
 
-class molecule(object):
+class molecule2(object):
     def __init__(self, config, spin=None, basis='3-21g'):
-        '''
-        Config:
-        ['Fe' , (0. , 0.     , 0.)]
-        
-        '''
         self.config = config
         self.basis = basis
         
@@ -92,9 +87,9 @@ class molecule(object):
             output: 
                 a list of $sum(atoms)$ number of wave functions, such as a list of 10 wave functions for h2o. 
 
-        !WARNING: only valid for the first 4 rows. 
+        !WARNING: only valid for the first and second row. 
         !WARNING: only valid for split-valence type.
-        !WARNING: f orbital hasn't been implemented.
+        !WARNING: f orbital hasn't been considered.
         
         Example:
             self.exponents_list = [zeta1, zeta2, zeta2]
@@ -124,11 +119,37 @@ class molecule(object):
                 basis_ = basis_json['elements'][i]['electron_shells']
                 for basis_i in basis_:
                     for m in basis_i['angular_momentum']:
+                        add_num = len(exponents_list)
                         exponents_list += [float(e) for e in basis_i['exponents']]
-                        orbital_type_list += len(basis_i['exponents']) * [m]
-                        atom_exp_list += len(basis_i['exponents']) * [i]
-                            
+                        exponents_list =  list(set(exponents_list))
+                        orbital_type_list += (len(exponents_list)-add_num) * [m]
+                        atom_exp_list += (len(exponents_list)-add_num) * [i]
+                        
+                        # if m == 0:
+                        #     exponents_list += 
+                        #     orbital_type_list += 8 * [m]
+                        #     atom_exp_list +=  8 * [i]
+                        # if m == '1':
+                        #     exponents_list += ['1000.0', '100.0', '10.0', '1.0', '0.1', '0.01', '0.001']
+                        #     orbital_type_list += 7 * [m]
+                        #     atom_exp_list +=  7 * [i]
+        
+            # const_exponents = [10000., 5000., 2000., 1000., 500., 200., 100.0, 
+            #                    50., 20., 10.0,  5.0,  2.0,  1.0]
+            # # const_exponents = [1, 0.5, 0.1, 0.05, 0.01, 0.005, 0.001]
+            # exponents_list += const_exponents
+            # orbital_type_list += len(const_exponents) * [0]
+            # atom_exp_list +=  len(const_exponents)  * [i]    
+            
+                    
+            # const_exponents = [100.0, 50.0, 20.0, 10.0, 5.0, 2.0, 1.0, 0.5, 0.3, 0.1]
+            # exponents_list += const_exponents
+            # orbital_type_list += len(const_exponents) * [1]
+            # atom_exp_list +=  len(const_exponents)  * [i]  
+
+
         self.exponents_list = exponents_list
+        # self.exponents_list += [i*2 for i in exponents_list]
         self.orbital_type_list = orbital_type_list
         self.atom_exp_list = atom_exp_list
         
@@ -222,10 +243,10 @@ class molecule(object):
         self.basis_cov = vmap(lambda g2: vmap(lambda g1: \
             single_cov(g1, g2))(self.basis_label))(self.basis_label)
         
-        v, u = jnp.linalg.eigh(self.basis_cov)
+        v, u = jnp.linalg.eigh(self.basis_cov + jnp.eye(self.basis_cov.shape[0])*1e-4)
         self.orbital_energy = jnp.real(v).copy()
         
-        v = jnp.diag(jnp.real(v)**(-1/2)) + jnp.eye(v.shape[0])*1e-10
+        v = jnp.diag(jnp.real(v)**(-1/2)) + jnp.eye(v.shape[0])*0e-20
         ut = jnp.real(u).transpose()
         
         self.basis_decov = jnp.matmul(v, ut)
@@ -266,25 +287,25 @@ class molecule(object):
         '''
         sample_method should be in ['simple grid', 'pyscf', 'poisson disc' ]
         '''
-        
-        if sample_method == 'pyscf':
-            from pyscf import gto
-            from pyscf.dft import gen_grid
-            
-            mol = gto.Mole(basis='3-21g', spin=self.spin)
-            mol.atom = self.config
-            mol.build()
-            
-            g = gen_grid.Grids(mol)
-            if 'level' in args:
-                g.level = args['level']
-            else:
-                g.level = 1
+        if not hasattr(self, 'pyscf_grid'):
+            if sample_method == 'pyscf':
+                from pyscf import gto
+                from pyscf.dft import gen_grid
                 
-            g.build()
-            
-            self.pyscf_grid = g.coords
-            self.pyscf_weights = g.weights
+                mol = gto.Mole(basis='3-21g', spin=self.spin)
+                mol.atom = self.config
+                mol.build()
+                
+                g = gen_grid.Grids(mol)
+                if 'level' in args:
+                    g.level = args['level']
+                else:
+                    g.level = 1
+                    
+                g.build()
+                
+                self.pyscf_grid = g.coords
+                self.pyscf_weights = g.weights
 
         if self.params is None:
             self.params = self._init_param(seed)
@@ -460,7 +481,7 @@ if __name__ == '__main__':
         ['H' , (0. , -0.757 , 0.587)],
         ['H' , (0. , 0.757  , 0.587)] ]
     
-    h2o = molecule(h2o_config)
+    h2o = molecule2(h2o_config)
     
     
     

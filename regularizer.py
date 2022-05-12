@@ -12,6 +12,8 @@ def regularizer(wave_fun, meshgrid, params, N, eps=1e-10):
     
     return jnp.sum((col - I_N)**2) 
     
-    
-    
-    
+def reg_ort(params):
+    return jnp.sum((params[0].transpose()@params[0] - jnp.eye(params[0].shape[0]))**2) +\
+        jnp.sum((params[1].transpose()@params[0] - jnp.eye(params[1].shape[0]))**2) +\
+        jnp.sum((params[0]@params[0].transpose() - jnp.eye(params[0].shape[0]))**2) +\
+        jnp.sum((params[1]@params[0].transpose() - jnp.eye(params[1].shape[0]))**2)

@@ -21,6 +21,8 @@ def distmat(x, y=None):
 def gaussian_intergral(alpha, n):
     '''
     ref: https://mathworld.wolfram.com/GaussianIntegral.html
+    return \int x^n exp(-alpha x^2) dx 
+    
     '''
     
     # if n==0:

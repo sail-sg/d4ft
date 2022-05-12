@@ -1,8 +1,10 @@
 __all__ = ['functions', 'energy', 'molecule', 'regularizer',
-           'sampling', 'wave_fun']
+           'sampling', 'wave_fun', 'molecule_reg', 'visualization', 
+           'molecule2', 'load_pyscf']
 
 from .molecule import * 
-
+from .molecule2 import * 
+from .molecule_reg import *
 # import importlib
 
 # def reload():
