@@ -1,22 +1,22 @@
-# from cmath import exp
 import numpy as np
+import jax
 import jax.random as random
-import jax as jnp
+import jax.numpy as jnp
 from jax import vmap, jit
 from jdft.functions import *
 from jdft.basis.const import *
 from jdft.energy import *
 import optax
-from jdft.sampling import *
+from jdft.sampler import batch_sampler
 from jdft.visualization import *
 import time
+
 from pyscf import gto
 from pyscf.dft import gen_grid
 
 
 '''
 !! WARNING: this module use pyscf.gto.module for initializing molecule object.
-
 
 Example：
     h2o_config = 'O 0 0 0; H 0 1 0; H 0 0 1'  # default ångström unit. need to change to Bohr unit.
@@ -52,12 +52,6 @@ Example：
 
 '''
 
-def decov(cov):
-    v, u = jnp.linalg.eigh(cov)
-    v = jnp.diag(jnp.real(v)**(-1/2)) + jnp.eye(v.shape[0])*1e-10
-    ut = jnp.real(u).transpose()
-    return jnp.matmul(v, ut)
-
 
 class molecule(object):
     def __init__(self, config, spin, basis='3-21g', level=1, eps=1e-10):
@@ -71,9 +65,7 @@ class molecule(object):
         self.elements = self.pyscf_mol.elements
         self.atom_coords = self.pyscf_mol.atom_coords()
         self.atom_charges = self.pyscf_mol.atom_charges()
-
         self.spin = spin  # number of non-paired electrons.
-
         self.nao = self.pyscf_mol.nao   # number of atomic orbitals
 
         self.nocc = jnp.zeros([2, self.nao])    # number of occupied orbital.
@@ -81,33 +73,36 @@ class molecule(object):
         self.nocc = self.nocc.at[1, :int((self.tot_electron-self.spin)/2)].set(1)
 
         self.cov = self.pyscf_mol.intor('int1e_ovlp_sph')
-        #TODO: this integration can be replaced in future
+        #TODO: this integration can be replaced in future. Currently it is calculated on cpu using libcint.
 
         self.params = None
         self.tracer = []     # to store training curve.
 
         self.basis_decov = decov(self.cov)
+
         self.nuclei = {'loc': jnp.array(self.atom_coords),
                        'charge': jnp.array(self.atom_charges)}
-
-
         self.level=level
         g = gen_grid.Grids(self.pyscf_mol)
         g.level = self.level
-
         g.build()
-        self.pyscf_grid = g.coords
-        self.pyscf_weights = g.weights
-
+        self.grids = jnp.array(g.coords)
+        self.weights = jnp.array(g.weights)
         self.eps = eps
-
+        self.timer = []
         # Warning: in this version, E_nuc_rep is pre-calculated and does not affect the learning process.
         self.E_nuc_rep = E_nuclear(self.nuclei, self.eps)
+        print('Initializing... {} grid points are sampled.'.format(self.grids.shape[0]))
 
 
     def ao_funs(self, r):
-        # R^3 -> R^N where N is the number of atomic orbitals.
-        #
+        '''
+        R^3 -> R^N. N-body atomic orbitals.
+        input:
+            (N: the number of atomic orbitals.)
+            |r: (3) coordinate.
+        '''
+
         output = []
         for idx in np.arange(len(self.elements)):
             element = self.elements[idx]
@@ -128,22 +123,22 @@ class molecule(object):
 
 
     def mo_funs(self, params, r):
+
         '''
-        molecular orbital wave functions.
+        R^3 -> R^N. N-body molecular orbital wave functions.
         input: (N: the number of atomic orbitals.)
           |params: N*N
           |r: (3)
         output:
           |molecular orbitals:(2, N)
         '''
+
         params = jnp.expand_dims(params, 0)
         params = jnp.repeat(params, 2, 0)
-
         ao_fun_vec =  self.ao_funs(r)
         def wave_fun_i(param_i, ao_fun_vec):
             orthogonal, _ = jnp.linalg.qr(param_i)     # q is column-orthogal.
             return orthogonal.transpose()@self.basis_decov@ao_fun_vec   #(self.basis_num)
-
         f = lambda param: wave_fun_i(param, ao_fun_vec)
         return vmap(f)(params) * self.nocc
 
@@ -153,15 +148,11 @@ class molecule(object):
         return random.normal(key, [self.nao, self.nao])/self.nao**0.5
 
 
-    def train(self, epoch, lr=1e-3, sample_method = 'pyscf', seed=123, if_val=False, \
-        converge_threshold=1e-3, save_fig=False, **args):
-
-
+    def train(self, epoch, lr=1e-3, seed=123, if_val=False, \
+        converge_threshold=1e-3, sample_factor=0.1, save_fig=False, **args):
         if self.params is None:
             self.params = self._init_param(seed)
-
         params = self.params.copy()
-
         # schedule = optax.warmup_cosine_decay_schedule(
         #             init_value=0.5,
         #             peak_value=1,
@@ -173,7 +164,6 @@ class molecule(object):
         if 'optimizer' in args:
             if args['optimizer'] == 'sgd':
                 optimizer = optax.sgd(lr)
-
                 # optimizer = optax.chain(
                 #     optax.clip(1.0),
                 #     optax.sgd(learning_rate=schedule),
@@ -181,124 +171,118 @@ class molecule(object):
 
             elif args['optimizer'] == 'adam':
                 optimizer = optax.adam(lr)
-
                 # optimizer = optax.chain(
                 #     optax.clip(1.0),
                 #     optax.adam(learning_rate=schedule),
                 #     )
-
             else:
                 raise NotImplementedError('Optimizer in [\'sgd\', \'adam\']')
-
         else:
             optimizer = optax.sgd(lr)
 
+
         opt_state = optimizer.init(params)
         key = jax.random.PRNGKey(seed)
-        keys = random.split(key, epoch)
-
-        if sample_method == 'pyscf':
-            meshgrid =  self.pyscf_grid
-            weight = self.pyscf_weights
-
-            @jit
-            def update(params, opt_state, key):
-                loss = lambda params: E_gs(self.mo_funs, self.pyscf_grid, params, self.nuclei, weight)
-                loss_value, grads = jax.value_and_grad(loss)(params)
-                updates, opt_state = optimizer.update(grads, opt_state)
-                params = optax.apply_updates(params, updates)
-                return params, loss_value
-
-        else:
-            limit = 5
-            cellsize = 0.2
-            if args['n']:
-                n = args['n']
-            else:
-                n = 2000
-
-            meshgrid = simple_grid(keys[0], limit, cellsize, n)
-            weight = jnp.ones(n)*limit*2/n
-
-            @jit
-            def update(params, opt_state, key):
-                meshgrid = simple_grid(key, limit, cellsize, n)
-                loss = lambda params: E_gs(self.mo_funs, meshgrid, params, self.nuclei, weight)
-                loss_value, grads = jax.value_and_grad(loss)(params)
-                updates, opt_state = optimizer.update(grads, opt_state)
-                params = optax.apply_updates(params, updates)
-                return params, loss_value
 
 
-        E_gs_train = [E_gs(self.mo_funs, meshgrid, params, self.nuclei, weight)+self.E_nuc_rep]
-        self.Egs = E_gs_train[-1]
+        @jit
+        def update(params, opt_state, grids, weights):
+            Ek_fun = lambda params: E_kinetic(self.mo_funs, grids, params, weights)
+            Ee_fun = lambda params: E_ext(self.mo_funs, grids, self.nuclei, params, weights)
+            Ex_fun = lambda params: E_XC_LDA(self.mo_funs, grids, params, weights)
+            Eh_fun = lambda params: E_Hartree(self.mo_funs, grids, params, weights, self.eps)
+
+            def loss(params):
+                Ek = Ek_fun(params)
+                Ee = Ee_fun(params)
+                Ex = Ex_fun(params)
+                Eh = Eh_fun(params)
+                Egs =  Ek + Ee + Ex + Eh
+                return Egs, (Ek, Ee, Ex, Eh)
+
+            (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
+            Ek, Ee, Ex, Eh = Es
+            Egs  = Egs + self.E_nuc_rep  # plus nuclear repulsion energy.
+
+            updates, opt_state = optimizer.update(Egs_grad, opt_state)
+            params = optax.apply_updates(params, updates)
+            return params, opt_state, Egs, Ek, Ee, Ex, Eh
+
+
         if save_fig:
             file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(0)+'.png'
             save_contour(self, file)
 
-        if if_val:
-            E_gs_val = [E_gs(self.mo_funs, meshgrid, params, self.nuclei, weight)+self.E_nuc_rep]
-        print('Initilization. Ground State Energy: {:.3f}'. \
-                    format(E_gs_train[-1]))
+        print('Starting... Random Seed: {}, Batch sample factor: {}'.format(seed, sample_factor))
 
         current_loss = 0
-        start_time = time.time()
-        for i in range(epoch):
-            params, loss_value = update(params, opt_state, keys[i])
-            self.Egs = loss_value
-            self.params = params
+        batch_seeds = jnp.asarray(jax.random.uniform(key, (epoch, ))*100000, dtype=jnp.int32)
+        E_gs_train = []
+        Ek_train = []
+        Ee_train = []
+        Ex_train = []
+        Eh_train = []
 
-            if (i+1)%10 == 0:
-                E_gs_train.append(loss_value)
-                if if_val:
-                    E_gs_val.append(E_gs(self.mo_funs, meshgrid, params, self.nuclei, weight)+self.E_nuc_rep)
-                    print('Iter: {}/{}. Ground State Energy: {:.3f}. Val Energy: {:.3f}.'. \
-                        format(i+1, epoch, loss_value+self.E_nuc_rep, E_gs_val[-1]))
-                else:
-                    print('Iter: {}/{}. Ground State Energy: {:.3f}.'. \
-                        format(i+1, epoch, loss_value+self.E_nuc_rep))
+        start_time = time.time()
+        self.timer = []
+
+        for i in range(epoch):
+
+            batch_grids, batch_weights = batch_sampler(self.grids, self.weights,
+                                                       factor=sample_factor, seed=batch_seeds[i])
+            if i==0:
+                print('Batch size: {}. Number of batches in each epoch: {}'.format(batch_grids[0].shape[0], len(batch_grids)))
+
+            nbatch = len(batch_grids)
+            batch_tracer = jnp.zeros(5)
+
+            for g, w in zip(batch_grids, batch_weights):
+                params, opt_state, E_gs, Ek, Ee, Ex, Eh = update(params, opt_state, g, w)
+                batch_tracer += jnp.asarray([E_gs, Ek, Ee, Ex, Eh])
+
+            if (i+1)%1 == 0:
+                Batch_mean = batch_tracer/nbatch
+                assert Batch_mean.shape == (5, )
+
+                E_gs_train.append(Batch_mean[0].item())
+                Ek_train.append(Batch_mean[1].item())
+                Ee_train.append(Batch_mean[2].item())
+                Ex_train.append(Batch_mean[3].item())
+                Eh_train.append(Batch_mean[4].item())
+
+                print('Iter: {}/{}. Ground State Energy: {:.3f}.'. \
+                    format(i+1, epoch, E_gs_train[-1]))
 
                 if save_fig:
                     file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(i+1)+'.png'
                     save_contour(self, file)
 
-            if  jnp.abs(current_loss - loss_value)<converge_threshold:
 
+            if  jnp.abs(current_loss - Batch_mean[0].item())<converge_threshold:
                 self.params = params.copy()
                 print('Converged at iteration {}. Training Time: {:.3f}s'.format((i+1), time.time()-start_time))
-                print('E_Ground state: ', current_loss+self.E_nuc_rep)
-                print('E_kinetic ', E_kinetic(self.mo_funs, meshgrid, params, weight))
-                print('E_ext: ', E_ext(self.mo_funs, meshgrid, self.nuclei, params, weight))
-                print('E_Hartree: ', E_Hartree(self.mo_funs, meshgrid, params, weight))
-                print('E_xc: ', E_XC_LDA(self.mo_funs, meshgrid, params, weight))
+                print('E_Ground state: ', E_gs_train[-1])
+                print('E_kinetic: ', Ek_train[-1])
+                print('E_ext: ', Ee_train[-1])
+                print('E_Hartree: ', Eh_train[-1])
+                print('E_xc: ', Ex_train[-1])
                 print('E_nuclear_repulsion', self.E_nuc_rep)
-
                 self.tracer += E_gs_train
-                if if_val:
-                    # return E_gs_train, E_gs_val
-                    return
-                else:
-                    # return E_gs_train
-                    return
 
             else:
-                current_loss = loss_value
+                current_loss =  Batch_mean[0].item()
 
+            self.timer.append(time.time()-start_time)
 
+        self.tracer += E_gs_train
         self.params = params.copy()
         print('Not Converged. Training Time: {:.3f}s'.format(time.time()-start_time))
-        print('E_Ground state: ', current_loss+self.E_nuc_rep)
-        print('E_kinetic: ', E_kinetic(self.mo_funs, meshgrid, params, weight))
-        print('E_ext: ', E_ext(self.mo_funs, meshgrid, self.nuclei, params, weight))
-        print('E_Hartree: ', E_Hartree(self.mo_funs, meshgrid, params, weight))
-        print('E_xc: ', E_XC_LDA(self.mo_funs, meshgrid, params, weight))
-        self.tracer += E_gs_train
+        print('E_Ground state: ', E_gs_train[-1])
+        print('E_kinetic: ', Ek_train[-1])
+        print('E_ext: ', Ee_train[-1])
+        print('E_Hartree: ', Eh_train[-1])
+        print('E_xc: ', Ex_train[-1])
         print('E_nuclear_repulsion', self.E_nuc_rep)
-
-        # if if_val:
-        #     return E_gs_train, E_gs_val
-        # else:
-        #     return E_gs_train
 
 
     def get_wave(self, occ_ao=True):
@@ -309,17 +293,18 @@ class molecule(object):
 
         f = lambda r: self.mo_funs(self.params, r)
         if occ_ao:
-            alpha = vmap(f)(self.pyscf_grid)[:, 0, :int(jnp.sum(self.nocc[0, :]))]
-            beta = vmap(f)(self.pyscf_grid)[:, 1, :int(jnp.sum(self.nocc[1, :]))]
+            alpha = vmap(f)(self.grids)[:, 0, :int(jnp.sum(self.nocc[0, :]))]
+            beta = vmap(f)(self.grids)[:, 1, :int(jnp.sum(self.nocc[1, :]))]
             return jnp.concatenate((alpha, beta), axis=1)
         else:
-            return vmap(f)(self.pyscf_grid)
+            return vmap(f)(self.grids)
 
 
     def get_density(self, r):
         '''
-        return: density function: (D, 3) -> (D)
+        return: density function: [D, 3] -> [D] where D is the number of grids.
         '''
+        
         f = lambda r: self.mo_funs(self.params, r)
         wave = vmap(f)(r)   # (D, 2, N)
         alpha = wave[:, 0, :int(jnp.sum(self.nocc[0, :]))]
@@ -328,13 +313,16 @@ class molecule(object):
         dens = jnp.sum(wave_all**2, axis=1)
         return dens
 
-if __name__ == '__main__':
-    h2o_config = [
-        ['o' , (0. , 0.     , 0.)],
-        ['H' , (0. , -0.757 , 0.587)],
-        ['H' , (0. , 0.757  , 0.587)] ]
 
-    h2o = molecule(h2o_config)
+if __name__ == '__main__':
+    h2o_geometry = '''
+    O 0.0000 0.0000 0.1173;
+    H 0.0000 0.7572 -0.4692;
+    H 0.0000 -0.7572 -0.4692;
+    '''
+
+    h2o = molecule(h2o_geometry)
+    h2o.train()
 
 
 
