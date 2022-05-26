@@ -229,7 +229,7 @@ class molecule(object):
         for i in range(epoch):
 
             batch_grids, batch_weights = batch_sampler(self.grids, self.weights,
-                                                       factor=batchsize, seed=batch_seeds[i])
+                                                       batchsize=batchsize, seed=batch_seeds[i])
             if i==0:
                 print('Batch size: {}. Number of batches in each epoch: {}'.format(batch_grids[0].shape[0], len(batch_grids)))
 

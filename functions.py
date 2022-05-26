@@ -17,14 +17,14 @@ def distmat(x, y=None):
         y = x
     return vmap(lambda x1: vmap(lambda y1: euclidean_distance(x1, y1))(y))(x)
 
-    
+
 def gaussian_intergral(alpha, n):
     '''
     ref: https://mathworld.wolfram.com/GaussianIntegral.html
-    return \int x^n exp(-alpha x^2) dx 
-    
+    return \int x^n exp(-alpha x^2) dx
+
     '''
-    
+
     # if n==0:
     #     return jnp.sqrt(jnp.pi/alpha)
     # elif n==1:
@@ -43,9 +43,15 @@ def gaussian_intergral(alpha, n):
     #     return 0
     # else:
     #     raise NotImplementedError()
-    
+
     return (n==0)*jnp.sqrt(jnp.pi/alpha) + \
         (n==2)*1/2/alpha * jnp.sqrt(jnp.pi/alpha) + \
         (n==4)*3/4/alpha**2 * jnp.sqrt(jnp.pi/alpha) + \
         (n==6)*15/8/alpha**3 * jnp.sqrt(jnp.pi/alpha)
-    
+
+
+def decov(cov):
+    v, u = jnp.linalg.eigh(cov)
+    v = jnp.diag(jnp.real(v)**(-1/2)) + jnp.eye(v.shape[0])*1e-10
+    ut = jnp.real(u).transpose()
+    return jnp.matmul(v, ut)
