@@ -273,7 +273,7 @@ class molecule():
         Ex_train.append(Batch_mean[3].item())
         Eh_train.append(Batch_mean[4].item())
 
-        print('Iter: {i+1}/{epoch}. Ground State Energy: {Egs_train[-1]:.3f}.')
+        print(f'Iter: {i+1}/{epoch}. Ground State Energy: {Egs_train[-1]:.3f}.')
 
         if save_fig:
           file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(
