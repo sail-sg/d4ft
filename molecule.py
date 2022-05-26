@@ -47,12 +47,12 @@ import optax
 from jdft.sampler import batch_sampler
 from jdft.visualization import *
 
-
 from pyscf import gto
 from pyscf.dft import gen_grid
 
 
 class molecule():
+
   def __init__(self, config, spin, basis='3-21g', level=1, eps=1e-10):
 
     self.pyscf_mol = gto.M(atom=config, basis=basis, spin=spin)
@@ -153,7 +153,6 @@ class molecule():
     key = random.PRNGKey(seed)
     return random.normal(key, [self.nao, self.nao]) / self.nao**0.5
 
-
   def train(self, epoch, lr=1e-3, seed=123,\
       converge_threshold=1e-3, batchsize=1000, save_fig=False, **args):
     if self.params is None:
@@ -191,22 +190,12 @@ class molecule():
 
     @jit
     def update(params, opt_state, grids, weights):
-      Ek_fun = lambda params: E_kinetic(self.mo_funs, grids, params, weights)
-      Ee_fun = lambda params: E_ext(
-        self.mo_funs, grids, self.nuclei, params, weights
-      )
-      Ex_fun = lambda params: E_XC_LDA(self.mo_funs, grids, params, weights)
-      Eh_fun = lambda params: E_Hartree(
-        self.mo_funs, grids, params, weights, self.eps
-      )
+
+      def wave_fun(x):
+        return self.mo_funs(params, x)
 
       def loss(params):
-        Ek = Ek_fun(params)
-        Ee = Ee_fun(params)
-        Ex = Ex_fun(params)
-        Eh = Eh_fun(params)
-        Egs = Ek + Ee + Ex + Eh
-        return Egs, (Ek, Ee, Ex, Eh)
+        return E_gs(wave_fun, grids, self.nuclei, weights, self.eps)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
       Ek, Ee, Ex, Eh = Es
@@ -253,9 +242,7 @@ class molecule():
       batch_tracer = jnp.zeros(5)
 
       for g, w in zip(batch_grids, batch_weights):
-        params, opt_state, Egs, Ek, Ee, Ex, Eh = update(
-          params, opt_state, g, w
-        )
+        params, opt_state, Egs, Ek, Ee, Ex, Eh = update(params, opt_state, g, w)
         batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh])
 
       if (i + 1) % 1 == 0:
