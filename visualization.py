@@ -14,8 +14,14 @@ def save_contour(mol, file, limit=1, delta=0.01):
   z = np.arange(-limit, limit, delta)
   X, Y, Z = np.meshgrid(x, y, z)
 
-  dens_mesh =vmap(vmap(lambda x, y, z: mol.get_density(jnp.concatenate((x.reshape(-1, 1), \
-                      y.reshape(-1, 1), z.reshape(-1, 1)), 1))))(X, Y, Z)
+  dens_mesh = vmap(
+    vmap(
+      lambda x, y, z: mol.get_density(
+        jnp.
+        concatenate((x.reshape(-1, 1), y.reshape(-1, 1), z.reshape(-1, 1)), 1)
+      )
+    )
+  )(X, Y, Z)
 
   fig, ax = plt.subplots(figsize=(6, 6))
   X, Y = np.meshgrid(x, y)

@@ -50,10 +50,12 @@ def gaussian_intergral(alpha, n):
   # else:
   #     raise NotImplementedError()
 
-  return (n==0)*jnp.sqrt(jnp.pi/alpha) + \
-      (n==2)*1/2/alpha * jnp.sqrt(jnp.pi/alpha) + \
-      (n==4)*3/4/alpha**2 * jnp.sqrt(jnp.pi/alpha) + \
-      (n==6)*15/8/alpha**3 * jnp.sqrt(jnp.pi/alpha)
+  return (
+    (n == 0) * jnp.sqrt(jnp.pi / alpha) +
+    (n == 2) * 1 / 2 / alpha * jnp.sqrt(jnp.pi / alpha) +
+    (n == 4) * 3 / 4 / alpha**2 * jnp.sqrt(jnp.pi / alpha) +
+    (n == 6) * 15 / 8 / alpha**3 * jnp.sqrt(jnp.pi / alpha)
+  )
 
 
 def decov(cov):

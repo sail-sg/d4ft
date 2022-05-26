@@ -21,7 +21,6 @@ def wave_from_pyscf(param, r, pyscf_mol):
   # basis_param = atom._basis
   # atom_coords = atom._basis
 
-
   # '''
   #   the basis param format (Pople-type):
   #   a list of list
@@ -41,15 +40,23 @@ def wave_from_pyscf(param, r, pyscf_mol):
     for i in atom._basis[element]:
       if i[0] == 0:
         prm_array = jnp.array(i[1:])
-        output.append(jnp.sum(prm_array[:, 1]*\
-            jnp.exp(-prm_array[:, 0]*jnp.linalg.norm(r)**2)*\
-                (2*prm_array[:, 0]/jnp.pi)**(3/4)))
+        output.append(
+          jnp.sum(
+            prm_array[:, 1] *
+            jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r)**2) *
+            (2 * prm_array[:, 0] / jnp.pi)**(3 / 4)
+          )
+        )
 
       elif i[0] == 1:
         prm_array = jnp.array(i[1:])
-        output += [r_i *jnp.sum(prm_array[:, 1]*jnp.exp(-prm_array[:, 0]*\
-            jnp.linalg.norm(r)**2) * (2*prm_array[:, 0]/jnp.pi)**(3/4) * (4*prm_array[:, 0])**0.5)\
-            for r_i in r]
+        output += [
+          r_i * jnp.sum(
+            prm_array[:, 1] *
+            jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r)**2) *
+            (2 * prm_array[:, 0] / jnp.pi)**(3 / 4) * (4 * prm_array[:, 0])**0.5
+          ) for r_i in r
+        ]
 
   # print(jnp.array(output).shape)
   return jnp.dot(param, jnp.array(output))

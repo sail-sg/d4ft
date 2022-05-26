@@ -132,10 +132,12 @@ def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
     theta = np.random.uniform(0, 2 * np.pi, k)
     phi = np.random.uniform(0, 2 * np.pi, k)
 
-    delta = jnp.array([R*jnp.sin(theta)*jnp.cos(phi), \
-                    R*jnp.sin(theta)*jnp.sin(phi), \
-                    R*jnp.cos(theta)
-                    ])
+    delta = jnp.array(
+      [
+        R * jnp.sin(theta) * jnp.cos(phi), R * jnp.sin(theta) * jnp.sin(phi),
+        R * jnp.cos(theta)
+      ]
+    )
 
     return r + delta.transpose()
 

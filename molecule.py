@@ -74,8 +74,9 @@ class molecule():
                                      2)].set(1)
 
     self.cov = self.pyscf_mol.intor('int1e_ovlp_sph')
-    # TODO: this integration can be replaced in future. Currently it is calculated on
-    # cpu using libcint.
+
+    # TODO: this integration can be replaced in future.
+    # Currently it is calculated on cpu using libcint.
 
     self.params = None
     self.tracer = []  # to store training curve.
@@ -94,13 +95,12 @@ class molecule():
     self.weights = jnp.array(g.weights)
     self.eps = eps
     self.timer = []
-    # Warning: in this version, E_nuc_rep is pre-calculated and does not affect the
-    # learning process.
+
+    # Warning: in this version, E_nuc_rep is pre-calculated and does not
+    # affect the learning process.
 
     self.E_nuc_rep = E_nuclear(self.nuclei, self.eps)
-    print(
-      'Initializing... {} grid points are sampled.'.format(self.grids.shape[0])
-    )
+    print(f'Initializing... {self.grids.shape[0]} grid points are sampled.')
 
   def ao_funs(self, r):
     '''
@@ -117,14 +117,24 @@ class molecule():
       for i in self._basis[element]:
         if i[0] == 0:
           prm_array = jnp.array(i[1:])
-          output.append(jnp.sum(prm_array[:, 1]*\
-              jnp.exp(-prm_array[:, 0]*jnp.linalg.norm(r-coord)**2)*\
-                  (2*prm_array[:, 0]/jnp.pi)**(3/4)))
+          output.append(
+            jnp.sum(
+              prm_array[:, 1] *
+              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
+              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4)
+            )
+          )
 
         elif i[0] == 1:
           prm_array = jnp.array(i[1:])
-          output += [(r[j]-coord[j]) *jnp.sum(prm_array[:, 1]*jnp.exp(-prm_array[:, 0]*\
-              jnp.linalg.norm(r-coord)**2) * (2*prm_array[:, 0]/jnp.pi)**(3/4) * (4*prm_array[:, 0])**0.5) for j in np.arange(3)]
+          output += [
+            (r[j] - coord[j]) * jnp.sum(
+              prm_array[:, 1] *
+              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
+              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4) *
+              (4 * prm_array[:, 0])**0.5
+            ) for j in np.arange(3)
+          ]
     return jnp.array(output)
 
   def mo_funs(self, params, r):
@@ -153,8 +163,16 @@ class molecule():
     key = random.PRNGKey(seed)
     return random.normal(key, [self.nao, self.nao]) / self.nao**0.5
 
-  def train(self, epoch, lr=1e-3, seed=123,\
-      converge_threshold=1e-3, batchsize=1000, save_fig=False, **args):
+  def train(
+    self,
+    epoch,
+    lr=1e-3,
+    seed=123,
+    converge_threshold=1e-3,
+    batchsize=1000,
+    save_fig=False,
+    **args
+  ):
     if self.params is None:
       self.params = self._init_param(seed)
     params = self.params.copy()
@@ -255,8 +273,7 @@ class molecule():
         Ex_train.append(Batch_mean[3].item())
         Eh_train.append(Batch_mean[4].item())
 
-        print('Iter: {}/{}. Ground State Energy: {:.3f}.'. \
-            format(i+1, epoch, Egs_train[-1]))
+        print('Iter: {i+1}/{epoch}. Ground State Energy: {Egs_train[-1]:.3f}.')
 
         if save_fig:
           file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(
