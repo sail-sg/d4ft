@@ -17,7 +17,7 @@ import jax.random as jrdm
 # from pyscf.dft import gen_grid
 
 
-def batch_sampler(grids, weights, factor=0.1, seed=1):
+def batch_sampler(grids, weights, batchsize, seed=1):
     '''
     inputs:
     |grids: (N, 3)
@@ -30,10 +30,10 @@ def batch_sampler(grids, weights, factor=0.1, seed=1):
     npoint = grids.shape[0]
     key=jrdm.PRNGKey(seed)
     idx = jrdm.permutation(key, jnp.arange(npoint), independent=True)
-    nbatch = min(npoint, int(1/factor))
-    # nbatch = int(nbatch)
-    batch_size = floor(npoint/nbatch)
-    sample_boundary = jnp.arange(nbatch+1)*batch_size
+    batchsize = min(npoint, batchsize)
+    nbatch = int(npoint/batchsize)
+
+    sample_boundary = jnp.arange(nbatch+1)*batchsize
     sample_boundary = jnp.asarray(sample_boundary, jnp.int32)
     output_grid = []
     output_weight = []
@@ -41,7 +41,7 @@ def batch_sampler(grids, weights, factor=0.1, seed=1):
 
     for i in jnp.arange(nbatch):
         output_grid.append(grids[batch_idx[i]])
-        output_weight.append(weights[batch_idx[i]]*npoint/batch_size)
+        output_weight.append(weights[batch_idx[i]]*npoint/batchsize)
 
     return output_grid, output_weight
 

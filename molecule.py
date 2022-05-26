@@ -149,7 +149,7 @@ class molecule(object):
 
 
     def train(self, epoch, lr=1e-3, seed=123, if_val=False, \
-        converge_threshold=1e-3, sample_factor=0.1, save_fig=False, **args):
+        converge_threshold=1e-3, batchsize=1000, save_fig=False, **args):
         if self.params is None:
             self.params = self._init_param(seed)
         params = self.params.copy()
@@ -213,7 +213,7 @@ class molecule(object):
             file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(0)+'.png'
             save_contour(self, file)
 
-        print('Starting... Random Seed: {}, Batch sample factor: {}'.format(seed, sample_factor))
+        print('Starting... Random Seed: {}, Batch size: {}'.format(seed, batchsize))
 
         current_loss = 0
         batch_seeds = jnp.asarray(jax.random.uniform(key, (epoch, ))*100000, dtype=jnp.int32)
@@ -229,7 +229,7 @@ class molecule(object):
         for i in range(epoch):
 
             batch_grids, batch_weights = batch_sampler(self.grids, self.weights,
-                                                       factor=sample_factor, seed=batch_seeds[i])
+                                                       factor=batchsize, seed=batch_seeds[i])
             if i==0:
                 print('Batch size: {}. Number of batches in each epoch: {}'.format(batch_grids[0].shape[0], len(batch_grids)))
 
@@ -304,7 +304,7 @@ class molecule(object):
         '''
         return: density function: [D, 3] -> [D] where D is the number of grids.
         '''
-        
+
         f = lambda r: self.mo_funs(self.params, r)
         wave = vmap(f)(r)   # (D, 2, N)
         alpha = wave[:, 0, :int(jnp.sum(self.nocc[0, :]))]
