@@ -209,10 +209,11 @@ class molecule():
     @jit
     def update(params, opt_state, grids, weights):
 
-      def wave_fun(x):
-        return self.mo_funs(params, x)
-
       def loss(params):
+
+        def wave_fun(x):
+          return self.mo_funs(params, x)
+
         return E_gs(wave_fun, grids, self.nuclei, weights, self.eps)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
