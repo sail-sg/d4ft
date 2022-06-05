@@ -1,5 +1,5 @@
 '''
-Energies.
+Energy functionals.
 '''
 
 import jax
@@ -39,44 +39,6 @@ def E_kinetic(wave_fun, meshgrid, weight):
     # hessian_diag = jnp.diagonal(jax.jacfwd(jax.jacrev(f))(r), 0, 2, 3)
     # hessian shape: (2, N, 3, 3)
     hessian_diag = jnp.diagonal(jax.hessian(wave_fun)(r), 0, 2, 3)
-    return jnp.sum(hessian_diag, axis=2) / 2
-
-  wave_at_grid = vmap(wave_fun)(meshgrid)  # shape: (D, 2, N)
-  batched_lap = vmap(laplacian_3d)(meshgrid)  # shape: (D, 2, N)
-  return -jnp.sum(batched_lap * wave_at_grid * jnp.expand_dims(weight, [1, 2]))
-
-
-def E_kinetic_2(wave_fun, meshgrid, weight):
-  '''
-    E_gs = T_s + V_ext + V_Hartree + V_xc
-    This function is to compute the kinetic energy T_s.
-
-    input:
-        meshgrid: (D, 3)
-        wave_fun: (3)-->(2, N)  a function that calculate the wave function.
-        N: number of electrons.
-        weight: (D)
-    output:
-        kinetic_energy: scalar
-    '''
-
-  def laplacian_3d(r):
-    '''
-        this function computes the laplacian operator
-
-        1/2 \partial^2 f/\partial x^2 + \partial^2 f/\partial y^2 + \partial^2 f/\partial y^2
-
-        which is the diagonal of heissen matrix
-        # TODO: This can be more efficient without calculating the off-diagonal entries.
-        input
-            r: shape (3)
-
-        output: scalar
-        '''
-
-    # hessian_diag = jnp.diagonal(jax.jacfwd(jax.jacrev(f))(r), 0, 2, 3)
-    # hessian shape: (2, N, 3)
-    hessian_diag = jax.jacrev(wave_fun)(r)**2
     return jnp.sum(hessian_diag, axis=2) / 2
 
   wave_at_grid = vmap(wave_fun)(meshgrid)  # shape: (D, 2, N)
@@ -181,8 +143,9 @@ def E_gs(wave_fun, meshgrid, nuclei, weight, eps=1e-10):
   E2 = E_ext(wave_fun, meshgrid, nuclei, weight, eps)
   E3 = E_XC_LDA(wave_fun, meshgrid, weight)
   E4 = E_Hartree(wave_fun, meshgrid, weight, eps)
+  E5 = E_nuclear(nuclei, eps=1e-10)
 
-  return E1 + E2 + E3 + E4, (E1, E2, E3, E4)
+  return E1 + E2 + E3 + E4 + E5, (E1, E2, E3, E4, E5)
 
 
 def set_diag_zero(x):

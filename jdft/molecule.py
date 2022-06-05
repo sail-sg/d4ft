@@ -96,10 +96,6 @@ class molecule():
     self.eps = eps
     self.timer = []
 
-    # Warning: in this version, E_nuc_rep is pre-calculated and does not
-    # affect the learning process.
-
-    self.E_nuc_rep = E_nuclear(self.nuclei, self.eps)
     print(f'Initializing... {self.grids.shape[0]} grid points are sampled.')
 
   def ao_funs(self, r):
@@ -217,12 +213,12 @@ class molecule():
         return E_gs(wave_fun, grids, self.nuclei, weights, self.eps)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
-      Ek, Ee, Ex, Eh = Es
-      Egs = Egs + self.E_nuc_rep  # plus nuclear repulsion energy.
+      Ek, Ee, Ex, Eh, En = Es
+      Egs = Egs  # plus nuclear repulsion energy.
 
       updates, opt_state = optimizer.update(Egs_grad, opt_state)
       params = optax.apply_updates(params, updates)
-      return params, opt_state, Egs, Ek, Ee, Ex, Eh
+      return params, opt_state, Egs, Ek, Ee, Ex, Eh, En
 
     if save_fig:
       file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(
@@ -230,7 +226,7 @@ class molecule():
       ) + '.png'
       save_contour(self, file)
 
-    print('Starting... Random Seed: {}, Batch size: {}'.format(seed, batchsize))
+    print(f'Starting... Random Seed: {seed}, Batch size: {batchsize}')
 
     current_loss = 0
     batch_seeds = jnp.asarray(
@@ -241,6 +237,7 @@ class molecule():
     Ee_train = []
     Ex_train = []
     Eh_train = []
+    En_train = []
 
     start_time = time.time()
     self.timer = []
@@ -258,21 +255,22 @@ class molecule():
         )
 
       nbatch = len(batch_grids)
-      batch_tracer = jnp.zeros(5)
+      batch_tracer = jnp.zeros(6)
 
       for g, w in zip(batch_grids, batch_weights):
-        params, opt_state, Egs, Ek, Ee, Ex, Eh = update(params, opt_state, g, w)
-        batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh])
+        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(params, opt_state, g, w)
+        batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh, En])
 
       if (i + 1) % 1 == 0:
         Batch_mean = batch_tracer / nbatch
-        assert Batch_mean.shape == (5,)
+        assert Batch_mean.shape == (6,)
 
         Egs_train.append(Batch_mean[0].item())
         Ek_train.append(Batch_mean[1].item())
         Ee_train.append(Batch_mean[2].item())
         Ex_train.append(Batch_mean[3].item())
         Eh_train.append(Batch_mean[4].item())
+        En_train.append(Batch_mean[5].item())
 
         print(f'Iter: {i+1}/{epoch}. Ground State Energy: {Egs_train[-1]:.3f}.')
 
@@ -295,7 +293,7 @@ class molecule():
         print('E_ext: ', Ee_train[-1])
         print('E_Hartree: ', Eh_train[-1])
         print('E_xc: ', Ex_train[-1])
-        print('E_nuclear_repulsion', self.E_nuc_rep)
+        print('E_nuclear_repulsion', En_train[-1])
         self.tracer += Egs_train
 
       else:
@@ -313,7 +311,7 @@ class molecule():
     print('E_ext: ', Ee_train[-1])
     print('E_Hartree: ', Eh_train[-1])
     print('E_xc: ', Ex_train[-1])
-    print('E_nuclear_repulsion', self.E_nuc_rep)
+    print('E_nuclear_repulsion', En_train[-1])
 
   def get_wave(self, occ_ao=True):
     '''
