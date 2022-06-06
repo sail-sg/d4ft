@@ -1,7 +1,7 @@
 '''
 !! WARNING: this module use pyscf.gto.module for initializing molecule object.
 
-Example：
+Example:
     h2o_config = 'O 0 0 0; H 0 1 0; H 0 0 1'  # default ångström unit. need to change to Bohr unit.
 
     >>> from pyscf import gto
@@ -36,17 +36,15 @@ Example：
 '''
 
 import time
-import numpy as np
 import jax
+import optax
 from jax import random
 import jax.numpy as jnp
 from jax import vmap, jit
-from jdft.functions import decov
 from jdft.energy import *
-import optax
 from jdft.sampler import batch_sampler
 from jdft.visualization import *
-
+from jdft.orbitals import Pople, MO_qr
 from pyscf import gto
 from pyscf.dft import gen_grid
 
@@ -54,11 +52,8 @@ from pyscf.dft import gen_grid
 class molecule():
 
   def __init__(self, config, spin, basis='3-21g', level=1, eps=1e-10):
-
     self.pyscf_mol = gto.M(atom=config, basis=basis, spin=spin)
     self.pyscf_mol.build()
-
-    self._basis = self.pyscf_mol._basis
 
     self.tot_electron = self.pyscf_mol.tot_electrons()
     self.elements = self.pyscf_mol.elements
@@ -66,6 +61,7 @@ class molecule():
     self.atom_charges = self.pyscf_mol.atom_charges()
     self.spin = spin  # number of non-paired electrons.
     self.nao = self.pyscf_mol.nao  # number of atomic orbitals
+    self._basis = self.pyscf_mol._basis
 
     self.nocc = jnp.zeros([2, self.nao])  # number of occupied orbital.
     self.nocc = self.nocc.at[0, :int((self.tot_electron + self.spin) /
@@ -73,15 +69,9 @@ class molecule():
     self.nocc = self.nocc.at[1, :int((self.tot_electron - self.spin) /
                                      2)].set(1)
 
-    self.cov = self.pyscf_mol.intor('int1e_ovlp_sph')
-
-    # TODO: this integration can be replaced in future.
-    # Currently it is calculated on cpu using libcint.
-
     self.params = None
     self.tracer = []  # to store training curve.
 
-    self.basis_decov = decov(self.cov)
 
     self.nuclei = {
       'loc': jnp.array(self.atom_coords),
@@ -98,62 +88,8 @@ class molecule():
 
     print(f'Initializing... {self.grids.shape[0]} grid points are sampled.')
 
-  def ao_funs(self, r):
-    '''
-      R^3 -> R^N. N-body atomic orbitals.
-      input:
-          (N: the number of atomic orbitals.)
-          |r: (3) coordinate.
-    '''
-
-    output = []
-    for idx in np.arange(len(self.elements)):
-      element = self.elements[idx]
-      coord = self.atom_coords[idx]
-      for i in self._basis[element]:
-        if i[0] == 0:
-          prm_array = jnp.array(i[1:])
-          output.append(
-            jnp.sum(
-              prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
-              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4)
-            )
-          )
-
-        elif i[0] == 1:
-          prm_array = jnp.array(i[1:])
-          output += [
-            (r[j] - coord[j]) * jnp.sum(
-              prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
-              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4) *
-              (4 * prm_array[:, 0])**0.5
-            ) for j in np.arange(3)
-          ]
-    return jnp.array(output)
-
-  def mo_funs(self, params, r):
-    '''
-        R^3 -> R^N. N-body molecular orbital wave functions.
-        input: (N: the number of atomic orbitals.)
-          |params: N*N
-          |r: (3)
-        output:
-          |molecular orbitals:(2, N)
-        '''
-
-    params = jnp.expand_dims(params, 0)
-    params = jnp.repeat(params, 2, 0)
-    ao_fun_vec = self.ao_funs(r)
-
-    def wave_fun_i(param_i, ao_fun_vec):
-      orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
-      return orthogonal.transpose(
-      ) @ self.basis_decov @ ao_fun_vec  #(self.basis_num)
-
-    f = lambda param: wave_fun_i(param, ao_fun_vec)
-    return vmap(f)(params) * self.nocc
+    self.ao = Pople(self.pyscf_mol)
+    self.mo = MO_qr(self.ao)
 
   def _init_param(self, seed=123):
     key = random.PRNGKey(seed)
@@ -208,13 +144,12 @@ class molecule():
       def loss(params):
 
         def wave_fun(x):
-          return self.mo_funs(params, x)
+          return self.mo(params, x) * self.nocc
 
         return E_gs(wave_fun, grids, self.nuclei, weights, self.eps)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
       Ek, Ee, Ex, Eh, En = Es
-      Egs = Egs  # plus nuclear repulsion energy.
 
       updates, opt_state = optimizer.update(Egs_grad, opt_state)
       params = optax.apply_updates(params, updates)
@@ -293,7 +228,7 @@ class molecule():
         print('E_ext: ', Ee_train[-1])
         print('E_Hartree: ', Eh_train[-1])
         print('E_xc: ', Ex_train[-1])
-        print('E_nuclear_repulsion', En_train[-1])
+        print('E_nuclear_repulsion:', En_train[-1])
         self.tracer += Egs_train
 
       else:
@@ -311,7 +246,7 @@ class molecule():
     print('E_ext: ', Ee_train[-1])
     print('E_Hartree: ', Eh_train[-1])
     print('E_xc: ', Ex_train[-1])
-    print('E_nuclear_repulsion', En_train[-1])
+    print('E_nuclear_repulsion:', En_train[-1])
 
   def get_wave(self, occ_ao=True):
     '''
@@ -319,7 +254,7 @@ class molecule():
         return: wave function value at grid_point.
         '''
 
-    f = lambda r: self.mo_funs(self.params, r)
+    f = lambda r: self.mo(self.params, r) * self.nocc
     if occ_ao:
       alpha = vmap(f)(self.grids)[:, 0, :int(jnp.sum(self.nocc[0, :]))]
       beta = vmap(f)(self.grids)[:, 1, :int(jnp.sum(self.nocc[1, :]))]
@@ -332,7 +267,7 @@ class molecule():
         return: density function: [D, 3] -> [D] where D is the number of grids.
         '''
 
-    f = lambda r: self.mo_funs(self.params, r)
+    f = lambda r: self.mo(self.params, r) * self.nocc
     wave = vmap(f)(r)  # (D, 2, N)
     alpha = wave[:, 0, :int(jnp.sum(self.nocc[0, :]))]
     beta = wave[:, 1, :int(jnp.sum(self.nocc[1, :]))]
