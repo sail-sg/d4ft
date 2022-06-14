@@ -5,10 +5,10 @@ from jax.experimental import sparse
 from pyscf import gto
 from jdft.functions import decov
 # from scipy.special import factorial
+
 def factorial(x):
   x = jnp.asarray(x, dtype=jnp.float32)
   return jnp.exp(jax.lax.lgamma(x+1))
-
 
 
 def ao_label_parser(ao_label):
@@ -57,14 +57,14 @@ def ao_label_parser(ao_label):
   return i, j, k, ele, atom_idx
 
 
-
 def Pyscf2GTO_parser(pyscf_mol):
   '''
   convert pyscf molecule object to GTO parameters.
 
   Args:
     |pyscf_mol: a PySCF molecule object
-  Return:
+
+  Returns:
     |alpha: 1D array. parameter for GTO
     |i: 1D array. shape (N)
     |j: 1D array. shape (N)
@@ -192,6 +192,7 @@ class GTO(Basis):
       |k: shape [n]
       |c: shape [n, 3]. The center of each primitive.
     '''
+
     super().__init__()
     self.alpha = alpha
     self.i = i
@@ -209,16 +210,17 @@ class GTO(Basis):
       |shape [n], where n is the number of Gaussian primitive.
     '''
 
-
     const = (2 * self.alpha/np.pi)**(3/4)
     const *= (((8 * self.alpha) ** (self.i + self.j + self.k) *
                factorial(self.i) * factorial(self.j) * factorial(self.k))/
               (factorial(2 * self.i) * factorial(2 * self.j) * factorial(2 * self.k))) ** 0.5
 
-    output = (r[0]-self.c[:, 0]) ** self.i * (r[1]-self.c[:, 1]) ** self.j * (r[2]-self.c[:, 2]) ** self.k
+    output = jnp.power(r - self.c, jnp.stack([self.i, self.j, self.k], axis=1))
+    output = jnp.prod(output, axis=1)
 
     fc = lambda c: jnp.linalg.norm(r - c) ** 2
     output *= jnp.exp(-self.alpha * jax.vmap(fc)(self.c))
+
     return const * output
 
 
@@ -238,7 +240,9 @@ class Pople(Basis):
     self.j = j
     self.k = k
     self.c = c
+    # coeff_idx = coeff_idx
     self.coeff_mat =  sparse.BCOO((coeff_data, coeff_idx), shape=(len(self.pyscf_mol.ao_labels()), len(i)))
+    self.coeff_mat = sparse.sparsify(jnp.expand_dims)(self.coeff_mat, axis=0)
     self._gto = GTO(self.alpha, self.i, self.j, self.k, self.c)
 
   def __call__(self, r):
@@ -250,10 +254,15 @@ class Pople(Basis):
       |shape: [G, num_ao], where num_ao is the number of atomic orbitals.
     '''
     basis = self._gto(r)
-    return sparse.sparsify(jnp.matmul)(self.coeff_mat, basis)
+    basis = jnp.expand_dims(basis, axis=(0, 2))
+    output = sparse.bcoo_dot_general(
+      self.coeff_mat, basis,
+      dimension_numbers=(((2), (1)), ((0), (0))))
+    return jnp.squeeze(output)
 
   def overlap(self):
     return self.pyscf_mol.intor('int1e_ovlp_sph')
+
 
 class MO_qr(Basis):
   # molecular orbital using QR decomposition.
