@@ -68,10 +68,8 @@ class molecule():
                                      2)].set(1)
     self.nocc = self.nocc.at[1, :int((self.tot_electron - self.spin) /
                                      2)].set(1)
-
     self.params = None
     self.tracer = []  # to store training curve.
-
 
     self.nuclei = {
       'loc': jnp.array(self.atom_coords),
