@@ -47,7 +47,7 @@ from jdft.visualization import *
 from jdft.orbitals import Pople, MO_qr
 from pyscf import gto
 from pyscf.dft import gen_grid
-
+from jdft.intor import LebedevQuadrature
 
 class molecule():
 
@@ -137,14 +137,16 @@ class molecule():
     key = jax.random.PRNGKey(seed)
 
     @jit
-    def update(params, opt_state, grids, weights):
+    def update(params, opt_state):
 
       def loss(params):
 
-        def wave_fun(x):
+        def wfun(x):
           return self.mo(params, x) * self.nocc
 
-        return E_gs(wave_fun, grids, self.nuclei, weights, self.eps)
+        intor = LebedevQuadrature(wfun, self.grids, self.weights)
+
+        return E_gs(intor, self.nuclei)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
       Ek, Ee, Ex, Eh, En = Es
@@ -191,7 +193,7 @@ class molecule():
       batch_tracer = jnp.zeros(6)
 
       for g, w in zip(batch_grids, batch_weights):
-        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(params, opt_state, g, w)
+        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(params, opt_state)
         batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh, En])
 
       if (i + 1) % 1 == 0:
@@ -229,6 +231,8 @@ class molecule():
         print('E_nuclear_repulsion:', En_train[-1])
         self.tracer += Egs_train
 
+        return
+
       else:
         current_loss = Batch_mean[0].item()
 
@@ -245,6 +249,7 @@ class molecule():
     print('E_Hartree: ', Eh_train[-1])
     print('E_xc: ', Ex_train[-1])
     print('E_nuclear_repulsion:', En_train[-1])
+
 
   def get_wave(self, occ_ao=True):
     '''

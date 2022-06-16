@@ -63,3 +63,7 @@ def decov(cov):
   v = jnp.diag(jnp.real(v)**(-1 / 2)) + jnp.eye(v.shape[0]) * 1e-10
   ut = jnp.real(u).transpose()
   return jnp.matmul(v, ut)
+
+
+def set_diag_zero(x):
+  return x.at[jnp.diag_indices(x.shape[0])].set(0)
