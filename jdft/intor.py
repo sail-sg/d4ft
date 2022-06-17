@@ -1,8 +1,6 @@
 import jax
 import numpy as np
 import jax.numpy as jnp
-from jax.experimental import sparse
-from pyscf.dft import gen_grid
 from jdft.functions import set_diag_zero
 
 
@@ -94,10 +92,48 @@ class LebedevQuadrature(Intor):
     output = jnp.sum(output)
     return output
 
-  def double2(self, v):
+  def double1(self, v=lambda x, y: 1):
+    '''
+      double particle integral: inner product.
+      \int \int \psi(x)^T v(x, y) \psi(y) dx dy
+      Args:
+        |v: integrand. a double variant function. (R^3, R^3) -> R eg: v(x, y) = 1/jnp.norm(x-y)
+      Returns:
+        float. the integral.
+    '''
+    outer = lambda x: jnp.outer(x, x)
+    w_grids = jax.vmap(self.mo)(self.grids)
+    w_grids = jnp.sum(w_grids, axis = 1+np.arange(len(w_grids.shape)-1))
+    w_mat = outer(w_grids) # shape   R x R
+    v_mat = jax.vmap(lambda x: jax.vmap(lambda y: v(x, y))(self.grids))(self.grids)
+    v_mat = set_diag_zero(v_mat)    # shape R x R
+    weight_mat = outer(self.weights)   # shape R x R
+    output = w_mat * v_mat * weight_mat
+    return output
+
+  def double_overlap(self):
+    '''
+      double particle integral: inner product.
+      \int \int \psi(x) \psi(y)^T dx dy
+      Args:
+        |v: integrand. a double variant function. (R^3, R^3) -> R eg: v(x, y) = 1/jnp.norm(x-y)
+      Returns:
+        float. the integral.
+    '''
+    w_grids = jax.vmap(self.mo)(self.grids)
+    w_grids = jnp.reshape(w_grids, newshape=(w_grids.shape[0], -1))
+    outer = lambda x: jnp.outer(x, x)
+    w_mat = jax.vmap(outer)(w_grids)
+      # shape R x R
+    output = w_mat * jnp.expand_dims(self.weights, (1, 2))
+
+    return jnp.sum(output, axis=(0))
+
+
+  def double2(self, v=lambda x, y: 1):
     '''
       double particle integral
-      \int \int |n(x) v(x, y) n^2(y) dx dy
+      \int \int n(x) v(x, y) n(y) dx dy
       Args:
         |v: integrand. a double variant function. (R^3, R^3) -> R eg: v(x, y) = 1/jnp.norm(x-y)
       Returns:

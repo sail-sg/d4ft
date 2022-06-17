@@ -87,7 +87,7 @@ class molecule():
     print(f'Initializing... {self.grids.shape[0]} grid points are sampled.')
 
     self.ao = Pople(self.pyscf_mol)
-    self.mo = MO_qr(self.ao)
+    self.mo = MO_qr(self.ao, LebedevQuadrature(None, self.grids, self.weights))
 
   def _init_param(self, seed=123):
     key = random.PRNGKey(seed)
