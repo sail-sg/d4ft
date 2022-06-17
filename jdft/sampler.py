@@ -1,17 +1,9 @@
-from enum import unique
-from operator import index
-from xmlrpc.client import boolean
 import jax
 import jax.numpy as jnp
 from jax import vmap
 import numpy as np
 import matplotlib.pyplot as plt
-
-from math import floor, ceil
 import jax.random as jrdm
-
-# from pyscf.dft import radi
-# from pyscf.dft import gen_grid
 
 
 def batch_sampler(grids, weights, batchsize, seed=1):
@@ -43,39 +35,6 @@ def batch_sampler(grids, weights, batchsize, seed=1):
     output_weight.append(weights[batch_idx[i]] * npoint / batchsize)
 
   return output_grid, output_weight
-
-
-# def batch_sampler(grids, weights, factor=0.1, seed=1):
-
-#     '''
-#     inputs:
-#     |grids: (N, 3)
-#     |weights: (N, )
-#     |factor: percentage that split the grids.
-#     output:
-#     a list of ceil(1/factor) with each element is a subset of grids.
-#     '''
-#     npoint = grids.shape[0]
-#     key=jrdm.PRNGKey(seed)
-
-#     nbatch = min(npoint, floor(1/factor))
-#     batch_size = floor(npoint/nbatch)
-#     # sample_boundary = (jnp.arange(nbatch-1)+1)*batch_size
-#     # sample_boundary = jnp.asarray(sample_boundary, jnp.int16)
-#     sample_boundary = [int((i+1)*batch_size) for i in range(nbatch)]
-
-#     weights = jnp.expand_dims(weights, axis=1)
-#     gw = jnp.concatenate((grids, weights), axis=1)
-#     gw = jrdm.permutation(key, gw, axis=0, independent=False)
-#     output_grid = []
-#     output_weight = []
-
-#     output_grid = jnp.split(gw[:, :3], sample_boundary, axis=0)
-#     output_weight = jnp.split(gw[:, 3], sample_boundary, axis=0)
-#     output_grid.pop()
-#     output_weight.pop()
-
-#     return output_grid, output_weight
 
 
 def simple_grid(key, limit, cellsize, n=100, verbose=False):
@@ -217,35 +176,6 @@ def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
         neighbors: shape(n, 3)
         return: the first
         '''
-
-    #         def f_(r0):
-    #             with jax.disable_jit():
-    #                 neighbors = get_neighborhood(r0)
-
-    #             if in_boundary(r0):
-    #                 # print(vmap(lambda r1: Euclidean_distance(r0, r1))(neighbors))
-    #                 if all(vmap(lambda r1: Euclidean_distance(r0, r1))(neighbors) >= radius):
-    #                     if grid_index_array[((r0[0]+limit)/grid_r).astype(int),
-    #                     ((r0[1]+limit)/grid_r).astype(int),
-    #                     ((r0[2]+limit)/grid_r).astype(int)]==-1:
-    #                         return True
-    #                     else:
-    #                         return False
-    #                 else:
-    #                     return False
-
-    #             else:
-    #                 return False
-
-    #         # print(new_samples.shape)
-    #         flag = [f_(i) for i in new_samples]
-    # #         with jax.disable_jit():
-    # #             flag = vmap(f_)(new_samples)
-    #         output = new_samples[flag, :]
-    #         if output.shape[0]>0:
-    #             return output[0]
-    #         else:
-    #             return False
 
     for r0 in new_samples:
       neighbors = get_neighborhood(r0)

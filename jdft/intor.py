@@ -1,12 +1,10 @@
-from ast import Not
 import jax
 import numpy as np
 import jax.numpy as jnp
 from jax.experimental import sparse
 from pyscf.dft import gen_grid
+from jdft.functions import set_diag_zero
 
-def set_diag_zero(x):
-  return x.at[jnp.diag_indices(x.shape[0])].set(0)
 
 class Intor():
   def __init__(self, mo):
@@ -34,14 +32,14 @@ class Intor():
   def double1(self):
     '''
       double particle integral
-      \int \psi v(x) \psi dx
+      \int\int \psi(x) v(x, y) \psi(y) dxdy
     '''
     raise NotImplementedError()
 
   def double2(self):
     '''
       double particle integral
-      \int |\psi|^2 v(x) |\psi|^2 dx
+      \int\int \psi^2(x) v(x, y) \psi^2(y) dxdy
     '''
     raise NotImplementedError()
 
@@ -70,10 +68,8 @@ class LebedevQuadrature(Intor):
 
     w_grids = jax.vmap(self.mo)(self.grids)
     v_grids = jax.vmap(v)(self.grids)
-
     if len(w_grids.shape) > len(v_grids.shape):
       v_grids = jnp.expand_dims(v_grids, axis=np.arange(len(w_grids.shape)-1)+1)
-
     output = v_grids * w_grids
     output *= jnp.expand_dims(self.weights, axis=np.arange(len(w_grids.shape)-1)+1)
     output = jnp.sum(output)
@@ -91,10 +87,8 @@ class LebedevQuadrature(Intor):
 
     w_grids = jax.vmap(self.mo)(self.grids) ** 2
     v_grids = jax.vmap(v)(self.grids)
-
     if len(w_grids.shape) > len(v_grids.shape):
       v_grids = jnp.expand_dims(v_grids, axis=np.arange(len(w_grids.shape)-1)+1)
-
     output = v_grids * w_grids
     output *= jnp.expand_dims(self.weights, axis=np.arange(len(w_grids.shape)-1)+1)
     output = jnp.sum(output)
@@ -110,16 +104,12 @@ class LebedevQuadrature(Intor):
         float. the integral.
     '''
     outer = lambda x: jnp.outer(x, x)
-
     w_grids = jax.vmap(self.mo)(self.grids)**2
     w_grids = jnp.sum(w_grids, axis = 1+np.arange(len(w_grids.shape)-1))
     w_mat = outer(w_grids) # shape   R x R
-
     v_mat = jax.vmap(lambda x: jax.vmap(lambda y: v(x, y))(self.grids))(self.grids)
     v_mat = set_diag_zero(v_mat)    # shape R x R
-
     weight_mat = outer(self.weights)   # shape R x R
-
     output = w_mat * v_mat * weight_mat
     output = jnp.sum(output)
     return output

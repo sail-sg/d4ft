@@ -137,15 +137,13 @@ class molecule():
     key = jax.random.PRNGKey(seed)
 
     @jit
-    def update(params, opt_state):
+    def update(params, opt_state, grids, weights):
 
       def loss(params):
 
         def wfun(x):
           return self.mo(params, x) * self.nocc
-
-        intor = LebedevQuadrature(wfun, self.grids, self.weights)
-
+        intor = LebedevQuadrature(wfun, grids, weights)
         return E_gs(intor, self.nuclei)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
@@ -193,7 +191,7 @@ class molecule():
       batch_tracer = jnp.zeros(6)
 
       for g, w in zip(batch_grids, batch_weights):
-        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(params, opt_state)
+        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(params, opt_state, g, w)
         batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh, En])
 
       if (i + 1) % 1 == 0:

@@ -1,5 +1,5 @@
 __all__ = [
-  'functions', 'energy', 'molecule', 'regularizer', 'sampler', 'visualization',
+  'functions', 'energy', 'molecule', 'sampler', 'visualization',
   'orbitals', 'geometries', 'intor'
 ]
 
