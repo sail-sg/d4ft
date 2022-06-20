@@ -54,43 +54,50 @@ class LebedevQuadrature(Intor):
     self.grids = grids
     self.weights = weights
 
-  def single1(self, v):
+  def single(self, v, exponent=1):
     '''
       single particle integral with respect to wave function.
-      \int v(x) \psi dx
+      \sum_{i} \int v(x) \psi_{i}^{exponent}(x) dx
       Args:
         |v: integrand. R^3 -> R or R^D, where D is shape of the output of mo.
       Returns:
         float. the integral.
     '''
-
+    # w_grids: evaluation of single electron wave functions
     w_grids = jax.vmap(self.mo)(self.grids)
+    if exponent != 1:
+      w_grids = w_grids ** exponent
+    # v_grids: evaluation of the integrand function v
     v_grids = jax.vmap(v)(self.grids)
     if len(w_grids.shape) > len(v_grids.shape):
+      # when v is shared for all orbitals, broadcast v_grids to match w_grids
       v_grids = jnp.expand_dims(v_grids, axis=np.arange(len(w_grids.shape)-1)+1)
     output = v_grids * w_grids
     output *= jnp.expand_dims(self.weights, axis=np.arange(len(w_grids.shape)-1)+1)
     output = jnp.sum(output)
     return output
 
-  def single2(self, v):
+  def single1(self, v):
     '''
-      single particle integral with respect to pdf.
-      \int v(x) \psi^2 dx
+      single particle integral with respect to wave function.
+      \sum_{i} \int v(x) \psi_{i}(x) dx
       Args:
         |v: integrand. R^3 -> R
       Returns:
         float. the integral.
     '''
+    return self.single(v, exponent=1)
 
-    w_grids = jax.vmap(self.mo)(self.grids) ** 2
-    v_grids = jax.vmap(v)(self.grids)
-    if len(w_grids.shape) > len(v_grids.shape):
-      v_grids = jnp.expand_dims(v_grids, axis=np.arange(len(w_grids.shape)-1)+1)
-    output = v_grids * w_grids
-    output *= jnp.expand_dims(self.weights, axis=np.arange(len(w_grids.shape)-1)+1)
-    output = jnp.sum(output)
-    return output
+  def single2(self, v):
+    '''
+      single particle integral with respect to pdf.
+      \sum_{i} \int v(x) \psi_{i}^2(x) dx
+      Args:
+        |v: integrand. R^3 -> R
+      Returns:
+        float. the integral.
+    '''
+    return self.single(v, exponent=2)
 
   def double1(self, v=lambda x, y: 1):
     '''
