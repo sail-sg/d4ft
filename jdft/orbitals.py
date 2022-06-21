@@ -4,7 +4,7 @@ import jax.numpy as jnp
 from jax.experimental import sparse
 from pyscf import gto
 from jdft.functions import decov
-from jdft.intor import LebedevQuadrature
+from jdft.intor import Quadrature
 # from scipy.special import factorial
 
 
@@ -263,7 +263,7 @@ class Pople(Basis):
       dimension_numbers=(((2), (1)), ((0), (0))))
     return jnp.squeeze(output)
 
-  def overlap(self, intor=False):
+  def overlap(self, intor=None):
     if not intor:
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
@@ -275,7 +275,7 @@ class MO_qr(Basis):
   '''
   molecular orbital using QR decomposition.
   '''
-  def __init__(self, ao, intor=False):
+  def __init__(self, ao, intor=None):
     super().__init__()
     self.ao = ao
     if not intor:

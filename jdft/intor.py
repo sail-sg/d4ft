@@ -2,7 +2,7 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 from jdft.functions import set_diag_zero
-
+from absl import logging
 
 class Intor():
   def __init__(self, mo):
@@ -42,7 +42,7 @@ class Intor():
     raise NotImplementedError()
 
 
-class LebedevQuadrature(Intor):
+class Quadrature(Intor):
   def __init__(self, mo, grids, weights):
     '''
       Args:
@@ -111,29 +111,19 @@ class LebedevQuadrature(Intor):
     outer = lambda x: jnp.outer(x, x)
     w_grids = jax.vmap(self.mo)(self.grids)
     w_grids = jnp.sum(w_grids, axis = 1+np.arange(len(w_grids.shape)-1))
-    w_mat = outer(w_grids) # shape   R x R
+    w_mat = outer(w_grids)
     v_mat = jax.vmap(lambda x: jax.vmap(lambda y: v(x, y))(self.grids))(self.grids)
-    v_mat = set_diag_zero(v_mat)    # shape R x R
-    weight_mat = outer(self.weights)   # shape R x R
+    v_mat = set_diag_zero(v_mat)
+    weight_mat = outer(self.weights)
     output = w_mat * v_mat * weight_mat
     return output
 
   def double_overlap(self):
-    '''
-      double particle integral: inner product.
-      \int \int \psi(x) \psi(y)^T dx dy
-      Args:
-        |v: integrand. a double variant function. (R^3, R^3) -> R eg: v(x, y) = 1/jnp.norm(x-y)
-      Returns:
-        float. the integral.
-    '''
     w_grids = jax.vmap(self.mo)(self.grids)
     w_grids = jnp.reshape(w_grids, newshape=(w_grids.shape[0], -1))
     outer = lambda x: jnp.outer(x, x)
     w_mat = jax.vmap(outer)(w_grids)
-      # shape R x R
     output = w_mat * jnp.expand_dims(self.weights, (1, 2))
-
     return jnp.sum(output, axis=(0))
 
 
@@ -149,11 +139,11 @@ class LebedevQuadrature(Intor):
     outer = lambda x: jnp.outer(x, x)
     w_grids = jax.vmap(self.mo)(self.grids)**2
     w_grids = jnp.sum(w_grids, axis = 1+np.arange(len(w_grids.shape)-1))
-    w_mat = outer(w_grids) # shape   R x R
+    w_grids *= self.weights
+    w_mat = outer(w_grids)
     v_mat = jax.vmap(lambda x: jax.vmap(lambda y: v(x, y))(self.grids))(self.grids)
-    v_mat = set_diag_zero(v_mat)    # shape R x R
-    weight_mat = outer(self.weights)   # shape R x R
-    output = w_mat * v_mat * weight_mat
+    v_mat = set_diag_zero(v_mat)
+    output = w_mat * v_mat
     output = jnp.sum(output)
     return output
 

@@ -47,7 +47,7 @@ from jdft.visualization import *
 from jdft.orbitals import Pople, MO_qr
 from pyscf import gto
 from pyscf.dft import gen_grid
-from jdft.intor import LebedevQuadrature
+from jdft.intor import Quadrature
 
 class molecule():
 
@@ -87,7 +87,7 @@ class molecule():
     print(f'Initializing... {self.grids.shape[0]} grid points are sampled.')
 
     self.ao = Pople(self.pyscf_mol)
-    self.mo = MO_qr(self.ao, LebedevQuadrature(None, self.grids, self.weights))
+    self.mo = MO_qr(self.ao, Quadrature(None, self.grids, self.weights))
 
   def _init_param(self, seed=123):
     key = random.PRNGKey(seed)
@@ -143,7 +143,7 @@ class molecule():
 
         def wfun(x):
           return self.mo(params, x) * self.nocc
-        intor = LebedevQuadrature(wfun, grids, weights)
+        intor = Quadrature(wfun, grids, weights)
         return E_gs(intor, self.nuclei)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
