@@ -268,7 +268,7 @@ class Pople(Basis):
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
       intor.mo = self.__call__
-      return intor.double_overlap()
+      return intor.overlap()
 
 
 class MO_qr(Basis):
@@ -306,4 +306,3 @@ class MO_qr(Basis):
 
     f = lambda param: wave_fun_i(param, ao_fun_vec)
     return jax.vmap(f)(params)
-
