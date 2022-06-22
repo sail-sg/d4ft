@@ -8,7 +8,6 @@ from jdft.intor import Quadrature
 # from scipy.special import factorial
 
 
-
 def factorial(x):
   x = jnp.asarray(x, dtype=jnp.float32)
   return jnp.exp(jax.lax.lgamma(x+1))
@@ -182,7 +181,7 @@ class Basis():
     raise NotImplementedError('overlap function has not been implemented.')
 
   def init(self):
-   pass
+    pass
 
 
 class GTO(Basis):
@@ -215,13 +214,13 @@ class GTO(Basis):
 
     const = (2 * self.alpha/np.pi)**(3/4)
     const *= (((8 * self.alpha) ** (self.i + self.j + self.k) *
-               factorial(self.i) * factorial(self.j) * factorial(self.k))/
+               factorial(self.i) * factorial(self.j) * factorial(self.k)) /
               (factorial(2 * self.i) * factorial(2 * self.j) * factorial(2 * self.k))) ** 0.5
 
     output = jnp.power(r - self.c, jnp.stack([self.i, self.j, self.k], axis=1))
     output = jnp.prod(output, axis=1)
 
-    fc = lambda c: jnp.linalg.norm(r - c) ** 2
+    def fc(c): return jnp.linalg.norm(r - c) ** 2
     output *= jnp.exp(-self.alpha * jax.vmap(fc)(self.c))
 
     return const * output
@@ -244,7 +243,8 @@ class Pople(Basis):
     self.k = k
     self.c = c
     # coeff_idx = coeff_idx
-    self.coeff_mat =  sparse.BCOO((coeff_data, coeff_idx), shape=(len(self.pyscf_mol.ao_labels()), len(i)))
+    self.coeff_mat = sparse.BCOO((coeff_data, coeff_idx), shape=(
+        len(self.pyscf_mol.ao_labels()), len(i)))
     self.coeff_mat = sparse.sparsify(jnp.expand_dims)(self.coeff_mat, axis=0)
     self._gto = GTO(self.alpha, self.i, self.j, self.k, self.c)
 
@@ -259,9 +259,29 @@ class Pople(Basis):
     basis = self._gto(r)
     basis = jnp.expand_dims(basis, axis=(0, 2))
     output = sparse.bcoo_dot_general(
-      self.coeff_mat, basis,
-      dimension_numbers=(((2), (1)), ((0), (0))))
+        self.coeff_mat, basis,
+        dimension_numbers=(((2), (1)), ((0), (0))))
     return jnp.squeeze(output)
+
+  def overlap(self, intor=None):
+    if not intor:
+      return self.pyscf_mol.intor('int1e_ovlp_sph')
+    else:
+      intor.mo = self.__call__
+      return intor.double_overlap()
+
+
+class NormalPople(Pople):
+  # before r get into pople, pass by a normalizing flow
+  def __init__(self, pyscf_mol, normal_flow):
+    super().__init__(pyscf_mol=pyscf_mol)
+
+    self.normal_flow = normal_flow
+
+  def __call__(self, r):
+    # pass r into normalizing flow
+    r_transformed = self.normal_flow(r)
+    return super().__call__(r=r_transformed)
 
   def overlap(self, intor=None):
     if not intor:
@@ -275,6 +295,7 @@ class MO_qr(Basis):
   '''
   molecular orbital using QR decomposition.
   '''
+
   def __init__(self, ao, intor=None):
     super().__init__()
     self.ao = ao
@@ -302,8 +323,7 @@ class MO_qr(Basis):
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
       return orthogonal.transpose(
-      ) @ decov(self.ao.overlap(self.intor)) @ ao_fun_vec  #(self.basis_num)
+      ) @ decov(self.ao.overlap(self.intor)) @ ao_fun_vec  # (self.basis_num)
 
-    f = lambda param: wave_fun_i(param, ao_fun_vec)
+    def f(param): return wave_fun_i(param, ao_fun_vec)
     return jax.vmap(f)(params)
-
