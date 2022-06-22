@@ -10,7 +10,7 @@ from jdft.intor import Quadrature
 
 def factorial(x):
   x = jnp.asarray(x, dtype=jnp.float32)
-  return jnp.exp(jax.lax.lgamma(x+1))
+  return jnp.exp(jax.lax.lgamma(x + 1))
 
 
 def ao_label_parser(ao_label):
@@ -212,7 +212,7 @@ class GTO(Basis):
       |shape [n], where n is the number of Gaussian primitive.
     '''
 
-    const = (2 * self.alpha/np.pi)**(3/4)
+    const = (2 * self.alpha / np.pi)**(3 / 4)
     const *= (((8 * self.alpha) ** (self.i + self.j + self.k) *
                factorial(self.i) * factorial(self.j) * factorial(self.k)) /
               (factorial(2 * self.i) * factorial(2 * self.j) * factorial(2 * self.k))) ** 0.5
@@ -329,4 +329,5 @@ class MO_qr(Basis):
       ) @ decov(self.ao.overlap(self.intor)) @ ao_fun_vec  # (self.basis_num)
 
     def f(param): return wave_fun_i(param, ao_fun_vec)
+
     return jax.vmap(f)(params)
