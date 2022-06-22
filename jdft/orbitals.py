@@ -229,6 +229,7 @@ class GTO(Basis):
 class Pople(Basis):
   def __init__(self, pyscf_mol):
     super().__init__()
+    # opensource
     self.pyscf_mol = pyscf_mol
     self.elements = pyscf_mol.elements
     self.atom_coords = pyscf_mol.atom_coords()
@@ -246,6 +247,8 @@ class Pople(Basis):
     self.coeff_mat = sparse.BCOO((coeff_data, coeff_idx), shape=(
         len(self.pyscf_mol.ao_labels()), len(i)))
     self.coeff_mat = sparse.sparsify(jnp.expand_dims)(self.coeff_mat, axis=0)
+    # way to build
+    # gto short for Gaussian T
     self._gto = GTO(self.alpha, self.i, self.j, self.k, self.c)
 
   def __call__(self, r):

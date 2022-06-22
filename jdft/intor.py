@@ -4,6 +4,7 @@ import jax.numpy as jnp
 from jdft.functions import set_diag_zero
 from absl import logging
 
+
 class Intor():
   def __init__(self, mo):
     '''
@@ -71,9 +72,11 @@ class Quadrature(Intor):
     v_grids = jax.vmap(v)(self.grids)
     if len(w_grids.shape) > len(v_grids.shape):
       # when v is shared for all orbitals, broadcast v_grids to match w_grids
-      v_grids = jnp.expand_dims(v_grids, axis=np.arange(len(w_grids.shape)-1)+1)
+      v_grids = jnp.expand_dims(
+          v_grids, axis=np.arange(len(w_grids.shape)-1)+1)
     output = v_grids * w_grids
-    output *= jnp.expand_dims(self.weights, axis=np.arange(len(w_grids.shape)-1)+1)
+    output *= jnp.expand_dims(self.weights,
+                              axis=np.arange(len(w_grids.shape)-1)+1)
     output = jnp.sum(output)
     return output
 
@@ -108,11 +111,12 @@ class Quadrature(Intor):
       Returns:
         float. the integral.
     '''
-    outer = lambda x: jnp.outer(x, x)
+    def outer(x): return jnp.outer(x, x)
     w_grids = jax.vmap(self.mo)(self.grids)
-    w_grids = jnp.sum(w_grids, axis = 1+np.arange(len(w_grids.shape)-1))
+    w_grids = jnp.sum(w_grids, axis=1+np.arange(len(w_grids.shape)-1))
     w_mat = outer(w_grids)
-    v_mat = jax.vmap(lambda x: jax.vmap(lambda y: v(x, y))(self.grids))(self.grids)
+    v_mat = jax.vmap(lambda x: jax.vmap(
+        lambda y: v(x, y))(self.grids))(self.grids)
     v_mat = set_diag_zero(v_mat)
     weight_mat = outer(self.weights)
     output = w_mat * v_mat * weight_mat
@@ -121,11 +125,10 @@ class Quadrature(Intor):
   def double_overlap(self):
     w_grids = jax.vmap(self.mo)(self.grids)
     w_grids = jnp.reshape(w_grids, newshape=(w_grids.shape[0], -1))
-    outer = lambda x: jnp.outer(x, x)
+    def outer(x): return jnp.outer(x, x)
     w_mat = jax.vmap(outer)(w_grids)
     output = w_mat * jnp.expand_dims(self.weights, (1, 2))
     return jnp.sum(output, axis=(0))
-
 
   def double2(self, v=lambda x, y: 1):
     '''
@@ -136,12 +139,13 @@ class Quadrature(Intor):
       Returns:
         float. the integral.
     '''
-    outer = lambda x: jnp.outer(x, x)
+    def outer(x): return jnp.outer(x, x)
     w_grids = jax.vmap(self.mo)(self.grids)**2
-    w_grids = jnp.sum(w_grids, axis = 1+np.arange(len(w_grids.shape)-1))
+    w_grids = jnp.sum(w_grids, axis=1+np.arange(len(w_grids.shape)-1))
     w_grids *= self.weights
     w_mat = outer(w_grids)
-    v_mat = jax.vmap(lambda x: jax.vmap(lambda y: v(x, y))(self.grids))(self.grids)
+    v_mat = jax.vmap(lambda x: jax.vmap(
+        lambda y: v(x, y))(self.grids))(self.grids)
     v_mat = set_diag_zero(v_mat)
     output = w_mat * v_mat
     output = jnp.sum(output)
@@ -152,15 +156,3 @@ class Quadrature(Intor):
     const = -3 / 4 * (3 / jnp.pi)**(1 / 3)
     density = jnp.sum(wave_at_grid**2, axis=(1, 2))
     return const * jnp.sum(density**(4 / 3) * self.weights)
-
-
-
-
-
-
-
-
-
-
-
-
