@@ -4,7 +4,10 @@ import jax.numpy as jnp
 from jax.experimental import sparse
 from pyscf import gto
 from jdft.functions import decov
+from jdft.intor import Quadrature
 # from scipy.special import factorial
+
+
 
 def factorial(x):
   x = jnp.asarray(x, dtype=jnp.float32)
@@ -260,16 +263,28 @@ class Pople(Basis):
       dimension_numbers=(((2), (1)), ((0), (0))))
     return jnp.squeeze(output)
 
-  def overlap(self):
-    return self.pyscf_mol.intor('int1e_ovlp_sph')
+  def overlap(self, intor=None):
+    if not intor:
+      return self.pyscf_mol.intor('int1e_ovlp_sph')
+    else:
+      intor.mo = self.__call__
+      return intor.overlap()
 
 
 class MO_qr(Basis):
-  # molecular orbital using QR decomposition.
-  def __init__(self, ao):
+  '''
+  molecular orbital using QR decomposition.
+  '''
+  def __init__(self, ao, intor=None):
     super().__init__()
     self.ao = ao
-    self.basis_decov = decov(self.ao.overlap())
+    if not intor:
+      # self.basis_decov = decov(self.ao.overlap())
+      raise AssertionError
+    else:
+      self.intor = intor
+      self.intor.mo = self.ao
+      self.basis_decov = decov(self.ao.overlap(intor))
 
   def __call__(self, params, r):
     '''
@@ -287,8 +302,7 @@ class MO_qr(Basis):
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
       return orthogonal.transpose(
-      ) @ self.basis_decov @ ao_fun_vec  #(self.basis_num)
+      ) @ decov(self.ao.overlap(self.intor)) @ ao_fun_vec  #(self.basis_num)
 
     f = lambda param: wave_fun_i(param, ao_fun_vec)
     return jax.vmap(f)(params)
-
