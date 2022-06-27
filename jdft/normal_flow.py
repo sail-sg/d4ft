@@ -5,7 +5,9 @@ import jax.random as jrandom
 import jax.scipy.special as jssp
 import jax.scipy.stats as jss
 import distrax
+import optax
 from jax.nn.initializers import orthogonal
+import haiku as hk
 
 
 def real_nvp(
@@ -25,7 +27,7 @@ def real_nvp(
 
   layers = []
   for i in range(nlayers):
-    def is_swap(i=i): return ((i % 2) == 1)
+    is_swap = lambda i=i: ((i % 2) == 1)
     dim = (d2 if not is_swap() else d1)
     with hk.experimental.name_scope(f"{name}_{i}"):
       mlp = hk.Sequential([
@@ -55,3 +57,33 @@ def real_nvp(
         ))
 
   return layers
+
+
+def a_main():
+  key = jrandom.PRNGKey(0)
+  learning_rate = 0.001
+  # optimizer = optax.adam(learning_rate)
+
+  @hk.without_apply_rng
+  @hk.transform
+  def forward(x):
+    layer = distrax.Chain(real_nvp(input_dim=3, ndim=3, nlayers=3, name="nvp"))
+    return layer.forward(x)
+
+  @hk.without_apply_rng
+  @hk.transform
+  def inverse(y):
+    layer = distrax.Chain(real_nvp(input_dim=3, ndim=3, nlayers=3, name="nvp"))
+    return layer.inverse(y)
+
+  params = forward.init(key, jnp.zeros((1, 3)))
+  # opt_state = optimizer.init(params)
+
+  x = jrandom.normal(key, (1, 3))
+  y = forward.apply(params, x)
+  inverse_y = inverse.apply(params, y)
+  print(x, y, inverse_y)
+
+
+if __name__ == "__main__":
+  a_main()

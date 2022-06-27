@@ -4,3 +4,4 @@ optax >= 0.1.2
 matplotlib >= 3.5.2
 pyscf >= 2.0.1
 distrax
+dm-haiku
