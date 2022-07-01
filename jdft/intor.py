@@ -55,7 +55,8 @@ class Quadrature(Intor):
     self.grids = grids
     self.weights = weights
 
-  def single(self, v, exponent=1):
+
+  def single(self, v=lambda x: 1, exponent=1):
     '''
       single particle integral with respect to wave function.
       \sum_{i} \int v(x) \psi_{i}^{exponent}(x) dx
@@ -80,7 +81,7 @@ class Quadrature(Intor):
     output = jnp.sum(output)
     return output
 
-  def single1(self, v):
+  def single1(self, v=lambda x: 1):
     '''
       single particle integral with respect to wave function.
       \sum_{i} \int v(x) \psi_{i}(x) dx
@@ -91,7 +92,7 @@ class Quadrature(Intor):
     '''
     return self.single(v, exponent=1)
 
-  def single2(self, v):
+  def single2(self, v=lambda x: 1):
     '''
       single particle integral with respect to pdf.
       \sum_{i} \int v(x) \psi_{i}^2(x) dx
@@ -102,6 +103,26 @@ class Quadrature(Intor):
     '''
     return self.single(v, exponent=2)
 
+  def double(self, v=lambda x, y: 1, exponent=1):
+    '''
+      double particle integral with respect to wave function.
+      \sum_{i} \int \int \psi^{exponent}(x) v(x, y) \psi^{exponent}(y)
+    '''
+    def outer(x): return jnp.outer(x, x)
+    w_grids = jax.vmap(self.mo)(self.grids)
+    if exponent != 1:
+      w_grids = w_grids**exponent
+
+    w_grids = jnp.sum(w_grids, axis = 1+np.arange(len(w_grids.shape)-1))
+    w_grids *= self.weights
+    w_mat = outer(w_grids)
+    v_mat = jax.vmap(lambda x: jax.vmap(
+        lambda y: v(x, y))(self.grids))(self.grids)
+    v_mat = set_diag_zero(v_mat)
+    output = w_mat * v_mat
+    output = jnp.sum(output)
+    return output
+
   def double1(self, v=lambda x, y: 1):
     '''
       double particle integral: inner product.
@@ -111,45 +132,18 @@ class Quadrature(Intor):
       Returns:
         float. the integral.
     '''
-    def outer(x): return jnp.outer(x, x)
-    w_grids = jax.vmap(self.mo)(self.grids)
-    w_grids = jnp.sum(w_grids, axis=1+np.arange(len(w_grids.shape)-1))
-    w_mat = outer(w_grids)
-    v_mat = jax.vmap(lambda x: jax.vmap(
-        lambda y: v(x, y))(self.grids))(self.grids)
-    v_mat = set_diag_zero(v_mat)
-    weight_mat = outer(self.weights)
-    output = w_mat * v_mat * weight_mat
-    return output
+    return self.double(v, exponent=1)
 
-  def double_overlap(self):
+  def double2(self, v=lambda x, y: 1):
+    return self.double(v, exponent=2)
+
+  def overlap(self):
     w_grids = jax.vmap(self.mo)(self.grids)
     w_grids = jnp.reshape(w_grids, newshape=(w_grids.shape[0], -1))
-    def outer(x): return jnp.outer(x, x)
+    outer = lambda x: jnp.outer(x, x)
     w_mat = jax.vmap(outer)(w_grids)
     output = w_mat * jnp.expand_dims(self.weights, (1, 2))
     return jnp.sum(output, axis=(0))
-
-  def double2(self, v=lambda x, y: 1):
-    '''
-      double particle integral
-      \int \int n(x) v(x, y) n(y) dx dy
-      Args:
-        |v: integrand. a double variant function. (R^3, R^3) -> R eg: v(x, y) = 1/jnp.norm(x-y)
-      Returns:
-        float. the integral.
-    '''
-    def outer(x): return jnp.outer(x, x)
-    w_grids = jax.vmap(self.mo)(self.grids)**2
-    w_grids = jnp.sum(w_grids, axis=1+np.arange(len(w_grids.shape)-1))
-    w_grids *= self.weights
-    w_mat = outer(w_grids)
-    v_mat = jax.vmap(lambda x: jax.vmap(
-        lambda y: v(x, y))(self.grids))(self.grids)
-    v_mat = set_diag_zero(v_mat)
-    output = w_mat * v_mat
-    output = jnp.sum(output)
-    return output
 
   def lda(self):
     wave_at_grid = jax.vmap(self.mo)(self.grids)  # shape: (D, 2, N)
