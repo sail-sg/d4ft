@@ -1,19 +1,19 @@
-'''
-  this module align pyscf results and cdft parameters.
-  WARNING: only 3-21G is implemented.
-'''
+"""This module align pyscf results and cdft parameters.
+
+WARNING: only 3-21G is implemented.
+"""
 
 import jax.numpy as jnp
 
 
 def wave_from_pyscf(param, r, pyscf_mol):
-  # '''
-  #   input:
-  #       param: N*N
-  #       r, (3)-dimensional coordinate
-  #   output: (N) wave function value vector.
-  #   '''
+  """Load wave function from pyscf.
 
+  Args:
+       param: N*N
+       r, (3)-dimensional coordinate
+  Return: (N) wave function value vector.
+  """
   atom = pyscf_mol
   # geometry = atom.atom
   # 'C -0.5, 0.0, 0.0;\nC 0.5, 0., 0.'
@@ -21,11 +21,12 @@ def wave_from_pyscf(param, r, pyscf_mol):
   # basis_param = atom._basis
   # atom_coords = atom._basis
 
-  # '''
+  # """
   #   the basis param format (Pople-type):
   #   a list of list
   #   [
-  #       [l, [zeta_11, c_11], [zeta_12, c_12], ....]   ===> psi_s1 = c_11 exp(-zeta_11 x) + ...
+  #       [l, [zeta_11, c_11], [zeta_12, c_12], ....]
+  #         ===> psi_s1 = c_11 exp(-zeta_11 x) + ...
   #       [l, [zeta_21, c_21], [zeta_22, c_22], ....]
   #       ...
   #   ]
@@ -33,7 +34,7 @@ def wave_from_pyscf(param, r, pyscf_mol):
   #   l: angular momentum quantum number where 0 represent s, 1 presents p.
   # TODO:  pre-calculate these constants.
 
-  #   '''
+  #   """
 
   output = []
   for element in atom.elements:

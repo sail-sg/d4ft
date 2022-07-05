@@ -1,31 +1,32 @@
-import jax
+"""Classes for orbitals."""
+
 import numpy as np
+import jax
 import jax.numpy as jnp
 from jax.experimental import sparse
-from pyscf import gto
 from jdft.functions import decov
-from jdft.intor import Quadrature
 # from scipy.special import factorial
 
 
 def factorial(x):
+  """Calculate the factorial of x."""
   x = jnp.asarray(x, dtype=jnp.float32)
   return jnp.exp(jax.lax.lgamma(x + 1))
 
 
 def ao_label_parser(ao_label):
-  '''
-  convert PySCF ao_label to GTO parameters.
-    Args:
-      |ao_label: a list of strings.
-          0-1 characters: index of atom
-          2-3 characters: symbol of atom
-    Returns:
-      |i: 1D jnp array
-      |j: 1D jnp array
-      |k: 1D jnp array
-      |ele: 1D jnp array
-      |atom_idx: 1D jnp array
+  r"""Convert PySCF ao_label to GTO parameters.
+
+  Args:
+    |ao_label: a list of strings.
+        0-1 characters: index of atom
+        2-3 characters: symbol of atom
+  Returns:
+    |i: 1D jnp array
+    |j: 1D jnp array
+    |k: 1D jnp array
+    |ele: 1D jnp array
+    |atom_idx: 1D jnp array
 
   ao_label example (water):
     ['0 O 1s    ',
@@ -42,7 +43,7 @@ def ao_label_parser(ao_label):
      '2 H 1s    ',
      '2 H 2s    ']
 
-  '''
+  """
   i = []
   j = []
   k = []
@@ -60,8 +61,7 @@ def ao_label_parser(ao_label):
 
 
 def Pyscf2GTO_parser(pyscf_mol):
-  '''
-  convert pyscf molecule object to GTO parameters.
+  """Convert pyscf molecule object to GTO parameters.
 
   Args:
     |pyscf_mol: a PySCF molecule object
@@ -74,8 +74,7 @@ def Pyscf2GTO_parser(pyscf_mol):
     |c: 2D array, shape (N, 3)
     |coeff_data: for building coeffienct sparse matrix.
     |coeff_idx: for building coeffienct sparse matrix.
-  '''
-
+  """
   elements = pyscf_mol.elements
   _basis = pyscf_mol._basis
   num_atom = len(elements)
@@ -160,41 +159,49 @@ def Pyscf2GTO_parser(pyscf_mol):
 
 
 class Basis():
+  """Abstract class of Basis functions."""
+
   def __init__(self):
+    """Abstract initializer of basis."""
     pass
 
-  def __call__(self):
-    '''
-      Args:
-        x: shape is [..., 3]
-      Returns:
-        output: shape equal to [..., num_basis],
-          where the batch dims are equal to x
-    '''
+  def __call__(self, x):
+    """Compute the basis functions.
+
+    Args:
+      x: shape is [..., 3]
+    Returns:
+      output: shape equal to [..., num_basis],
+        where the batch dims are equal to x
+    """
     raise NotImplementedError('__call__ function has not been implemented')
 
   def overlap(self):
-    '''This computes the overlap between basis functions
+    """Compute the overlap between basis functions.
+
     Returns:
       output: shape equal to [num_basis, num_basis]
-    '''
+    """
     raise NotImplementedError('overlap function has not been implemented.')
 
   def init(self):
+    """Initialize the parameter of this class if any."""
     pass
 
 
 class GTO(Basis):
+  """GTO basis."""
+
   def __init__(self, alpha, i, j, k, c):
-    '''
+    """Gaussian type orbital.
+
     Args:
       |alpha: shape [n]
       |i: shape [n]
       |j: shape [n]
       |k: shape [n]
       |c: shape [n, 3]. The center of each primitive.
-    '''
-
+    """
     super().__init__()
     self.alpha = alpha
     self.i = i
@@ -204,30 +211,39 @@ class GTO(Basis):
     self.num_basis = self.c.shape[0]
 
   def __call__(self, r):
-    '''
+    """Compute GTO on r.
+
     Args:
       |r: shape [3]
 
     Returns:
       |shape [n], where n is the number of Gaussian primitive.
-    '''
-
+    """
     const = (2 * self.alpha / np.pi)**(3 / 4)
-    const *= (((8 * self.alpha) ** (self.i + self.j + self.k) *
-               factorial(self.i) * factorial(self.j) * factorial(self.k)) /
-              (factorial(2 * self.i) * factorial(2 * self.j) * factorial(2 * self.k))) ** 0.5
+    const *= (
+      (
+        (8 * self.alpha)**(self.i + self.j + self.k) * factorial(self.i) *
+        factorial(self.j) * factorial(self.k)
+      ) /
+      (factorial(2 * self.i) * factorial(2 * self.j) * factorial(2 * self.k))
+    )**0.5
 
     output = jnp.power(r - self.c, jnp.stack([self.i, self.j, self.k], axis=1))
     output = jnp.prod(output, axis=1)
 
-    def fc(c): return jnp.linalg.norm(r - c) ** 2
+    def fc(c):
+      return jnp.linalg.norm(r - c)**2
+
     output *= jnp.exp(-self.alpha * jax.vmap(fc)(self.c))
 
     return const * output
 
 
 class Pople(Basis):
+  """The pople basis set."""
+
   def __init__(self, pyscf_mol):
+    """Initialzer for Pople."""
     super().__init__()
     # opensource
     self.pyscf_mol = pyscf_mol
@@ -237,36 +253,40 @@ class Pople(Basis):
 
     self.ao_labels = pyscf_mol.ao_labels()
 
-    (alpha, i, j, k, c), (coeff_data, coeff_idx) = Pyscf2GTO_parser(self.pyscf_mol)
+    (alpha, i, j, k, c), (coeff_data,
+                          coeff_idx) = Pyscf2GTO_parser(self.pyscf_mol)
     self.alpha = alpha
     self.i = i
     self.j = j
     self.k = k
     self.c = c
     # coeff_idx = coeff_idx
-    self.coeff_mat = sparse.BCOO((coeff_data, coeff_idx), shape=(
-        len(self.pyscf_mol.ao_labels()), len(i)))
+    self.coeff_mat = sparse.BCOO(
+      (coeff_data, coeff_idx), shape=(len(self.pyscf_mol.ao_labels()), len(i))
+    )
     self.coeff_mat = sparse.sparsify(jnp.expand_dims)(self.coeff_mat, axis=0)
     # way to build
     # gto short for Gaussian T
     self._gto = GTO(self.alpha, self.i, self.j, self.k, self.c)
 
   def __call__(self, r):
-    '''
+    """Compute Pople basis on r.
+
     Args:
       |r: shape [G, 3] where G is the number of grids.
 
     Returns:
       |shape: [G, num_ao], where num_ao is the number of atomic orbitals.
-    '''
+    """
     basis = self._gto(r)
     basis = jnp.expand_dims(basis, axis=(0, 2))
     output = sparse.bcoo_dot_general(
-        self.coeff_mat, basis,
-        dimension_numbers=(((2), (1)), ((0), (0))))
+      self.coeff_mat, basis, dimension_numbers=(((2), (1)), ((0), (0)))
+    )
     return jnp.squeeze(output)
 
   def overlap(self, intor=None):
+    """Compute overlap matrix for Pople basis."""
     if not intor:
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
@@ -275,18 +295,23 @@ class Pople(Basis):
 
 
 class NormalPople(Pople):
+  """Pople with Normalizing flow."""
+
   # before r get into pople, pass by a normalizing flow
   def __init__(self, pyscf_mol, normal_flow):
+    """Initialize Pople with normalizing flow."""
     super().__init__(pyscf_mol=pyscf_mol)
 
     self.normal_flow = normal_flow
 
   def __call__(self, r):
+    """Compute Pople with normalizing flow on r."""
     # pass r into normalizing flow
     r_transformed = self.normal_flow(r)
     return super().__call__(r=r_transformed)
 
   def overlap(self, intor=None):
+    """Compute overlap matrix for Pople with normalizing flow basis."""
     if not intor:
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
@@ -295,13 +320,13 @@ class NormalPople(Pople):
 
 
 class MO_qr(Basis):
-  '''
-  molecular orbital using QR decomposition.
-  '''
+  """Molecular orbital using QR decomposition."""
 
-  def __init__(self, ao, intor=None):
+  def __init__(self, nmo, ao, intor=None):
+    """Initialize molecular orbital with QR decomposition."""
     super().__init__()
     self.ao = ao
+    self.nmo = nmo
     if not intor:
       # self.basis_decov = decov(self.ao.overlap())
       raise AssertionError
@@ -310,23 +335,31 @@ class MO_qr(Basis):
       self.intor.mo = self.ao
       self.basis_decov = decov(self.ao.overlap(intor))
 
+  def init(self, rng_key):
+    """Initialize the parameter required by this class."""
+    return jax.random.normal(rng_key, [self.nmo, self.nmo]) / jnp.sqrt(self.nmo)
+
   def __call__(self, params, r):
-    '''
+    """Compute the molecular orbital on r.
+
     R^3 -> R^N. N-body molecular orbital wave functions.
     input: (N: the number of atomic orbitals.)
       |params: N*N
       |r: (3)
     output:
       |molecular orbitals:(2, N)
-    '''
+    """
     params = jnp.expand_dims(params, 0)
     params = jnp.repeat(params, 2, 0)
     ao_fun_vec = self.ao(r)
 
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
-      return orthogonal.transpose(
-      ) @ decov(self.ao.overlap(self.intor)) @ ao_fun_vec  # (self.basis_num)
+      return orthogonal.transpose() @ decov(
+        self.ao.overlap(self.intor)
+      ) @ ao_fun_vec  # (self.basis_num)
 
-    f = lambda param: wave_fun_i(param, ao_fun_vec)
+    def f(param):
+      return wave_fun_i(param, ao_fun_vec)
+
     return jax.vmap(f)(params)

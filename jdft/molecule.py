@@ -1,14 +1,15 @@
-'''
-!! WARNING: this module use pyscf.gto.module for initializing molecule object.
+"""WARNING: this module use pyscf.gto.module for initializing molecule object.
 
 Example:
-    h2o_config = 'O 0 0 0; H 0 1 0; H 0 0 1'  # default ångström unit. need to change to Bohr unit.
+    # default ångström unit. need to change to Bohr unit.
+    h2o_config = 'O 0 0 0; H 0 1 0; H 0 0 1'
 
     >>> from pyscf import gto
     >>> mol = gto.M(atom = h2o_config, basis = '3-21g')
     >>> mol.build()
     >>> mol._basis
-    >>> {'H': [[0, [5.447178, 0.156285], [0.824547, 0.904691]], [0, [0.183192, 1.0]]],
+    >>> {'H': [[0, [5.447178, 0.156285], [0.824547, 0.904691]],
+              [0, [0.183192, 1.0]]],
     'O': [[0, [322.037, 0.0592394], [48.4308, 0.3515], [10.4206, 0.707658]],
           [0, [7.40294, -0.404453], [1.5762, 1.22156]],
           [0, [0.373684, 1.0]],
@@ -24,7 +25,8 @@ Example:
     >>> mol.atom_charges()
     >>> array([8, 1, 1], dtype=int32)
 
-    >>> mol.intor('int1e_ovlp_sph').shape    # return the overlap (covariance) of MOs.
+    # return the overlap (covariance) of MOs.
+    >>> mol.intor('int1e_ovlp_sph').shape
     >>> (13, 13)   # 2+2+9 = 13
 
     >>> mol.tot_electrons()  # total number of electrons.
@@ -33,7 +35,7 @@ Example:
     >>> mol.elements
     >>> ['O', 'H', 'H']
 
-'''
+"""
 
 import time
 import jax
@@ -41,17 +43,20 @@ import optax
 from jax import random
 import jax.numpy as jnp
 from jax import vmap, jit
-from jdft.energy import *
+from jdft.energy import E_gs
 from jdft.sampler import batch_sampler
-from jdft.visualization import *
+from jdft.visualization import save_contour
 from jdft.orbitals import Pople, MO_qr
 from pyscf import gto
 from pyscf.dft import gen_grid
 from jdft.intor import Quadrature
 
+
 class molecule():
+  """Class to represent a molecule."""
 
   def __init__(self, config, spin, basis='3-21g', level=1, eps=1e-10):
+    """Initialize a molecule."""
     self.pyscf_mol = gto.M(atom=config, basis=basis, spin=spin)
     self.pyscf_mol.build()
 
@@ -103,6 +108,7 @@ class molecule():
     save_fig=False,
     **args
   ):
+    """Calculate the ground state wave functions."""
     if self.params is None:
       self.params = self._init_param(seed)
     params = self.params.copy()
@@ -143,6 +149,7 @@ class molecule():
 
         def wfun(x):
           return self.mo(params, x) * self.nocc
+
         intor = Quadrature(wfun, grids, weights)
         return E_gs(intor, self.nuclei)
 
@@ -191,7 +198,9 @@ class molecule():
       batch_tracer = jnp.zeros(6)
 
       for g, w in zip(batch_grids, batch_weights):
-        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(params, opt_state, g, w)
+        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(
+          params, opt_state, g, w
+        )
         batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh, En])
 
       if (i + 1) % 1 == 0:
@@ -248,14 +257,16 @@ class molecule():
     print('E_xc: ', Ex_train[-1])
     print('E_nuclear_repulsion:', En_train[-1])
 
-
   def get_wave(self, occ_ao=True):
-    '''
-        occ_ao: if True, only return occupied orbitals.
-        return: wave function value at grid_point.
-        '''
+    """Calculate the wave function.
 
-    f = lambda r: self.mo(self.params, r) * self.nocc
+    occ_ao: if True, only return occupied orbitals.
+    return: wave function value at grid_point.
+    """
+
+    def f(r):
+      return self.mo(self.params, r) * self.nocc
+
     if occ_ao:
       alpha = vmap(f)(self.grids)[:, 0, :int(jnp.sum(self.nocc[0, :]))]
       beta = vmap(f)(self.grids)[:, 1, :int(jnp.sum(self.nocc[1, :]))]
@@ -264,11 +275,14 @@ class molecule():
       return vmap(f)(self.grids)
 
   def get_density(self, r):
-    '''
-        return: density function: [D, 3] -> [D] where D is the number of grids.
-        '''
+    """Calculate the electron density at r.
 
-    f = lambda r: self.mo(self.params, r) * self.nocc
+    Returns: density function: [D, 3] -> [D] where D is the number of grids.
+    """
+
+    def f(r):
+      return self.mo(self.params, r) * self.nocc
+
     wave = vmap(f)(r)  # (D, 2, N)
     alpha = wave[:, 0, :int(jnp.sum(self.nocc[0, :]))]
     beta = wave[:, 1, :int(jnp.sum(self.nocc[1, :]))]
@@ -278,11 +292,11 @@ class molecule():
 
 
 if __name__ == '__main__':
-  h2o_geometry = '''
+  h2o_geometry = """
   O 0.0000 0.0000 0.1173;
   H 0.0000 0.7572 -0.4692;
   H 0.0000 -0.7572 -0.4692;
-  '''
+  """
 
   h2o = molecule(h2o_geometry, spin=0)
   h2o.train(10)

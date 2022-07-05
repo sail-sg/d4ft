@@ -1,21 +1,19 @@
-# Normalizing Flow for the JDFT in JAX using distrax pacakge
+"""Normalizing Flow for the JDFT in JAX using distrax pacakge."""
+
 import jax
 import jax.numpy as jnp
 import jax.random as jrandom
-import jax.scipy.special as jssp
-import jax.scipy.stats as jss
 import distrax
-import optax
-from jax.nn.initializers import orthogonal
 import haiku as hk
 
 
 def real_nvp(
-    input_dim: int,
-    ndim: int,
-    nlayers: int,
-    name: str,
+  input_dim: int,
+  ndim: int,
+  nlayers: int,
+  name: str,
 ):
+  """Create a RealNVP bijector."""
   nd = input_dim
   d1 = int(jnp.ceil(nd / 2))
   d2 = nd - d1
@@ -27,10 +25,11 @@ def real_nvp(
 
   layers = []
   for i in range(nlayers):
-    is_swap = lambda i=i: ((i % 2) == 1)
+    is_swap = lambda i=i: ((i % 2) == 1)  # noqa: E731
     dim = (d2 if not is_swap() else d1)
     with hk.experimental.name_scope(f"{name}_{i}"):
-      mlp = hk.Sequential([
+      mlp = hk.Sequential(
+        [
           hk.Linear(ndim),
           jax.nn.gelu,
           hk.Linear(ndim),
@@ -38,7 +37,8 @@ def real_nvp(
           hk.Linear(ndim),
           jax.nn.gelu,
           hk.Linear(2 * dim, w_init=hk.initializers.TruncatedNormal(0.001)),
-      ])
+        ]
+      )
 
     def scale_and_shift(x1, mlp=mlp, dim=dim):
       scale_shift = jnp.reshape(mlp(x1), x1.shape[:-1] + (-1,))
@@ -48,20 +48,22 @@ def real_nvp(
       return scale, shift
 
     layers.append(
-        distrax.SplitCoupling(
-            split_index=d1,
-            event_ndims=1,
-            conditioner=scale_and_shift,
-            bijector=inner_bijector,
-            swap=is_swap(),
-        ))
+      distrax.SplitCoupling(
+        split_index=d1,
+        event_ndims=1,
+        conditioner=scale_and_shift,
+        bijector=inner_bijector,
+        swap=is_swap(),
+      )
+    )
 
   return layers
 
 
 def a_main():
+  """a_main."""
   key = jrandom.PRNGKey(0)
-  learning_rate = 0.001
+  # learning_rate = 0.001
   # optimizer = optax.adam(learning_rate)
 
   @hk.without_apply_rng

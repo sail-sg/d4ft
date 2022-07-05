@@ -1,14 +1,17 @@
-import sys
-import jax.numpy as jnp
-import numpy as np
+"""Code for visualization."""
 
-sys.path.append('..')
+import sys
+import numpy as np
+import jax.numpy as jnp
 from jax import vmap
 import matplotlib.pyplot as plt
 import matplotlib
 
+sys.path.append('..')
+
 
 def save_contour(mol, file, limit=1, delta=0.01):
+  """Plot and save the contour."""
   x = np.arange(-limit, limit, delta)
   y = np.arange(-limit, limit, delta)
   z = np.arange(-limit, limit, delta)

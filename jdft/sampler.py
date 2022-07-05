@@ -1,3 +1,5 @@
+"""Sampler for quadrature."""
+
 import jax
 import jax.numpy as jnp
 from jax import vmap
@@ -7,15 +9,15 @@ import jax.random as jrdm
 
 
 def batch_sampler(grids, weights, batchsize, seed=1):
-  '''
-    inputs:
-    |grids: (N, 3)
-    |weights: (N, )
-    |factor: percentage that split the grids.
-    output:
-    a list of ceil(1/factor) with each element is a subset of grids.
-    '''
+  """Sample a batch from the grids.
 
+  inputs:
+  |grids: (N, 3)
+  |weights: (N, )
+  |factor: percentage that split the grids.
+  output:
+  a list of ceil(1/factor) with each element is a subset of grids.
+  """
   npoint = grids.shape[0]
   key = jrdm.PRNGKey(seed)
   idx = jrdm.permutation(key, jnp.arange(npoint), independent=True)
@@ -38,7 +40,7 @@ def batch_sampler(grids, weights, batchsize, seed=1):
 
 
 def simple_grid(key, limit, cellsize, n=100, verbose=False):
-
+  """Sample meshgrid for integration."""
   cell_num = int(limit * 2 / cellsize)
   if verbose:
     print('Total number of cells: {}'.format(cell_num**3))
@@ -53,11 +55,7 @@ def simple_grid(key, limit, cellsize, n=100, verbose=False):
 
 
 def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
-  '''
-    input:
-
-    '''
-
+  """Sample from Poisson disc."""
   boundary = jnp.ones([3, 2])
   boundary = boundary.at[:, 0].set(-1)
   boundary = boundary * limit
@@ -82,11 +80,11 @@ def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
     return jnp.sum((r0 - r1)**2)**0.5
 
   def random_point_around(r, k=k):
-    # WARNING: This is not uniform around r but we can live with it
-    '''
-        return:
-        shape: (k, 3)
-        '''
+    """WARNING: This is not uniform around r but we can live with it.
+
+    return:
+    shape: (k, 3)
+    """
     R = np.random.uniform(radius, 2 * radius, k)
     theta = np.random.uniform(0, 2 * np.pi, k)
     phi = np.random.uniform(0, 2 * np.pi, k)
@@ -104,12 +102,10 @@ def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
     return all(r >= boundary[:, 0]) and all(r <= boundary[:, 1])
 
   def get_neighborhood(sample_coord):
-    '''
-        get neighbor coordinates
-        input: shape:(3)
-        return:
-        '''
+    """Get neighbor coordinates.
 
+    input: shape:(3)
+    """
     grid_index = jnp.array(
       [
         ((sample_coord[0] + limit) / grid_r).astype(int),
@@ -123,38 +119,19 @@ def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
     )(
       neigh_index
     )
-    #         index_in_sample_array = jnp.where(index_in_sample_array>-1, index_in_sample_array, 0)
     index_in_sample_array = index_in_sample_array[index_in_sample_array > -1]
-
-    #         print(index_in_sample_array)
-    #         index_in_sample_array
     output = [sample_array[i] for i in index_in_sample_array]
-
-    #         output = sample_array[index_in_sample_array]
     return jnp.array(output)
 
   def get_index(grid_index):
-    '''
-        compute neighborhood indices
-        return:
-        neighborhood indices. shape: at most [125, 3].
-        '''
-    # def axis_gen(i):
-    #     if grid_index[i] == 0:
-    #         x_ = jnp.arange(3)
-    #     elif grid_index[i] == 1:
-    #         x_ = jnp.arange(4)-1
-    #     elif grid_index[i] == grid_num_per_axis-1:
-    #         x_ = jnp.arange(3) - 2
-    #     elif grid_index[i] == grid_num_per_axis-2:
-    #         x_ = jnp.arange(4) - 2
-    #     else:
-    #         x_ = jnp.arange(5)-2
-    #     return x_
+    """Compute neighborhood indices.
 
-    # grid_index_np = np.asarray(grid_index)
-    index_ = np.array(np.meshgrid(*[np.arange(5) - 2 for i in range(3)])
-                     ).reshape(3, -1).transpose()
+    return:
+      neighborhood indices. shape: at most [125, 3].
+    """
+    index_ = np.reshape(
+      np.array(np.meshgrid(*[np.arange(5) - 2 for i in range(3)])), (3, -1)
+    ).transpose()
     index_ = grid_index + index_
     flag = np.all(index_ >= 0, axis=1)
     index_ = index_[np.all(index_ >= 0, axis=1), :]
@@ -162,26 +139,18 @@ def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
     flag = np.all(index_ < grid_num_per_axis, axis=1)
     index_ = index_.at[jnp.arange(flag.shape[0])[flag]].get()
     index_ = index_[np.all(index_ < grid_num_per_axis, axis=1), :]
-    #         grid_index_expand = jnp.expand_dims(grid_index, 0).repeat(index_.shape[0], axis=0)
-    #         flag = jnp.expand_dims(jnp.all(index_>=0, axis=1), 1).repeat(3, axis=1)
-    #         index_ = jnp.where(flag, index_, grid_index_expand)
-    #         flag = jnp.expand_dims(jnp.all(index_<grid_num_per_axis, axis=1), 1).repeat(3, axis=1)
-    #         index_ = jnp.where(flag, index_, grid_index_expand)
     return jnp.array(index_)
 
   def in_neighborhood(new_samples):
-    '''
-        input:
-        sample_points: k samples. shape: (k, 3)
-        neighbors: shape(n, 3)
-        return: the first
-        '''
+    """In neighborhood.
 
+    sample_points: k samples. shape: (k, 3)
+    neighbors: shape(n, 3)
+    return: the first
+    """
     for r0 in new_samples:
       neighbors = get_neighborhood(r0)
       if in_boundary(r0):
-        # print(vmap(lambda r1: Euclidean_distance(r0, r1))(neighbors))
-        # print(r0)
         if all(
           vmap(lambda r1: Euclidean_distance(r0, r1))(neighbors) >= radius
         ):
@@ -191,7 +160,7 @@ def poisson_disc_sampling_3d(limit=1, radius=0.1, k=30, n=100):
             return r0
     return False
 
-  ### initilize
+  # initilize
   sample_array.append(jnp.array(np.random.rand(3) * 2 * limit - limit))
   activate_array = sample_array.copy()
   grid_index_array = grid_index_array.at[

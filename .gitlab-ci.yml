@@ -1,0 +1,18 @@
+# base
+default:
+  image: registry.git.insea.io/sail/sail-engineering/golden-images/python_bazel_golden:latest
+  tags:
+    - sail
+
+stages:
+  - lint
+
+flake8:
+  stage: lint
+  script:
+    - flake8 jdft --count --show-source --statistics
+
+yapf:
+  stage: lint
+  script:
+    - yapf -r -d jdft

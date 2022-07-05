@@ -1,6 +1,4 @@
-'''
-useful functions.
-'''
+"""Useful functions."""
 
 # import jax
 from jax import vmap
@@ -9,28 +7,29 @@ import jax.numpy as jnp
 
 
 def euclidean_distance(x, y):
+  """Euclidean distance."""
   return jnp.sqrt(jnp.sum((x - y)**2))
 
 
 def r2(x, y):
+  """Square of euclidean distance."""
   return jnp.sum((x - y)**2)
 
 
 def distmat(x, y=None):
-  '''
-    distance matrix
-    '''
+  """Distance matrix."""
   if y is None:
     y = x
   return vmap(lambda x1: vmap(lambda y1: euclidean_distance(x1, y1))(y))(x)
 
 
 def gaussian_intergral(alpha, n):
-  '''
-    ref: https://mathworld.wolfram.com/GaussianIntegral.html
-    return  \int x^n exp(-alpha x^2) dx
-    '''
+  r"""Compute the integral of the gaussian basis.
 
+  Not the confuse with gaussian cdf.
+  ref: https://mathworld.wolfram.com/GaussianIntegral.html
+  return  \int x^n exp(-alpha x^2) dx
+  """
   # if n==0:
   #     return jnp.sqrt(jnp.pi/alpha)
   # elif n==1:
@@ -59,6 +58,7 @@ def gaussian_intergral(alpha, n):
 
 
 def decov(cov):
+  """Decomposition of covariance matrix."""
   v, u = jnp.linalg.eigh(cov)
   v = jnp.diag(jnp.real(v)**(-1 / 2)) + jnp.eye(v.shape[0]) * 1e-10
   ut = jnp.real(u).transpose()
@@ -66,4 +66,5 @@ def decov(cov):
 
 
 def set_diag_zero(x):
+  """Set diagonal items to zero."""
   return x.at[jnp.diag_indices(x.shape[0])].set(0)
