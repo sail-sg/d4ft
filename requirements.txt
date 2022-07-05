@@ -5,3 +5,4 @@ matplotlib >= 3.5.2
 pyscf >= 2.0.1
 distrax >= 0.1.2
 dm-haiku >= 0.0.7
+chex >= 0.1.3
