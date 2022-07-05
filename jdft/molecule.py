@@ -47,9 +47,10 @@ from jdft.energy import E_gs
 from jdft.sampler import batch_sampler
 from jdft.visualization import save_contour
 from jdft.orbitals import Pople, MO_qr
+from jdft.intor import Quadrature
+
 from pyscf import gto
 from pyscf.dft import gen_grid
-from jdft.intor import Quadrature
 
 
 class molecule():
