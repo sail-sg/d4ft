@@ -1,6 +1,8 @@
 # base
 default:
   image: registry.git.insea.io/sail/sail-engineering/golden-images/python_bazel_golden:latest
+  before_script:
+    - pip install -r requirements.txt
   tags:
     - sail
 
