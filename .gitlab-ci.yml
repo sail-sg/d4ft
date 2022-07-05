@@ -6,6 +6,7 @@ default:
 
 stages:
   - lint
+  - test
 
 flake8:
   stage: lint
@@ -16,3 +17,8 @@ yapf:
   stage: lint
   script:
     - yapf -r -d jdft
+
+test:
+  stage: test
+  script:
+    - python3 -m pytest -s tests

@@ -259,6 +259,7 @@ class molecule():
     print('E_Hartree: ', Eh_train[-1])
     print('E_xc: ', Ex_train[-1])
     print('E_nuclear_repulsion:', En_train[-1])
+    return Egs_train[-1]
 
   def get_wave(self, occ_ao=True):
     """Calculate the wave function.
