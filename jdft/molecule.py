@@ -92,11 +92,13 @@ class molecule():
     print(f'Initializing... {self.grids.shape[0]} grid points are sampled.')
 
     self.ao = Pople(self.pyscf_mol)
-    self.mo = MO_qr(self.ao, Quadrature(None, self.grids, self.weights))
+    self.mo = MO_qr(
+      self.nao, self.ao, Quadrature(None, self.grids, self.weights)
+    )
 
   def _init_param(self, seed=123):
     key = random.PRNGKey(seed)
-    return random.normal(key, [self.nao, self.nao]) / self.nao**0.5
+    return self.mo.init(key)
 
   def train(
     self,
