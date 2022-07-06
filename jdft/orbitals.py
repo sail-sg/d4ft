@@ -354,13 +354,13 @@ class Pople(Basis):
     const3 = jnp.prod(const3.T, axis=1, keepdims=True)
     const4 = jax.vmap(lambda x: factorial(2 * x))(self.ijk.T)
     const4 = jnp.prod(const4.T, axis=1, keepdims=True)
-    const = const1 * (((8 * self.exponent_mat) ** const2 * const3) /
-            const4) ** 0.5
-    output = const * jnp.prod(
+    const = (((8 * self.exponent_mat) ** const2 * const3) / const4) ** 0.5
+    output = const1 * const * jnp.prod(
       jnp.power(r-self.coord, self.ijk),
       axis=1,
       keepdims=True
       )
+    
     def fc(c): return jnp.linalg.norm(r - c) ** 2
 
     output *= self.coeff_mat * jnp.exp(
