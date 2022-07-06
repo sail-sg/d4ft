@@ -215,11 +215,11 @@ class GTO(Basis):
     """
     const = (2 * self.alpha / np.pi)**(3 / 4)
     const *= (
-      (
-        (8 * self.alpha)**(self.i + self.j + self.k) * factorial(self.i) *
-        factorial(self.j) * factorial(self.k)
-      ) /
-      (factorial(2 * self.i) * factorial(2 * self.j) * factorial(2 * self.k))
+        (
+            (8 * self.alpha)**(self.i + self.j + self.k) * factorial(self.i) *
+            factorial(self.j) * factorial(self.k)
+        ) /
+        (factorial(2 * self.i) * factorial(2 * self.j) * factorial(2 * self.k))
     )**0.5
 
     output = jnp.power(r - self.c, jnp.stack([self.i, self.j, self.k], axis=1))
@@ -256,7 +256,7 @@ class PopleSparse(Basis):
     self.c = c
     # coeff_idx = coeff_idx
     self.coeff_mat = sparse.BCOO(
-      (coeff_data, coeff_idx), shape=(len(self.pyscf_mol.ao_labels()), len(i))
+        (coeff_data, coeff_idx), shape=(len(self.pyscf_mol.ao_labels()), len(i))
     )
     self.coeff_mat = sparse.sparsify(jnp.expand_dims)(self.coeff_mat, axis=0)
     # way to build
@@ -275,7 +275,7 @@ class PopleSparse(Basis):
     basis = self._gto(r)
     basis = jnp.expand_dims(basis, axis=(0, 2))
     output = sparse.bcoo_dot_general(
-      self.coeff_mat, basis, dimension_numbers=(((2), (1)), ((0), (0)))
+        self.coeff_mat, basis, dimension_numbers=(((2), (1)), ((0), (0)))
     )
     return jnp.squeeze(output)
 
@@ -289,13 +289,14 @@ class PopleSparse(Basis):
 
 
 class Pople(Basis):
+
   def __init__(self, pyscf_mol):
     super().__init__()
     self.pyscf_mol = pyscf_mol
     self.elements = pyscf_mol.elements
     self.atom_coords = pyscf_mol.atom_coords()
     self._basis = pyscf_mol._basis
-    self.basis_max = len(self._basis[pyscf_mol.elements[0]][0])-1
+    self.basis_max = len(self._basis[pyscf_mol.elements[0]][0]) - 1
     self.ao_labels = pyscf_mol.ao_labels()
 
     exponent_mat = []
@@ -354,18 +355,17 @@ class Pople(Basis):
     const3 = jnp.prod(const3.T, axis=1, keepdims=True)
     const4 = jax.vmap(lambda x: factorial(2 * x))(self.ijk.T)
     const4 = jnp.prod(const4.T, axis=1, keepdims=True)
-    const = (((8 * self.exponent_mat) ** const2 * const3) / const4) ** 0.5
+    const = (((8 * self.exponent_mat)**const2 * const3) / const4)**0.5
     output = const1 * const * jnp.prod(
-      jnp.power(r-self.coord, self.ijk),
-      axis=1,
-      keepdims=True
-      )
-    
-    def fc(c): return jnp.linalg.norm(r - c) ** 2
+        jnp.power(r - self.coord, self.ijk), axis=1, keepdims=True
+    )
+
+    def fc(c):
+      return jnp.linalg.norm(r - c)**2
 
     output *= self.coeff_mat * jnp.exp(
-      -self.exponent_mat * jnp.expand_dims(jax.vmap(fc)(self.coord), 1)
-      )
+        -self.exponent_mat * jnp.expand_dims(jax.vmap(fc)(self.coord), 1)
+    )
     return jnp.sum(output, axis=1)
 
   def overlap(self, intor=None):
@@ -401,22 +401,22 @@ class PopleFast(Basis):
         if i[0] == 0:
           prm_array = jnp.array(i[1:])
           output.append(
-            jnp.sum(
-              prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
-              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4)
-            )
+              jnp.sum(
+                  prm_array[:, 1] *
+                  jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
+                  (2 * prm_array[:, 0] / jnp.pi)**(3 / 4)
+              )
           )
 
         elif i[0] == 1:
           prm_array = jnp.array(i[1:])
           output += [
-            (r[j] - coord[j]) * jnp.sum(
-              prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
-              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4) *
-              (4 * prm_array[:, 0])**0.5
-            ) for j in np.arange(3)
+              (r[j] - coord[j]) * jnp.sum(
+                  prm_array[:, 1] *
+                  jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
+                  (2 * prm_array[:, 0] / jnp.pi)**(3 / 4) *
+                  (4 * prm_array[:, 0])**0.5
+              ) for j in np.arange(3)
           ]
     return jnp.array(output)
 
@@ -490,7 +490,7 @@ class MO_qr(Basis):
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
       return orthogonal.transpose() @ decov(
-        self.ao.overlap(self.intor)
+          self.ao.overlap(self.intor)
       ) @ ao_fun_vec  # (self.basis_num)
 
     def f(param):
