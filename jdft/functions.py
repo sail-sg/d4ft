@@ -1,6 +1,6 @@
 """Useful functions."""
 
-# import jax
+import jax
 from jax import vmap
 import jax.numpy as jnp
 # from scipy.special import factorial2 as factorial2
@@ -9,6 +9,12 @@ import jax.numpy as jnp
 def euclidean_distance(x, y):
   """Euclidean distance."""
   return jnp.sqrt(jnp.sum((x - y)**2))
+
+
+def factorial(x):
+  """Calculate the factorial of x."""
+  x = jnp.asarray(x, dtype=jnp.float32)
+  return jnp.exp(jax.lax.lgamma(x + 1))
 
 
 def r2(x, y):
