@@ -204,7 +204,7 @@ class GTO(Basis):
     self.c = c
     self.num_basis = self.c.shape[0]
 
-  def __call__(self, r):
+  def __call__(self, r, *args):
     """Compute GTO on r.
 
     Args:
@@ -231,6 +231,9 @@ class GTO(Basis):
     output *= jnp.exp(-self.alpha * jax.vmap(fc)(self.c))
 
     return const * output
+
+  def init(self, *args):
+    return None
 
 
 class PopleSparse(Basis):
@@ -263,7 +266,7 @@ class PopleSparse(Basis):
     # gto short for Gaussian T
     self._gto = GTO(self.alpha, self.i, self.j, self.k, self.c)
 
-  def __call__(self, r):
+  def __call__(self, r, *args):
     """Compute Pople basis on r.
 
     Args:
@@ -286,6 +289,9 @@ class PopleSparse(Basis):
     else:
       intor.mo = self.__call__
       return intor.overlap()
+
+  def init(self, *args):
+    return None
 
 
 class Pople(Basis):
@@ -340,7 +346,7 @@ class Pople(Basis):
     for p, q in enumerate(coeff_mat):
       self.coeff_mat[p][0:len(q)] = q
 
-  def __call__(self, r):
+  def __call__(self, r, *args):
     '''
     Args:
       |r: shape [G, 3] where G is the number of grids.
@@ -380,6 +386,9 @@ class Pople(Basis):
       intor.mo = self.__call__
       return intor.overlap()
 
+  def init(self, *args):
+    return None
+
 
 class PopleFast(Basis):
   # this is a Pople type atomic orbital class.
@@ -390,7 +399,7 @@ class PopleFast(Basis):
     self._basis = pyscf_mol._basis
     self.elements = pyscf_mol.elements
 
-  def __call__(self, r):
+  def __call__(self, r, *args):
     '''
     R^3 -> R^N. N-body atomic orbitals.
     input:
@@ -430,6 +439,9 @@ class PopleFast(Basis):
     else:
       intor.mo = self.__call__
       return intor.overlap()
+
+  def init(self, *args):
+    return None
 
 
 class NormalPople(Pople):
@@ -475,7 +487,9 @@ class MO_qr(Basis):
 
   def init(self, rng_key):
     """Initialize the parameter required by this class."""
-    return jax.random.normal(rng_key, [self.nmo, self.nmo]) / jnp.sqrt(self.nmo)
+    mo_params = jax.random.normal(rng_key,
+                                  [self.nmo, self.nmo]) / jnp.sqrt(self.nmo)
+    return mo_params, self.ao.init(rng_key)
 
   def __call__(self, params, r):
     """Compute the molecular orbital on r.
@@ -487,9 +501,10 @@ class MO_qr(Basis):
     output:
       |molecular orbitals:(2, N)
     """
-    params = jnp.expand_dims(params, 0)
-    params = jnp.repeat(params, 2, 0)
-    ao_fun_vec = self.ao(r)
+    mo_params, ao_params = params
+    mo_params = jnp.expand_dims(mo_params, 0)
+    mo_params = jnp.repeat(mo_params, 2, 0)
+    ao_fun_vec = self.ao(r, ao_params)
 
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
@@ -500,4 +515,4 @@ class MO_qr(Basis):
     def f(param):
       return wave_fun_i(param, ao_fun_vec)
 
-    return jax.vmap(f)(params)
+    return jax.vmap(f)(mo_params)

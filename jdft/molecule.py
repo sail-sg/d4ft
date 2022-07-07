@@ -39,6 +39,7 @@ Example:
 
 import time
 import logging
+from copy import deepcopy
 import jax
 import optax
 from jax import random
@@ -124,7 +125,7 @@ class molecule():
     """Calculate the ground state wave functions."""
     if self.params is None:
       self.params = self._init_param(seed)
-    params = self.params.copy()
+    params = deepcopy(self.params)
     # schedule = optax.warmup_cosine_decay_schedule(
     #             init_value=0.5,
     #             peak_value=1,
@@ -236,7 +237,7 @@ class molecule():
           save_contour(self, file)
 
       if jnp.abs(current_loss - Batch_mean[0].item()) < converge_threshold:
-        self.params = params.copy()
+        self.params = deepcopy(params)
         print(
           'Converged at iteration {}. Training Time: {:.3f}s'.format(
             (i + 1),
@@ -259,7 +260,7 @@ class molecule():
       self.timer.append(time.time() - start_time)
 
     self.tracer += Egs_train
-    self.params = params.copy()
+    self.params = deepcopy(params)
     print(
       'Not Converged. Training Time: {:.3f}s'.format(time.time() - start_time)
     )
