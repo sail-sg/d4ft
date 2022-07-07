@@ -38,6 +38,7 @@ Example:
 """
 
 import time
+import logging
 import jax
 import optax
 from jax import random
@@ -46,11 +47,13 @@ from jax import vmap, jit
 from jdft.energy import E_gs
 from jdft.sampler import batch_sampler
 from jdft.visualization import save_contour
-from jdft.orbitals import Pople, MO_qr
+from jdft.orbitals import Pople, MO_qr, PopleFast
 from jdft.intor import Quadrature
 
 from pyscf import gto
 from pyscf.dft import gen_grid
+
+logging.getLogger().setLevel(logging.INFO)
 
 
 class molecule():
@@ -90,9 +93,16 @@ class molecule():
     self.eps = eps
     self.timer = []
 
-    print(f'Initializing... {self.grids.shape[0]} grid points are sampled.')
+    logging.info(
+      'Initializing... %d grid points are sampled.', self.grids.shape[0]
+    )
+    logging.info('There are %d atomic orbitals in total.', self.nao)
 
-    self.ao = Pople(self.pyscf_mol)
+    if self.nao >= 100:
+      self.ao = PopleFast(self.pyscf_mol)
+    else:
+      self.ao = Pople(self.pyscf_mol)
+
     self.mo = MO_qr(
       self.nao, self.ao, Quadrature(None, self.grids, self.weights)
     )

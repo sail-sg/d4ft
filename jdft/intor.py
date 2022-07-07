@@ -155,15 +155,12 @@ class Quadrature(Intor):
 
   def overlap(self):
     """Overlap matrix of the orbitals."""
+
     w_grids = jax.vmap(self.mo)(self.grids)
     w_grids = jnp.reshape(w_grids, newshape=(w_grids.shape[0], -1))
+    w_grids_weighted = w_grids * jnp.expand_dims(self.weights, axis=(1))
 
-    def outer(x):
-      return jnp.outer(x, x)
-
-    w_mat = jax.vmap(outer)(w_grids)
-    output = w_mat * jnp.expand_dims(self.weights, (1, 2))
-    return jnp.sum(output, axis=(0))
+    return jnp.matmul(w_grids_weighted.T, w_grids)
 
   def lda(self):
     """Integrate to compute the LDA functional."""

@@ -349,14 +349,19 @@ class Pople(Basis):
       |shape: [G, num_ao], where num_ao is the number of atomic orbitals.
     '''
 
-    const1 = (2 * self.exponent_mat / np.pi)**(3 / 4)
-    const2 = jnp.sum(self.ijk, axis=1, keepdims=True)
-    const3 = jax.vmap(lambda x: factorial(x))(self.ijk.T)
-    const3 = jnp.prod(const3.T, axis=1, keepdims=True)
-    const4 = jax.vmap(lambda x: factorial(2 * x))(self.ijk.T)
-    const4 = jnp.prod(const4.T, axis=1, keepdims=True)
-    const = (((8 * self.exponent_mat)**const2 * const3) / const4)**0.5
-    output = const1 * const * jnp.prod(
+    const = (
+      (
+        (8 * self.exponent_mat)**jnp.sum(self.ijk, axis=1, keepdims=True) *
+        jnp.prod(
+          jax.vmap(lambda x: factorial(x))(self.ijk.T).T, axis=1, keepdims=True
+        )
+      ) / jnp.prod(
+        jax.vmap(lambda x: factorial(2 * x))(self.ijk.T).T,
+        axis=1,
+        keepdims=True
+      )
+    )**0.5
+    output = (2 * self.exponent_mat / np.pi)**(3 / 4) * const * jnp.prod(
       jnp.power(r - self.coord, self.ijk), axis=1, keepdims=True
     )
 
@@ -377,7 +382,6 @@ class Pople(Basis):
 
 
 class PopleFast(Basis):
-
   # this is a Pople type atomic orbital class.
 
   def __init__(self, pyscf_mol):
