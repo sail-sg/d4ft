@@ -7,7 +7,7 @@ from jdft.functions import set_diag_zero, distmat
 
 def E_kinetic(intor):
   """Kinetic energy."""
-  mo = intor.mo
+  mo = intor.wave_fun
 
   def f(r):
     hessian_diag = jnp.diagonal(jax.hessian(mo)(r), 0, 2, 3)
