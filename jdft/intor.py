@@ -1,5 +1,6 @@
 """Base class of integrator."""
 
+from typing import Callable
 import jax
 import numpy as np
 import jax.numpy as jnp
@@ -9,15 +10,15 @@ from jdft.functions import set_diag_zero
 class Intor():
   """Base class of integrator."""
 
-  def __init__(self, mo):
+  def __init__(self, wave_fun: Callable[[jnp.ndarray], jnp.ndarray]):
     """Initialize an Intor.
 
     Args:
-      |mo: molecular orbitals. R^3 -> R^N.
+      |wave_fun: molecular orbitals. R^3 -> R^N.
            N-body molecular orbital wave functions.
       |mol: a molecular object.
     """
-    self.mo = mo
+    self.wave_fun = wave_fun
 
   def single1(self):
     r"""Single particle integral.
@@ -51,7 +52,7 @@ class Intor():
 class Quadrature(Intor):
   """Quadrature Integrator."""
 
-  def __init__(self, mo, grids, weights):
+  def __init__(self, wave_fun, grids, weights):
     """Initialize a Quadrature integrator.
 
     Args:
@@ -60,7 +61,7 @@ class Quadrature(Intor):
       |mol: a molecular object.
       |level: int. 0~9. grid level.
     """
-    super().__init__(mo)
+    super().__init__(wave_fun)
     self.grids = grids
     self.weights = weights
 
@@ -74,7 +75,7 @@ class Quadrature(Intor):
       float. the integral.
     """
     # w_grids: evaluation of single electron wave functions
-    w_grids = jax.vmap(self.mo)(self.grids)
+    w_grids = jax.vmap(self.wave_fun)(self.grids)
     if exponent != 1:
       w_grids = w_grids**exponent
     # v_grids: evaluation of the integrand function v
@@ -122,7 +123,7 @@ class Quadrature(Intor):
     def outer(x):
       return jnp.outer(x, x)
 
-    w_grids = jax.vmap(self.mo)(self.grids)
+    w_grids = jax.vmap(self.wave_fun)(self.grids)
     if exponent != 1:
       w_grids = w_grids**exponent
 
@@ -156,7 +157,7 @@ class Quadrature(Intor):
   def overlap(self):
     """Overlap matrix of the orbitals."""
 
-    w_grids = jax.vmap(self.mo)(self.grids)
+    w_grids = jax.vmap(self.wave_fun)(self.grids)
     w_grids = jnp.reshape(w_grids, newshape=(w_grids.shape[0], -1))
     w_grids_weighted = w_grids * jnp.expand_dims(self.weights, axis=(1))
 
@@ -164,7 +165,7 @@ class Quadrature(Intor):
 
   def lda(self):
     """Integrate to compute the LDA functional."""
-    wave_at_grid = jax.vmap(self.mo)(self.grids)  # shape: (D, 2, N)
+    wave_at_grid = jax.vmap(self.wave_fun)(self.grids)  # shape: (D, 2, N)
     const = -3 / 4 * (3 / jnp.pi)**(1 / 3)
     density = jnp.sum(wave_at_grid**2, axis=(1, 2))
     return const * jnp.sum(density**(4 / 3) * self.weights)

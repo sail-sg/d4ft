@@ -287,7 +287,7 @@ class PopleSparse(Basis):
     if not intor:
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
-      intor.mo = self.__call__
+      intor.wave_fun = self.__call__
       return intor.overlap()
 
   def init(self, *args):
@@ -383,7 +383,7 @@ class Pople(Basis):
     if not intor:
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
-      intor.mo = self.__call__
+      intor.wave_fun = self.__call__
       return intor.overlap()
 
   def init(self, *args):
@@ -437,7 +437,7 @@ class PopleFast(Basis):
     if not intor:
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
-      intor.mo = self.__call__
+      intor.wave_fun = self.__call__
       return intor.overlap()
 
   def init(self, *args):
@@ -465,7 +465,7 @@ class NormalPople(Pople):
     if not intor:
       return self.pyscf_mol.intor('int1e_ovlp_sph')
     else:
-      intor.mo = self.__call__
+      intor.wave_fun = self.__call__
       return intor.double_overlap()
 
 
@@ -482,7 +482,7 @@ class MO_qr(Basis):
       raise AssertionError
     else:
       self.intor = intor
-      self.intor.mo = self.ao
+      self.intor.wave_fun = self.ao
       self.basis_decov = decov(self.ao.overlap(intor))
 
   def init(self, rng_key):
