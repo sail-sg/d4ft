@@ -68,10 +68,10 @@ class Quadrature(Intor):
     self.grids = grids
     self.weights = weights
 
-    def mo(x):
+    def wave_fun(x):
       return self.mo_cls(self.params, x) * self.nocc
 
-    super().__init__(mo)
+    super().__init__(wave_fun)
 
   def single(self, v=lambda x: 1, exponent=1):
     r"""Single particle integral with respect to wave function.
