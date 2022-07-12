@@ -164,8 +164,8 @@ class molecule():
         def wfun(x):
           return self.mo(params, x) * self.nocc
 
-        intor = Quadrature(wfun, grids, weights)
-        # intor = Quadrature(self.mo, self.nocc, params, grids, weights)
+        # intor = Quadrature(wfun, grids, weights)
+        intor = Quadrature(self.mo, self.nocc, params, grids, weights)
 
         return E_gs(intor, self.nuclei)
 

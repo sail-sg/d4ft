@@ -2,6 +2,7 @@
 
 from typing import Callable
 import jax
+from jdft.orbitals import Basis
 import numpy as np
 import jax.numpy as jnp
 from jdft.functions import set_diag_zero
@@ -52,7 +53,7 @@ class Intor():
 class Quadrature(Intor):
   """Quadrature Integrator."""
 
-  def __init__(self, wave_fun, grids, weights):
+  def __init__(self, mo_cls: Basis, nocc: jnp.ndarray, params, grids, weights):
     """Initialize a Quadrature integrator.
 
     Args:
@@ -61,9 +62,16 @@ class Quadrature(Intor):
       |mol: a molecular object.
       |level: int. 0~9. grid level.
     """
-    super().__init__(wave_fun)
+    self.mo_cls = mo_cls
+    self.nocc = nocc
+    self.params = params
     self.grids = grids
     self.weights = weights
+
+    def mo(x):
+      return self.mo_cls(self.params, x) * self.nocc
+
+    super().__init__(mo)
 
   def single(self, v=lambda x: 1, exponent=1):
     r"""Single particle integral with respect to wave function.
