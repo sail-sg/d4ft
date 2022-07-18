@@ -157,19 +157,18 @@ class molecule():
     key = jax.random.PRNGKey(seed)
 
     @jit
-    def update(params, opt_state, grids, weights):
+    def update(params, opt_state, grids, weights, *args):
 
       def loss(params):
-
         intor = Quadrature.from_mo(self.mo, self.nocc, params, grids, weights)
-
         return E_gs(intor, self.nuclei)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
       Ek, Ee, Ex, Eh, En = Es
 
-      updates, opt_state = optimizer.update(Egs_grad, opt_state)
-      params = optax.apply_updates(params, updates)
+      self.mo.params = params
+      params, opt_state = self.mo.update(Egs_grad, optimizer, opt_state, *args)
+
       return params, opt_state, Egs, Ek, Ee, Ex, Eh, En
 
     if save_fig:
