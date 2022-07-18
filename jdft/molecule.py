@@ -54,7 +54,6 @@ from jdft.intor import Quadrature
 from pyscf import gto
 from pyscf.dft import gen_grid
 
-
 logging.getLogger().setLevel(logging.INFO)
 
 
