@@ -161,10 +161,8 @@ class molecule():
 
       def loss(params):
 
-        def wfun(x):
-          return self.mo(params, x) * self.nocc
+        intor = Quadrature.from_mo(self.mo, self.nocc, params, grids, weights)
 
-        intor = Quadrature(wfun, grids, weights)
         return E_gs(intor, self.nuclei)
 
       (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)

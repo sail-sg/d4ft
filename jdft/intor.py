@@ -2,6 +2,7 @@
 
 from typing import Callable
 import jax
+from jdft.orbitals import Basis
 import numpy as np
 import jax.numpy as jnp
 from jdft.functions import set_diag_zero
@@ -64,6 +65,14 @@ class Quadrature(Intor):
     super().__init__(wave_fun)
     self.grids = grids
     self.weights = weights
+
+  @classmethod
+  def from_mo(cls, mo_cls: Basis, nocc: jnp.ndarray, params, grids, weights):
+
+    def wave_fun(x):
+      return mo_cls(params, x) * nocc
+
+    return cls(wave_fun, grids, weights)
 
   def single(self, v=lambda x: 1, exponent=1):
     r"""Single particle integral with respect to wave function.
