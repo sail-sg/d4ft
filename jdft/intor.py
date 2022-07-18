@@ -53,7 +53,7 @@ class Intor():
 class Quadrature(Intor):
   """Quadrature Integrator."""
 
-  def __init__(self, mo_cls: Basis, nocc: jnp.ndarray, params, grids, weights):
+  def __init__(self, wave_fun, grids, weights):
     """Initialize a Quadrature integrator.
 
     Args:
@@ -62,16 +62,17 @@ class Quadrature(Intor):
       |mol: a molecular object.
       |level: int. 0~9. grid level.
     """
-    self.mo_cls = mo_cls
-    self.nocc = nocc
-    self.params = params
+    super().__init__(wave_fun)
     self.grids = grids
     self.weights = weights
 
-    def wave_fun(x):
-      return self.mo_cls(self.params, x) * self.nocc
+  @classmethod
+  def from_mo(cls, mo_cls: Basis, nocc: jnp.ndarray, params, grids, weights):
 
-    super().__init__(wave_fun)
+    def wave_fun(x):
+      return mo_cls(params, x) * nocc
+
+    return cls(wave_fun, grids, weights)
 
   def single(self, v=lambda x: 1, exponent=1):
     r"""Single particle integral with respect to wave function.

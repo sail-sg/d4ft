@@ -105,7 +105,7 @@ class molecule():
       self.ao = Pople(self.pyscf_mol)
 
     self.mo = MO_qr(
-      self.nao, self.ao, Quadrature(None, None, None, self.grids, self.weights)
+      self.nao, self.ao, Quadrature(None, self.grids, self.weights)
     )
 
   def _init_param(self, seed=123):
@@ -161,7 +161,7 @@ class molecule():
 
       def loss(params):
 
-        intor = Quadrature(self.mo, self.nocc, params, grids, weights)
+        intor = Quadrature.from_mo(self.mo, self.nocc, params, grids, weights)
 
         return E_gs(intor, self.nuclei)
 
