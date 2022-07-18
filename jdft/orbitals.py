@@ -4,6 +4,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from jax.experimental import sparse
+import optax
 from jdft.functions import decov, factorial
 # from scipy.special import factorial
 
@@ -484,6 +485,7 @@ class MO_qr(Basis):
       self.intor = intor
       self.intor.wave_fun = self.ao
       self.basis_decov = decov(self.ao.overlap(intor))
+      self.params = self.init(jax.random.PRNGKey(123))
 
   def init(self, rng_key):
     """Initialize the parameter required by this class."""
@@ -516,3 +518,17 @@ class MO_qr(Basis):
       return wave_fun_i(param, ao_fun_vec)
 
     return jax.vmap(f)(mo_params)
+
+  def update(self, grad, optimizer, opt_state):
+    '''
+    Args:
+      grad: gradients
+      optimizer: optax optimizer object
+      opt_state: optax optimizer state objects.
+    Returns:
+      params: ndarray
+      opt_state: if input opt_state is not None, will return updated opt_state.
+    '''
+    updates, opt_state = optimizer.update(grad, opt_state)
+    params = optax.apply_updates(self.params, updates)
+    return params, opt_state
