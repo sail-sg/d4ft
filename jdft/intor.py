@@ -2,7 +2,7 @@
 
 from typing import Callable
 import jax
-from jdft.orbitals import Basis
+from jdft.orbitals.basis import Basis
 import numpy as np
 import jax.numpy as jnp
 from jdft.functions import set_diag_zero
