@@ -37,20 +37,15 @@ Example:
 
 """
 
-import time
 import logging
-from copy import deepcopy
 import jax
-import optax
 from jax import random
 import jax.numpy as jnp
-from jax import vmap, jit
-from jdft.energy import E_gs
-from jdft.sampler import batch_sampler
-from jdft.visualization import save_contour
+from jax import vmap
 from jdft.orbitals import Pople, PopleFast
 from jdft.orbitals import MO_qr
 from jdft.intor import Quadrature
+from jdft.optimizer import sgd
 
 from pyscf import gto
 from pyscf.dft import gen_grid
@@ -123,152 +118,7 @@ class molecule():
     save_fig=False,
     **args
   ):
-    """Calculate the ground state wave functions."""
-    if self.params is None:
-      self.params = self._init_param(seed)
-    params = deepcopy(self.params)
-    # schedule = optax.warmup_cosine_decay_schedule(
-    #             init_value=0.5,
-    #             peak_value=1,
-    #             warmup_steps=50,
-    #             decay_steps=500,
-    #             end_value=lr,
-    #             )
-
-    if 'optimizer' in args:
-      if args['optimizer'] == 'sgd':
-        optimizer = optax.sgd(lr)
-        # optimizer = optax.chain(
-        #     optax.clip(1.0),
-        #     optax.sgd(learning_rate=schedule),
-        #     )
-
-      elif args['optimizer'] == 'adam':
-        optimizer = optax.adam(lr)
-        # optimizer = optax.chain(
-        #     optax.clip(1.0),
-        #     optax.adam(learning_rate=schedule),
-        #     )
-      else:
-        raise NotImplementedError('Optimizer in [\'sgd\', \'adam\']')
-    else:
-      optimizer = optax.sgd(lr)
-
-    opt_state = optimizer.init(params)
-    key = jax.random.PRNGKey(seed)
-
-    @jit
-    def update(params, opt_state, grids, weights, *args):
-
-      def loss(params):
-        intor = Quadrature.from_mo(self.mo, self.nocc, params, grids, weights)
-        return E_gs(intor, self.nuclei)
-
-      (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
-      Ek, Ee, Ex, Eh, En = Es
-
-      self.mo.params = params
-      params, opt_state = self.mo.update(Egs_grad, optimizer, opt_state, *args)
-
-      return params, opt_state, Egs, Ek, Ee, Ex, Eh, En
-
-    if save_fig:
-      file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(
-        0
-      ) + '.png'
-      save_contour(self, file)
-
-    print(f'Starting... Random Seed: {seed}, Batch size: {batchsize}')
-
-    current_loss = 0
-    batch_seeds = jnp.asarray(
-      jax.random.uniform(key, (epoch,)) * 100000, dtype=jnp.int32
-    )
-    Egs_train = []
-    Ek_train = []
-    Ee_train = []
-    Ex_train = []
-    Eh_train = []
-    En_train = []
-
-    start_time = time.time()
-    self.timer = []
-
-    for i in range(epoch):
-
-      batch_grids, batch_weights = batch_sampler(
-        self.grids, self.weights, batchsize=batchsize, seed=batch_seeds[i]
-      )
-      if i == 0:
-        print(
-          'Batch size: {}. Number of batches in each epoch: {}'.format(
-            batch_grids[0].shape[0], len(batch_grids)
-          )
-        )
-
-      nbatch = len(batch_grids)
-      batch_tracer = jnp.zeros(6)
-
-      for g, w in zip(batch_grids, batch_weights):
-        params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(
-          params, opt_state, g, w
-        )
-        batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh, En])
-
-      if (i + 1) % 1 == 0:
-        Batch_mean = batch_tracer / nbatch
-        assert Batch_mean.shape == (6,)
-
-        Egs_train.append(Batch_mean[0].item())
-        Ek_train.append(Batch_mean[1].item())
-        Ee_train.append(Batch_mean[2].item())
-        Ex_train.append(Batch_mean[3].item())
-        Eh_train.append(Batch_mean[4].item())
-        En_train.append(Batch_mean[5].item())
-
-        print(f'Iter: {i+1}/{epoch}. Ground State Energy: {Egs_train[-1]:.3f}.')
-
-        if save_fig:
-          file = '/home/aiops/litb/project/dft/experiment/figure/{0:04}'.format(
-            i + 1
-          ) + '.png'
-          save_contour(self, file)
-
-      if jnp.abs(current_loss - Batch_mean[0].item()) < converge_threshold:
-        self.params = deepcopy(params)
-        print(
-          'Converged at iteration {}. Training Time: {:.3f}s'.format(
-            (i + 1),
-            time.time() - start_time
-          )
-        )
-        print('E_Ground state: ', Egs_train[-1])
-        print('E_kinetic: ', Ek_train[-1])
-        print('E_ext: ', Ee_train[-1])
-        print('E_Hartree: ', Eh_train[-1])
-        print('E_xc: ', Ex_train[-1])
-        print('E_nuclear_repulsion:', En_train[-1])
-        self.tracer += Egs_train
-
-        return
-
-      else:
-        current_loss = Batch_mean[0].item()
-
-      self.timer.append(time.time() - start_time)
-
-    self.tracer += Egs_train
-    self.params = deepcopy(params)
-    print(
-      'Not Converged. Training Time: {:.3f}s'.format(time.time() - start_time)
-    )
-    print('E_Ground state: ', Egs_train[-1])
-    print('E_kinetic: ', Ek_train[-1])
-    print('E_ext: ', Ee_train[-1])
-    print('E_Hartree: ', Eh_train[-1])
-    print('E_xc: ', Ex_train[-1])
-    print('E_nuclear_repulsion:', En_train[-1])
-    return Egs_train[-1]
+    return sgd(self, epoch, lr, seed, converge_threshold, batchsize, save_fig)
 
   def get_wave(self, occ_ao=True):
     """Calculate the wave function.
