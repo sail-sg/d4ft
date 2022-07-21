@@ -112,7 +112,8 @@ def sgd(
     )
     if i == 0:
       logging.info(
-        f'Batch size: {batch_grids[0].shape[0]}. Number of batches in each epoch: {len(batch_grids)}'
+        f'Batch size: {batch_grids[0].shape[0]}. \
+          Number of batches in each epoch: {len(batch_grids)}'
       )
 
     nbatch = len(batch_grids)
