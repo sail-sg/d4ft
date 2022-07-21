@@ -48,7 +48,8 @@ from jax import vmap, jit
 from jdft.energy import E_gs
 from jdft.sampler import batch_sampler
 from jdft.visualization import save_contour
-from jdft.orbitals import Pople, MO_qr, PopleFast
+from jdft.orbitals import Pople, PopleFast
+from jdft.orbitals import MO_qr
 from jdft.intor import Quadrature
 
 from pyscf import gto
