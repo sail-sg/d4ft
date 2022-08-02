@@ -1,22 +1,23 @@
-'''
+"""
 energy integrads.
-'''
+"""
 
 import jax
 import jax.numpy as jnp
 from jdft.functions import set_diag_zero, distmat
 
 
-def wave2density(mo, keep_spin=False):
-  '''
+def wave2density(mo: callable, keep_spin=False):
+  """
   Transform the wave function into density function.
   Args:
     mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
         mo only takes one argment, which is the coordinate.
-    keep_spin: if True will return a 1D array with two elements indicating the density of each spin
-  Return [2]
-    density: [3] -> float or 1D array.
-  '''
+    keep_spin: if True will return a 1D array with two elements indicating
+    the density of each spin
+  Return:
+    density function: [3] -> float or 1D array.
+  """
 
   if keep_spin:
     return lambda r: jnp.sum(mo(r)**2, axis=1)
@@ -24,15 +25,15 @@ def wave2density(mo, keep_spin=False):
     return lambda r: jnp.sum(mo(r)**2)
 
 
-def integrand_kinetic(mo):
-  '''
+def integrand_kinetic(mo: callable):
+  r"""
   the kinetic intergrand:  - \psi(r) \nabla psi(r) /2
   Args:
     mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
     mo only takes one argment, which is the coordinate.
   Return:
     a [3] -> [1] function.
-  '''
+  """
 
   def f(r):
     hessian_diag = jnp.diagonal(jax.hessian(mo)(r), 0, 2, 3)
@@ -41,10 +42,10 @@ def integrand_kinetic(mo):
   return lambda r: -jnp.sum(f(r) * mo(r)) / 2
 
 
-def integrand_external(mo, nuclei):
-  '''
+def integrand_external(mo: callable, nuclei):
+  r"""
   the external intergrand: 1 / (r - R) * \psi^2
-  '''
+  """
 
   nuclei_loc = nuclei['loc']
   nuclei_charge = nuclei['charge']
@@ -55,15 +56,15 @@ def integrand_external(mo, nuclei):
   return lambda r: -jnp.sum(v(r) * mo(r)**2)
 
 
-def integrand_hartree(mo):
-  '''
+def integrand_hartree(mo: callable):
+  r"""
   Return n(x)n(y)/|x-y|
   Args:
     mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
     mo only takes one argment, which is the coordinate.
   Return:
     a function: [3] x [3] -> [1]
-  '''
+  """
 
   return lambda x, y: wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
     jnp.sum((x - y)**2) + 1e-10
@@ -75,7 +76,7 @@ def integrand_xc_lda(mo):
   return lambda x: const * wave2density(mo)(x)**(4 / 3)
 
 
-def integrate_single(integrand, grids, weights):
+def integrate_single(integrand: callable, grids, weights):
 
   @jax.jit
   def f(g, w):
@@ -84,10 +85,10 @@ def integrate_single(integrand, grids, weights):
   return f(grids, weights)
 
 
-def integrate_double(integrand, grids, weights):
-  '''
+def integrate_double(integrand: callable, grids, weights):
+  r"""
   \int v(x, y) dx dy
-  '''
+  """
 
   @jax.jit
   def f(g, w):
@@ -109,7 +110,7 @@ def e_nuclear(nuclei):
   return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
-def energy_gs(mo, nuclei, grids, weights):
+def energy_gs(mo: callable, nuclei: dict, grids, weights):
   e_kin = integrate_single(integrand_kinetic(mo), grids, weights)
   e_ext = integrate_single(integrand_external(mo, nuclei), grids, weights)
   e_hartree = integrate_double(integrand_hartree(mo), grids, weights)
@@ -127,6 +128,8 @@ if __name__ == '__main__':
   mol = jdft.molecule(c20_geometry, spin=0, level=1, basis='6-31g')
 
   params = mol._init_param()
-  mo = lambda r: mol.mo(params, r)
+
+  def mo(r):
+    return lambda r: mol.mo(params, r)
 
   print(energy_gs(mo, mol.nuclei, mol.grids, mol.weights)[0])

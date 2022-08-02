@@ -4,12 +4,8 @@ import time
 import jax
 import jax.numpy as jnp
 import tensorflow as tf
-from jdft.sampler import batch_sampler
 from energy import energy_gs
 import optax
-
-from pyscf import gto
-from pyscf.dft import gen_grid
 
 
 def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
@@ -17,7 +13,6 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
   params = mol._init_param(seed)
   optimizer = optax.sgd(lr)
   opt_state = optimizer.init(params)
-  key = jax.random.PRNGKey(seed)
 
   @jax.jit
   def update(params, opt_state, grids, weights):
@@ -37,10 +32,6 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
   logging.info(f"Starting... Random Seed: {seed}, Batch size: {batch_size}")
 
   prev_loss = 0.
-  batch_seeds = jnp.asarray(
-    jax.random.uniform(key, (epoch,)) * 100000, dtype=jnp.int32
-  )
-
   start_time = time.time()
   e_train = []
   converged = False
