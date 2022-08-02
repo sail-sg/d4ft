@@ -115,10 +115,9 @@ def energy_gs(mo, nuclei, grids, weights):
   e_hartree = integrate_double(integrand_hartree(mo), grids, weights)
   e_xc = integrate_single(integrand_xc_lda(mo), grids, weights)
   e_nuc = e_nuclear(nuclei)
+  e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
 
-  return e_kin + e_ext + e_xc + e_hartree + e_nuc, (
-    e_kin, e_ext, e_xc, e_hartree, e_nuc
-  )
+  return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
 
 
 if __name__ == '__main__':

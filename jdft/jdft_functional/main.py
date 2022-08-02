@@ -1,5 +1,5 @@
 import jdft
-import logging
+from absl import logging
 import time
 import jax
 import jax.numpy as jnp
@@ -14,7 +14,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 
 def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batchsize=1000):
-
+  """Run the main training loop."""
   params = mol._init_param(seed)
   optimizer = optax.sgd(lr)
   opt_state = optimizer.init(params)
@@ -30,29 +30,21 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batchsize=1000):
 
       return energy_gs(mo, mol.nuclei, grids, weights)
 
-    (Egs, Es), Egs_grad = jax.value_and_grad(loss, has_aux=True)(params)
-    Ek, Ee, Ex, Eh, En = Es
-
-    updates, opt_state = optimizer.update(Egs_grad, opt_state)
+    (e_total, e_splits), grad = jax.value_and_grad(loss, has_aux=True)(params)
+    updates, opt_state = optimizer.update(grad, opt_state)
     params = optax.apply_updates(params, updates)
-
-    return params, opt_state, Egs, Ek, Ee, Ex, Eh, En
+    return params, opt_state, (e_total, *e_splits)
 
   logging.info(f'Starting... Random Seed: {seed}, Batch size: {batchsize}')
 
-  current_loss = 0
+  prev_loss = 0
   batch_seeds = jnp.asarray(
     jax.random.uniform(key, (epoch,)) * 100000, dtype=jnp.int32
   )
-  Egs_train = []
-  Ek_train = []
-  Ee_train = []
-  Ex_train = []
-  Eh_train = []
-  En_train = []
 
   start_time = time.time()
-  timer = []
+  e_train = []
+  converged = False
 
   for i in range(epoch):
 
@@ -65,58 +57,39 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batchsize=1000):
           Number of batches in each epoch: {len(batch_grids)}'
       )
 
-    nbatch = len(batch_grids)
-    batch_tracer = jnp.zeros(6)
-
+    Es_batch = []
     for g, w in zip(batch_grids, batch_weights):
-      params, opt_state, Egs, Ek, Ee, Ex, Eh, En = update(
-        params, opt_state, g, w
-      )
-      batch_tracer += jnp.asarray([Egs, Ek, Ee, Ex, Eh, En])
+      params, opt_state, Es = update(params, opt_state, g, w)
+      Es_batch.append(Es)
+
+    # retrieve all energy terms
+    e_total, e_kin, e_ext, e_xc, e_hartree, e_nuc = jnp.mean(
+      jnp.array(Es_batch), axis=0
+    )
+    # track total energy for convergence check
+    e_train.append(e_total)
 
     if (i + 1) % 1 == 0:
-      Batch_mean = batch_tracer / nbatch
-      assert Batch_mean.shape == (6,)
+      logging.info(f'Iter: {i+1}/{epoch}. Ground State Energy: {e_total:.3f}.')
 
-      Egs_train.append(Batch_mean[0].item())
-      Ek_train.append(Batch_mean[1].item())
-      Ee_train.append(Batch_mean[2].item())
-      Ex_train.append(Batch_mean[3].item())
-      Eh_train.append(Batch_mean[4].item())
-      En_train.append(Batch_mean[5].item())
-
-      print(f'Iter: {i+1}/{epoch}. Ground State Energy: {Egs_train[-1]:.3f}.')
-
-    if jnp.abs(current_loss - Batch_mean[0].item()) < converge_threshold:
-      print(
-        'Converged at iteration {}. Training Time: {:.3f}s'.format(
-          (i + 1),
-          time.time() - start_time
-        )
-      )
-      print('E_Ground state: ', Egs_train[-1])
-      print('E_kinetic: ', Ek_train[-1])
-      print('E_ext: ', Ee_train[-1])
-      print('E_Hartree: ', Eh_train[-1])
-      print('E_xc: ', Ex_train[-1])
-      print('E_nuclear_repulsion:', En_train[-1])
-
-      return
-
+    if jnp.abs(prev_loss - e_total) < converge_threshold:
+      converged = True
+      break
     else:
-      current_loss = Batch_mean[0].item()
+      prev_loss = e_total
 
-    timer.append(time.time() - start_time)
-
-  print(
-    'Not Converged. Training Time: {:.3f}s'.format(time.time() - start_time)
-  )
-  print('E_Ground state: ', Egs_train[-1])
-  print('E_kinetic: ', Ek_train[-1])
-  print('E_ext: ', Ee_train[-1])
-  print('E_Hartree: ', Eh_train[-1])
-  print('E_xc: ', Ex_train[-1])
-  print('E_nuclear_repulsion:', En_train[-1])
+    logging.info(
+      f"Converged: {converged}."
+      f"Total epochs run: {i+1}."
+      f"Training Time: {(time.time() - start_time):.3f}s."
+    )
+    logging.info("Energy:")
+    logging.info(f" Ground State: {e_total}")
+    logging.info(f" Kinetic: {e_kin}")
+    logging.info(f" External: {e_ext}")
+    logging.info(f" Exchange-Correlation: {e_xc}")
+    logging.info(f" Hartree: {e_hartree}")
+    logging.info(f" Nucleus Repulsion: {e_nuc}")
 
 
 if __name__ == '__main__':
