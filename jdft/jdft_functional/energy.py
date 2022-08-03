@@ -1,13 +1,14 @@
 """
-energy integrads.
+energy integrands and integration.
 """
 
+from typing import Callable
 import jax
 import jax.numpy as jnp
 from jdft.functions import set_diag_zero, distmat
 
 
-def wave2density(mo: callable, keep_spin=False):
+def wave2density(mo: Callable, keep_spin=False):
   """
   Transform the wave function into density function.
   Args:
@@ -25,7 +26,7 @@ def wave2density(mo: callable, keep_spin=False):
     return lambda r: jnp.sum(mo(r)**2)
 
 
-def integrand_kinetic(mo: callable):
+def integrand_kinetic(mo: Callable):
   r"""
   the kinetic intergrand:  - \psi(r) \nabla psi(r) /2
   Args:
@@ -42,7 +43,7 @@ def integrand_kinetic(mo: callable):
   return lambda r: -jnp.sum(f(r) * mo(r)) / 2
 
 
-def integrand_external(mo: callable, nuclei):
+def integrand_external(mo: Callable, nuclei):
   r"""
   the external intergrand: 1 / (r - R) * \psi^2
   """
@@ -56,7 +57,7 @@ def integrand_external(mo: callable, nuclei):
   return lambda r: -jnp.sum(v(r) * mo(r)**2)
 
 
-def integrand_hartree(mo: callable):
+def integrand_hartree(mo: Callable):
   r"""
   Return n(x)n(y)/|x-y|
   Args:
@@ -66,9 +67,12 @@ def integrand_hartree(mo: callable):
     a function: [3] x [3] -> [1]
   """
 
-  return lambda x, y: wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
-    jnp.sum((x - y)**2) + 1e-10
-  ) / 2
+  def v(x, y):
+    return wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
+      jnp.sum((x - y)**2) + 1e-10
+    ) * jnp.where(jnp.all(x == y), 0, 1) / 2
+
+  return v
 
 
 def integrand_xc_lda(mo):
@@ -76,32 +80,41 @@ def integrand_xc_lda(mo):
   return lambda x: const * wave2density(mo)(x)**(4 / 3)
 
 
-def integrate_single(integrand: callable, grids, weights):
+def integrate_single(integrand: Callable, batch):
+  g, w = batch
 
   @jax.jit
   def f(g, w):
     return jnp.sum(jax.vmap(integrand)(g) * w)
 
-  return f(grids, weights)
+  return f(g, w)
 
 
-def integrate_double(integrand: callable, grids, weights):
+def integrate_double(integrand: Callable, batch1, batch2=None):
   r"""
   \int v(x, y) dx dy
   """
+  g1, w1 = batch1
+  if batch2 is None:
+    g2, w2 = batch1
+  else:
+    g2, w2 = batch2
 
   @jax.jit
-  def f(g, w):
-    w_mat = jax.vmap(lambda x: jax.vmap(lambda y: integrand(x, y))(g))(g)
-    w_mat = set_diag_zero(w_mat)
-    w = jnp.expand_dims(w, 1)
-    return jnp.squeeze(w.T @ w_mat @ w)
+  def f(g1, w1, g2, w2):
+    w_mat = jax.vmap(lambda x: jax.vmap(lambda y: integrand(x, y))(g2))(g1)
+    # w_mat = jnp.where(w_mat>1e3, 0, w_mat)
+    w1 = jnp.expand_dims(w1, 1)
+    w2 = jnp.expand_dims(w2, 1)
+    return jnp.squeeze(w1.T @ w_mat @ w2)
 
-  return f(grids, weights)
+  return f(g1, w1, g2, w2)
 
 
 def e_nuclear(nuclei):
-  """Potential energy between atomic nuclears."""
+  """
+    Potential energy between atomic nuclears.
+  """
   nuclei_loc = nuclei['loc']
   nuclei_charge = nuclei['charge']
   dist_nuc = distmat(nuclei_loc)
@@ -110,11 +123,11 @@ def e_nuclear(nuclei):
   return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
-def energy_gs(mo: callable, nuclei: dict, grids, weights):
-  e_kin = integrate_single(integrand_kinetic(mo), grids, weights)
-  e_ext = integrate_single(integrand_external(mo, nuclei), grids, weights)
-  e_hartree = integrate_double(integrand_hartree(mo), grids, weights)
-  e_xc = integrate_single(integrand_xc_lda(mo), grids, weights)
+def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None):
+  e_kin = integrate_single(integrand_kinetic(mo), batch1)
+  e_ext = integrate_single(integrand_external(mo, nuclei), batch1)
+  e_hartree = integrate_double(integrand_hartree(mo), batch1, batch2)
+  e_xc = integrate_single(integrand_xc_lda(mo), batch1)
   e_nuc = e_nuclear(nuclei)
   e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
 

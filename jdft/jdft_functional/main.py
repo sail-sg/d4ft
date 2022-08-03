@@ -1,4 +1,3 @@
-import jdft
 from absl import logging
 import time
 import jax
@@ -11,18 +10,18 @@ import optax
 def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
   """Run the main training loop."""
   params = mol._init_param(seed)
-  optimizer = optax.sgd(lr)
+  optimizer = optax.adam(lr)
   opt_state = optimizer.init(params)
 
   @jax.jit
-  def update(params, opt_state, grids, weights):
+  def update(params, opt_state, batch1, batch2):
 
     def loss(params):
 
       def mo(r):
         return mol.mo(params, r) * mol.nocc
 
-      return energy_gs(mo, mol.nuclei, grids, weights)
+      return energy_gs(mo, mol.nuclei, batch1, batch2)
 
     (e_total, e_splits), grad = jax.value_and_grad(loss, has_aux=True)(params)
     updates, opt_state = optimizer.update(grad, opt_state)
@@ -38,16 +37,39 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
 
   logging.info(f"Batch size: {batch_size}")
   logging.info(f"Total grid points: {len(mol.grids)}")
-  dataset = tf.data.Dataset.from_tensor_slices((
+
+  dataset1 = tf.data.Dataset.from_tensor_slices((
     mol.grids,
     mol.weights,
-  )).shuffle(len(mol.grids)).batch(batch_size)
+  )).shuffle(
+    len(mol.grids), seed=seed
+  ).batch(
+    batch_size, drop_remainder=True
+  )
+
+  dataset2 = tf.data.Dataset.from_tensor_slices((
+    mol.grids,
+    mol.weights,
+  )).shuffle(
+    len(mol.grids), seed=seed + 1
+  ).batch(
+    batch_size, drop_remainder=True
+  )
+
+  def reweigt(batch):
+    g, w = batch
+    w = w * len(mol.grids) / w.shape[0]
+    return g, w
 
   for i in range(epoch):
     Es_batch = []
-    for g, w in dataset.as_numpy_iterator():
-      w = w * len(mol.grids) / w.shape[0]
-      params, opt_state, Es = update(params, opt_state, g, w)
+
+    for batch1, batch2 in zip(
+      dataset1.as_numpy_iterator(), dataset2.as_numpy_iterator()
+    ):
+      batch1 = reweigt(batch1)
+      batch2 = reweigt(batch2)
+      params, opt_state, Es = update(params, opt_state, batch1, batch2)
       Es_batch.append(Es)
 
     # retrieve all energy terms
@@ -67,9 +89,9 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
       prev_loss = e_total
 
   logging.info(
-    f"Converged: {converged}."
-    f"Total epochs run: {i+1}."
-    f"Training Time: {(time.time() - start_time):.3f}s."
+    f"Converged: {converged}. \n"
+    f"Total epochs run: {i+1}. \n"
+    f"Training Time: {(time.time() - start_time):.3f}s. \n"
   )
   logging.info("Energy:")
   logging.info(f" Ground State: {e_total}")
@@ -81,7 +103,8 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
 
 
 if __name__ == "__main__":
-  from jdft.geometries import h2o_geometry
+  from jdft.geometries import c36_geometry
+  from molecule import molecule
 
-  mol = jdft.molecule(h2o_geometry, spin=0, level=1, basis="6-31g")
-  train(mol, epoch=100, lr=1e-2, batch_size=2000, converge_threshold=1e-5)
+  mol = molecule(c36_geometry, spin=0, level=1, basis="6-31g")
+  train(mol, epoch=500, lr=1e-2, batch_size=10000, converge_threshold=1e-5)
