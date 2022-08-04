@@ -6,6 +6,7 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 from jdft.functions import set_diag_zero, distmat
+from ao_int import _energy_precal
 
 
 def wave2density(mo: Callable, keep_spin=False):
@@ -95,10 +96,11 @@ def integrate_double(integrand: Callable, batch1, batch2=None):
   \int v(x, y) dx dy
   """
   g1, w1 = batch1
-  if batch2 is None:
-    g2, w2 = batch1
-  else:
+
+  if batch2:
     g2, w2 = batch2
+  else:
+    g2, w2 = batch1
 
   @jax.jit
   def f(g1, w1, g2, w2):
@@ -126,6 +128,29 @@ def e_nuclear(nuclei):
 def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None):
   e_kin = integrate_single(integrand_kinetic(mo), batch1)
   e_ext = integrate_single(integrand_external(mo, nuclei), batch1)
+  e_hartree = integrate_double(integrand_hartree(mo), batch1, batch2)
+  e_xc = integrate_single(integrand_xc_lda(mo), batch1)
+  e_nuc = e_nuclear(nuclei)
+  e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
+
+  return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
+
+
+def _energy_gs(
+  mo: Callable,
+  nuclei: dict,
+  params,
+  _ao_kin_mat,
+  _ao_ext_mat,
+  nocc,
+  batch1,
+  batch2=None
+):
+  """
+    calculate ground state energy with pre-calculated ao integrations.
+  """
+  e_kin = _energy_precal(params, _ao_kin_mat, nocc)
+  e_ext = _energy_precal(params, _ao_ext_mat, nocc)
   e_hartree = integrate_double(integrand_hartree(mo), batch1, batch2)
   e_xc = integrate_single(integrand_xc_lda(mo), batch1)
   e_nuc = e_nuclear(nuclei)
