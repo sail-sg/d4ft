@@ -70,7 +70,7 @@ def integrand_hartree(mo: Callable):
 
   def v(x, y):
     return wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
-      jnp.sum((x - y)**2) + 1e-10
+        jnp.sum((x - y)**2) + 1e-16
     ) * jnp.where(jnp.all(x == y), 0, 1) / 2
 
   return v
@@ -137,14 +137,14 @@ def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None):
 
 
 def _energy_gs(
-  mo: Callable,
-  nuclei: dict,
-  params,
-  _ao_kin_mat,
-  _ao_ext_mat,
-  nocc,
-  batch1,
-  batch2=None
+    mo: Callable,
+    nuclei: dict,
+    params,
+    _ao_kin_mat,
+    _ao_ext_mat,
+    nocc,
+    batch1,
+    batch2=None
 ):
   """
     calculate ground state energy with pre-calculated ao integrations.
