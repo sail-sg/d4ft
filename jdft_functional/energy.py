@@ -100,10 +100,8 @@ def integrate(integrand: Callable, *coords_and_weights):
   f = integrand
   for i in range(num):
     in_axes = (None,) * (num - i - 1) + (0,) + (None,) * (i)
-    print(in_axes)
     f = jax.vmap(f, in_axes=in_axes)
   out = f(*coords)
-  print(out.shape)
   # weighted sum
   for weight in reversed(weights):
     out = jnp.dot(out, weight)
