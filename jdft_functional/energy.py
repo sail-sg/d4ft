@@ -70,7 +70,7 @@ def integrand_hartree(mo: Callable):
 
   def v(x, y):
     return wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
-        jnp.sum((x - y)**2) + 1e-16
+      jnp.sum((x - y)**2) + 1e-16
     ) * jnp.where(jnp.all(x == y), 0, 1) / 2
 
   return v
@@ -81,36 +81,33 @@ def integrand_xc_lda(mo):
   return lambda x: const * wave2density(mo)(x)**(4 / 3)
 
 
-def integrate_single(integrand: Callable, batch):
-  g, w = batch
+def integrate(integrand: Callable, *coords_and_weights):
+  """Numerically integrate the integrand.
 
-  @jax.jit
-  def f(g, w):
-    return jnp.sum(jax.vmap(integrand)(g) * w)
+  Args:
+    integrand: a multivariable function.
+    coords_and_weights: the points that the function will be evaluated
+      and the weights of these points.
 
-  return f(g, w)
-
-
-def integrate_double(integrand: Callable, batch1, batch2=None):
-  r"""
-  \int v(x, y) dx dy
+  Returns:
+    A scalar value representing the integral.
   """
-  g1, w1 = batch1
-
-  if batch2:
-    g2, w2 = batch2
-  else:
-    g2, w2 = batch1
-
-  @jax.jit
-  def f(g1, w1, g2, w2):
-    w_mat = jax.vmap(lambda x: jax.vmap(lambda y: integrand(x, y))(g2))(g1)
-    # w_mat = jnp.where(w_mat>1e3, 0, w_mat)
-    w1 = jnp.expand_dims(w1, 1)
-    w2 = jnp.expand_dims(w2, 1)
-    return jnp.squeeze(w1.T @ w_mat @ w2)
-
-  return f(g1, w1, g2, w2)
+  # break down the coordinates and the weights
+  coords = [coord for coord, _ in coords_and_weights]
+  weights = [weight for _, weight in coords_and_weights]
+  # vmap the integrand
+  num = len(coords_and_weights)
+  f = integrand
+  for i in range(num):
+    in_axes = (None,) * (num - i - 1) + (0,) + (None,) * (i)
+    print(in_axes)
+    f = jax.vmap(f, in_axes=in_axes)
+  out = f(*coords)
+  print(out.shape)
+  # weighted sum
+  for weight in reversed(weights):
+    out = jnp.dot(out, weight)
+  return out
 
 
 def e_nuclear(nuclei):
@@ -126,10 +123,10 @@ def e_nuclear(nuclei):
 
 
 def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None):
-  e_kin = integrate_single(integrand_kinetic(mo), batch1)
-  e_ext = integrate_single(integrand_external(mo, nuclei), batch1)
-  e_hartree = integrate_double(integrand_hartree(mo), batch1, batch2)
-  e_xc = integrate_single(integrand_xc_lda(mo), batch1)
+  e_kin = integrate(integrand_kinetic(mo), batch1)
+  e_ext = integrate(integrand_external(mo, nuclei), batch1)
+  e_hartree = integrate(integrand_hartree(mo), batch1, batch2)
+  e_xc = integrate(integrand_xc_lda(mo), batch1)
   e_nuc = e_nuclear(nuclei)
   e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
 
@@ -137,22 +134,22 @@ def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None):
 
 
 def _energy_gs(
-    mo: Callable,
-    nuclei: dict,
-    params,
-    _ao_kin_mat,
-    _ao_ext_mat,
-    nocc,
-    batch1,
-    batch2=None
+  mo: Callable,
+  nuclei: dict,
+  params,
+  _ao_kin_mat,
+  _ao_ext_mat,
+  nocc,
+  batch1,
+  batch2=None
 ):
   """
     calculate ground state energy with pre-calculated ao integrations.
   """
   e_kin = _energy_precal(params, _ao_kin_mat, nocc)
   e_ext = _energy_precal(params, _ao_ext_mat, nocc)
-  e_hartree = integrate_double(integrand_hartree(mo), batch1, batch2)
-  e_xc = integrate_single(integrand_xc_lda(mo), batch1)
+  e_hartree = integrate(integrand_hartree(mo), batch1, batch2)
+  e_xc = integrate(integrand_xc_lda(mo), batch1)
   e_nuc = e_nuclear(nuclei)
   e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
 
