@@ -59,7 +59,7 @@ class Pople(Basis):
     for p, q in enumerate(coeff_mat):
       self.coeff_mat[p][0:len(q)] = q
 
-  def __call__(self, r, **args):
+  def __call__(self, r, *args):
     '''
     Args:
       |r: shape [G, 3] where G is the number of grids.
@@ -106,7 +106,7 @@ class PopleFast(Basis):
     self._basis = pyscf_mol._basis
     self.elements = pyscf_mol.elements
 
-  def __call__(self, r, **args):
+  def __call__(self, r, *args):
     '''
     R^3 -> R^N. N-body atomic orbitals.
     input:
