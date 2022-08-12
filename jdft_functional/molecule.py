@@ -59,6 +59,8 @@ class molecule():
     )
     logging.info('There are %d atomic orbitals in total.', self.nao)
 
+
+    #### build ao
     if self.nao >= 100:
       self.ao = PopleFast(self.pyscf_mol)
     else:
@@ -67,6 +69,10 @@ class molecule():
     if basis == 'gaussian':
       self.ao = Gaussian(self.pyscf_mol)
 
+    if mode == 'go':   # geometry optimization
+      self.ao = PopleFast(self.pyscf_mol, mode='go')
+
+    #### build mo
     if mode == 'vpf':
       self.mo = MO_vpf(
           self.nao, self.ao, VolumePreservingFlow(layers=args['layers'])

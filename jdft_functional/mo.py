@@ -37,7 +37,7 @@ class MO_qr(Basis):
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
       return orthogonal.transpose() @ decov(
-          self.ao.overlap(**args)
+          self.ao.overlap(params=ao_params, **args)
       ) @ ao_fun_vec  # (self.basis_num)
 
     def f(param):
