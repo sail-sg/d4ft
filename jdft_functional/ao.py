@@ -7,6 +7,26 @@ from jdft.orbitals.basis import Basis
 from ao_int import _ao_overlap_int
 
 
+def gaussian_primitive(r, alpha, ijk):
+  """Gaussian primitive functions.
+
+  More often called GTOs as explained in
+  https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Supplemental_Modules_(Physical_and_Theoretical_Chemistry)/Quantum_Mechanics/17%3A_Quantum_Calculations/ab_initio_Basis_Sets
+  Args:
+    r: shape = (3,)
+    alpha: shape = (,)
+    ijk: shape = (3,)
+  Returns:
+    normalized x^l y^m z^n e^{-alpha r^2}
+  """
+  normalization = (2 * alpha / np.pi)**(3 / 4) * jnp.sqrt(
+    (8 * alpha)**jnp.sum(ijk) * jnp.prod(factorial(ijk)) /
+    jnp.prod(factorial(2 * ijk))
+  )
+  xyz_ijk = jnp.prod(jnp.power(r, ijk))
+  return xyz_ijk * jnp.exp(-alpha * jnp.linalg.norm(r)**2) * normalization
+
+
 class Pople(Basis):
 
   def __init__(self, pyscf_mol):
