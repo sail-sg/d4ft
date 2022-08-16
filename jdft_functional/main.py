@@ -10,13 +10,13 @@ from ao_int import _ao_ext_int, _ao_kin_int
 
 
 def train(
-    mol,
-    epoch,
-    lr,
-    seed=123,
-    converge_threshold=1e-3,
-    batch_size=1000,
-    pre_cal=False
+  mol,
+  epoch,
+  lr,
+  seed=123,
+  converge_threshold=1e-3,
+  batch_size=1000,
+  pre_cal=False
 ):
   """Run the main training loop."""
   params = mol._init_param(seed)
@@ -32,21 +32,21 @@ def train(
     return g, w
 
   dataset1 = tf.data.Dataset.from_tensor_slices((
-      mol.grids,
-      mol.weights,
+    mol.grids,
+    mol.weights,
   )).shuffle(
-      len(mol.grids), seed=seed
+    len(mol.grids), seed=seed
   ).batch(
-      batch_size, drop_remainder=True
+    batch_size, drop_remainder=True
   )
 
   dataset2 = tf.data.Dataset.from_tensor_slices((
-      mol.grids,
-      mol.weights,
+    mol.grids,
+    mol.weights,
   )).shuffle(
-      len(mol.grids), seed=seed + 1
+    len(mol.grids), seed=seed + 1
   ).batch(
-      batch_size, drop_remainder=True
+    batch_size, drop_remainder=True
   )
 
   if pre_cal:
@@ -92,8 +92,8 @@ def train(
 
       if pre_cal:
         return _energy_gs(
-            mo, mol.nuclei, params, _ao_kin_mat, _ao_ext_mat, mol.nocc, batch1,
-            batch2
+          mo, mol.nuclei, params, _ao_kin_mat, _ao_ext_mat, mol.nocc, batch1,
+          batch2
         )
       else:
         return energy_gs(mo, mol.nuclei, batch1, batch2)
@@ -117,7 +117,7 @@ def train(
     Es_batch = []
 
     for batch1, batch2 in zip(
-        dataset1.as_numpy_iterator(), dataset2.as_numpy_iterator()
+      dataset1.as_numpy_iterator(), dataset2.as_numpy_iterator()
     ):
       batch1 = reweigt(batch1)
       batch2 = reweigt(batch2)
@@ -126,7 +126,7 @@ def train(
 
     # retrieve all energy terms
     e_total, e_kin, e_ext, e_xc, e_hartree, e_nuc = jnp.mean(
-        jnp.array(Es_batch), axis=0
+      jnp.array(Es_batch), axis=0
     )
     # track total energy for convergence check
     e_train.append(e_total)
@@ -141,9 +141,9 @@ def train(
       prev_loss = e_total
 
   logging.info(
-      f"Converged: {converged}. \n"
-      f"Total epochs run: {i+1}. \n"
-      f"Training Time: {(time.time() - start_time):.3f}s. \n"
+    f"Converged: {converged}. \n"
+    f"Total epochs run: {i+1}. \n"
+    f"Training Time: {(time.time() - start_time):.3f}s. \n"
   )
   logging.info("Energy:")
   logging.info(f" Ground State: {e_total}")
@@ -157,15 +157,15 @@ def train(
 
 
 if __name__ == "__main__":
-  from jdft.geometries import c60_geometry
+  from jdft.geometries import h2o_geometry
   from molecule import molecule
 
-  mol = molecule(c60_geometry, spin=0, level=1, basis="6-31g")
+  mol = molecule(h2o_geometry, spin=0, level=1, basis="6-31g")
   train(
-      mol,
-      epoch=100,
-      lr=1e-2,
-      batch_size=5000,
-      converge_threshold=1e-5,
-      pre_cal=True
+    mol,
+    epoch=100,
+    lr=1e-2,
+    batch_size=20000,
+    converge_threshold=1e-5,
+    pre_cal=True
   )

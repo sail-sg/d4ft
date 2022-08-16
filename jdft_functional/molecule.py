@@ -7,17 +7,16 @@ import jax.numpy as jnp
 from ao import Pople, PopleFast, Gaussian
 from mo import MO_qr, MO_vpf
 from vpf import VolumePreservingFlow
+from grids import gen_grids
 from absl import logging
-
 from pyscf import gto
-from pyscf.dft import gen_grid
 
 
 class molecule():
   """Class to represent a molecule."""
 
   def __init__(
-      self, config, spin, basis='3-21g', level=1, eps=1e-10, mode=None, **args
+    self, config, spin, basis='3-21g', level=1, eps=1e-10, mode=None, **args
   ):
     """Initialize a molecule."""
     if basis == 'gaussian':
@@ -42,25 +41,20 @@ class molecule():
                                      2)].set(1)
 
     self.nuclei = {
-        'loc': jnp.array(self.atom_coords),
-        'charge': jnp.array(self.atom_charges)
+      'loc': jnp.array(self.atom_coords),
+      'charge': jnp.array(self.atom_charges)
     }
     self.level = level
-    g = gen_grid.Grids(self.pyscf_mol)
-    g.level = self.level
-    g.build()
-    self.grids = jnp.array(g.coords)
-    self.weights = jnp.array(g.weights)
+    self.grids, self.weights = gen_grids(self.pyscf_mol, level)
     self.eps = eps
     self.timer = []
 
     logging.info(
-        'Initializing... %d grid points are sampled.', self.grids.shape[0]
+      'Initializing... %d grid points are sampled.', self.grids.shape[0]
     )
     logging.info('There are %d atomic orbitals in total.', self.nao)
 
-
-    #### build ao
+    # build ao
     if self.nao >= 100:
       self.ao = PopleFast(self.pyscf_mol)
     else:
@@ -69,13 +63,13 @@ class molecule():
     if basis == 'gaussian':
       self.ao = Gaussian(self.pyscf_mol)
 
-    if mode == 'go':   # geometry optimization
+    if mode == 'go':  # geometry optimization
       self.ao = PopleFast(self.pyscf_mol, mode='go')
 
-    #### build mo
+    # build mo
     if mode == 'vpf':
       self.mo = MO_vpf(
-          self.nao, self.ao, VolumePreservingFlow(layers=args['layers'])
+        self.nao, self.ao, VolumePreservingFlow(layers=args['layers'])
       )
     else:
       self.mo = MO_qr(self.nao, self.ao)
