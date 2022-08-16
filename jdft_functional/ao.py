@@ -110,7 +110,7 @@ class Pople(Basis):
     )
     return jnp.sum(output, axis=1)
 
-  def overlap(self):
+  def overlap(self, **kwargs):
     return self.pyscf_mol.intor('int1e_ovlp_sph')
 
   def init(self, *args):
