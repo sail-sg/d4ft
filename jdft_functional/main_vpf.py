@@ -22,21 +22,21 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
     return g, w
 
   dataset1 = tf.data.Dataset.from_tensor_slices((
-      mol.grids,
-      mol.weights,
+    mol.grids,
+    mol.weights,
   )).shuffle(
-      len(mol.grids), seed=seed
+    len(mol.grids), seed=seed
   ).batch(
-      batch_size, drop_remainder=True
+    batch_size, drop_remainder=True
   )
 
   dataset2 = tf.data.Dataset.from_tensor_slices((
-      mol.grids,
-      mol.weights,
+    mol.grids,
+    mol.weights,
   )).shuffle(
-      len(mol.grids), seed=seed + 1
+    len(mol.grids), seed=seed + 1
   ).batch(
-      batch_size, drop_remainder=True
+    batch_size, drop_remainder=True
   )
 
   @jax.jit
@@ -69,7 +69,7 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
     Es_batch = []
 
     for batch1, batch2 in zip(
-        dataset1.as_numpy_iterator(), dataset2.as_numpy_iterator()
+      dataset1.as_numpy_iterator(), dataset2.as_numpy_iterator()
     ):
       batch1 = reweigt(batch1)
       batch2 = reweigt(batch2)
@@ -78,7 +78,7 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
 
     # retrieve all energy terms
     e_total, e_kin, e_ext, e_xc, e_hartree, e_nuc = jnp.mean(
-        jnp.array(Es_batch), axis=0
+      jnp.array(Es_batch), axis=0
     )
     # track total energy for convergence check
     e_train.append(e_total)
@@ -93,9 +93,9 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
       prev_loss = e_total
 
   logging.info(
-      f"Converged: {converged}. \n"
-      f"Total epochs run: {i+1}. \n"
-      f"Training Time: {(time.time() - start_time):.3f}s. \n"
+    f"Converged: {converged}. \n"
+    f"Total epochs run: {i+1}. \n"
+    f"Training Time: {(time.time() - start_time):.3f}s. \n"
   )
   logging.info("Energy:")
   logging.info(f" Ground State: {e_total}")
@@ -113,9 +113,9 @@ if __name__ == "__main__":
   from molecule import molecule
 
   mol = molecule(
-      co2_geometry, spin=0, level=1, basis="gaussian", mode='vpf', layers='ococ'
+    co2_geometry, spin=0, level=1, basis="gaussian", mode='vpf', layers='ococ'
   )
   params = train(
-      mol, epoch=200, lr=1e-3, batch_size=20000, converge_threshold=1e-5
+    mol, epoch=200, lr=1e-3, batch_size=20000, converge_threshold=1e-5
   )
   print(params[2])

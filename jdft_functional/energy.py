@@ -120,7 +120,7 @@ def e_nuclear(nuclei):
   return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
-def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None):
+def energy_gs(mo: Callable, nuclei: dict, batch1, batch2):
   e_kin = integrate(integrand_kinetic(mo), batch1)
   e_ext = integrate(integrand_external(mo, nuclei), batch1)
   e_hartree = integrate(integrand_hartree(mo), batch1, batch2)

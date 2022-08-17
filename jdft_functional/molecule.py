@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from ao import Pople, PopleFast, Gaussian
 from mo import MO_qr, MO_vpf
 from vpf import VolumePreservingFlow
-from grids import gen_grids
+from grids import _gen_grid
 from absl import logging
 from pyscf import gto
 
@@ -45,7 +45,7 @@ class molecule():
       'charge': jnp.array(self.atom_charges)
     }
     self.level = level
-    self.grids, self.weights = gen_grids(self.pyscf_mol, level)
+    self.grids, self.weights = _gen_grid(self.pyscf_mol, level)
     self.eps = eps
     self.timer = []
 
@@ -55,16 +55,13 @@ class molecule():
     logging.info('There are %d atomic orbitals in total.', self.nao)
 
     # build ao
-    if self.nao >= 100:
+    if self.nao >= 1:
       self.ao = PopleFast(self.pyscf_mol)
     else:
       self.ao = Pople(self.pyscf_mol)
 
     if basis == 'gaussian':
       self.ao = Gaussian(self.pyscf_mol)
-
-    if mode == 'go':  # geometry optimization
-      self.ao = PopleFast(self.pyscf_mol, mode='go')
 
     # build mo
     if mode == 'vpf':

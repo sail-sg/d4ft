@@ -19,7 +19,7 @@ class MO_qr(Basis):
                                   [self.nmo, self.nmo]) / jnp.sqrt(self.nmo)
     return mo_params, self.ao.init(rng_key)
 
-  def __call__(self, params, r, **args):
+  def __call__(self, params, r, **kwargs):
     """Compute the molecular orbital on r.
 
     R^3 -> R^N. N-body molecular orbital wave functions.
@@ -37,7 +37,7 @@ class MO_qr(Basis):
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
       return orthogonal.transpose() @ decov(
-          self.ao.overlap(params=ao_params, **args)
+        self.ao.overlap(params=ao_params, **kwargs)
       ) @ ao_fun_vec  # (self.basis_num)
 
     def f(param):
@@ -78,7 +78,7 @@ class MO_vpf(Basis):
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
       return orthogonal.transpose() @ decov(
-          self.ao.overlap(**args)
+        self.ao.overlap(**args)
       ) @ ao_fun_vec  # (self.basis_num)
 
     def f(param):

@@ -25,7 +25,8 @@ def get_partition(
   atom_label=False,
   atomic_radii=pyscf.dft.radi.BRAGG_RADII,
   becke_scheme=original_becke,
-  concat=True
+  concat=True,
+  **kwargs
 ):
   '''Generate the mesh grid coordinates and weights for DFT numerical
   integration. We can change radii_adjust, becke_scheme functions to generate
@@ -43,8 +44,9 @@ def get_partition(
     f_radii_adjust = radii_adjust(mol, atomic_radii)
   else:
     f_radii_adjust = None
-  atm_coords = np.asarray(mol.atom_coords(), order='C')
-  atm_dist = gto.inter_distance(mol)
+  atm_coords = kwargs.get('atom_coords', mol.atom_coords())
+  atm_coords = np.asarray(atm_coords, order='C')
+  atm_dist = gto.inter_distance(mol, coords=atm_coords)
   if (
     becke_scheme is original_becke and (
       radii_adjust is pyscf.dft.radi.treutler_atomic_radii_adjust or
@@ -110,13 +112,14 @@ def get_partition(
     coords_all = np.vstack(coords_all)
     weights_all = np.hstack(weights_all)
     atam_all = np.hstack(atam_all)
+
   if atom_label:
     return coords_all, weights_all, atam_all
   else:
     return coords_all, weights_all
 
 
-def gen_grids(mol, level=1, atom_label=False):
+def _gen_grid(mol, level=1, atom_label=False, **kwargs):
   return get_partition(
-    mol, gen_grid.gen_atomic_grids(mol, level=level), atom_label
+    mol, gen_grid.gen_atomic_grids(mol, level=level), atom_label, **kwargs
   )
