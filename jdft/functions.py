@@ -8,7 +8,7 @@ import jax.numpy as jnp
 
 def euclidean_distance(x, y):
   """Euclidean distance."""
-  return jnp.sqrt(jnp.sum((x - y)**2+1e-10))
+  return jnp.sqrt(jnp.sum((x - y)**2 + 1e-10))
 
 
 def factorial(x):
