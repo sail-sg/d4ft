@@ -9,7 +9,7 @@ from jdft.functions import set_diag_zero, distmat
 from ao_int import _energy_precal
 
 
-def wave2density(mo: Callable, keep_spin=False):
+def wave2density(mo: Callable, nocc=1., keep_spin=False):
   """
   Transform the wave function into density function.
   Args:
@@ -22,40 +22,57 @@ def wave2density(mo: Callable, keep_spin=False):
   """
 
   if keep_spin:
-    return lambda r: jnp.sum(mo(r)**2, axis=1)
+    return lambda r: jnp.sum((mo(r) * nocc)**2, axis=1)
   else:
-    return lambda r: jnp.sum(mo(r)**2)
+    return lambda r: jnp.sum((mo(r) * nocc)**2)
 
 
-def integrand_kinetic(mo: Callable):
+def integrand_kinetic(mo: Callable, keep_dim=False):
   r"""
   the kinetic intergrand:  - \psi(r) \nabla psi(r) /2
   Args:
-    mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
-    mo only takes one argment, which is the coordinate.
+    mo: a [3] -> [2, N, N] function, where N is the number of molecular
+    orbitals. mo only takes one argment, which is the coordinate.
   Return:
-    a [3] -> [1] function.
+    a [3] -> [1] function. If keep_dim is True, will return a
+    [3] -> [2, N, N] function.
   """
 
   def f(r):
     hessian_diag = jnp.diagonal(jax.hessian(mo)(r), 0, 2, 3)
     return jnp.sum(hessian_diag, axis=2)
 
+  if keep_dim:
+    return lambda r: -jax.vmap(jnp.outer)(mo(r), f(r)) / 2
+
   return lambda r: -jnp.sum(f(r) * mo(r)) / 2
 
 
-def integrand_external(mo: Callable, nuclei):
+def integrand_external(mo: Callable, nuclei, keep_dim=False):
   r"""
-  the external intergrand: 1 / (r - R) * \psi^2
+  the external intergrand: 1 / (r - R) * \psi^2.
+  If keep_dim, return a function [3] -> [2, N], where each element reads
+    \phi_i^2 /|r-R|
   """
 
   nuclei_loc = nuclei['loc']
   nuclei_charge = nuclei['charge']
 
   def v(r):
-    return jnp.sum(nuclei_charge / jnp.linalg.norm(r - nuclei_loc, axis=1))
+    return jnp.sum(
+      nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-10)
+    )
 
-  return lambda r: -jnp.sum(v(r) * mo(r)**2)
+  if keep_dim:
+
+    def o(r):
+      return -v(r) * mo(r)**2
+  else:
+
+    def o(r):
+      return -jnp.sum(v(r) * mo(r)**2)
+
+  return o
 
 
 def integrand_hartree(mo: Callable):
@@ -70,15 +87,15 @@ def integrand_hartree(mo: Callable):
 
   def v(x, y):
     return wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
-      jnp.sum((x - y)**2) + 1e-16
+      jnp.sum((x - y)**2) + 1e-10
     ) * jnp.where(jnp.all(x == y), 0, 1) / 2
 
   return v
 
 
-def integrand_xc_lda(mo):
+def integrand_xc_lda(mo, keep_spin=False):
   const = -3 / 4 * (3 / jnp.pi)**(1 / 3)
-  return lambda x: const * wave2density(mo)(x)**(4 / 3)
+  return lambda x: const * wave2density(mo, keep_spin=keep_spin)(x)**(4 / 3)
 
 
 def integrate(integrand: Callable, *coords_and_weights):
@@ -90,7 +107,7 @@ def integrate(integrand: Callable, *coords_and_weights):
       and the weights of these points.
 
   Returns:
-    A scalar value representing the integral.
+    A scalar value as the result of the integral.
   """
   # break down the coordinates and the weights
   coords = [coord for coord, _ in coords_and_weights]
