@@ -125,9 +125,9 @@ def scf(iter, mol, seed=123, momentum=0.5):
       return mol.mo((mo_params, None), r) * mol.nocc
 
     return mo_params, energy_gs(mo, mol.nuclei, batch, batch)
-  x
+
   # the main loop.
-  logging.info(f" Starting...SCF loop") 
+  logging.info(f" Starting...SCF loop")
   for i in range(iter):
     new_params, Es = update(mo_params)
     mo_params = (1 - momentum) * new_params + momentum * mo_params
