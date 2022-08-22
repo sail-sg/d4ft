@@ -5,7 +5,7 @@ import jax.numpy as jnp
 # from jdft.orbitals import MO_qr
 
 from ao import Pople, PopleFast, Gaussian
-from mo import MO_qr, MO_vpf
+from mo import MO_qr, MO_vpf, MO
 from vpf import VolumePreservingFlow
 from grids import _gen_grid
 from absl import logging
@@ -68,6 +68,10 @@ class molecule():
       self.mo = MO_vpf(
         self.nao, self.ao, VolumePreservingFlow(layers=args['layers'])
       )
+
+    elif mode == 'scf':
+      self.mo = MO(self.nao, self.ao)
+
     else:
       self.mo = MO_qr(self.nao, self.ao)
 
