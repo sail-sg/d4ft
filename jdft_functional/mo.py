@@ -4,6 +4,44 @@ from jdft.functions import decov
 from jdft.orbitals.basis import Basis
 
 
+class MO(Basis):
+
+  def __init__(self, nmo, ao):
+    """Initialize molecular orbital"""
+    super().__init__()
+    self.ao = ao
+    self.nmo = nmo
+
+  def init(self, rng_key):
+    mo_params = jax.random.normal(rng_key,
+                                  [2, self.nmo, self.nmo]) / jnp.sqrt(self.nmo)
+    # mo_params, _ = jnp.linalg.qr(mo_params)
+    return mo_params, self.ao.init(rng_key)
+
+  def __call__(self, params, r, **kwargs):
+    """Evaluate the molecular orbital on r.
+    Args:
+      params: a tuple of (mo_params, ao_params)
+              mo_params is expected to be a [2, N, N] orthogonal array
+      r: [3] array
+    Return:
+      molecular orbitals:[2, N]
+    """
+
+    mo_params, ao_params = params
+    ao_fun_vec = self.ao(r, ao_params)
+
+    def wave_fun_i(param_i, ao_fun_vec):
+      return param_i @ decov(
+        self.ao.overlap(params=ao_params, **kwargs)
+      ) @ ao_fun_vec
+
+    def f(param):
+      return wave_fun_i(param, ao_fun_vec)
+
+    return jax.vmap(f)(mo_params)
+
+
 class MO_qr(Basis):
   """Molecular orbital using QR decomposition."""
 
