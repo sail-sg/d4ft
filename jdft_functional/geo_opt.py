@@ -4,8 +4,9 @@ import jax
 import jax.numpy as jnp
 from energy import energy_gs
 import optax
-
+from grids import _gen_grid
 from jdft.functions import distmat
+import copy
 
 
 def geo_opt(
@@ -27,7 +28,6 @@ def geo_opt(
   if batch_size > mol.grids.shape[0]:
     batch_size = mol.grids.shape[0]
 
-  batch = (mol.grids, mol.weights)
   params_mask = jnp.ones_like(nuclei['loc'])
   params_mask = params_mask.at[:, 0].set(0)
   params_mask = params_mask.at[:, 1].set(0)
@@ -46,13 +46,13 @@ def geo_opt(
       def mo(r):
         return mol.mo((mo_params, None), r, grids=g, weights=w) * mol.nocc
 
-      nuclei['loc'] = atom_coords
+      nuclei['loc'] = copy.deepcopy(atom_coords)
       return energy_gs(mo, nuclei, batch, batch)
 
     (e_total, e_splits), grad = jax.value_and_grad(loss, has_aux=True)(_params)
     updates, opt_state = optimizer.update(grad, opt_state)
     _params = optax.apply_updates(_params, updates)
-    nuclei['loc'] = _params[1]
+    nuclei['loc'] = copy.deepcopy(_params[1])
     params = (_params[0], _)
     return params, nuclei, opt_state, (e_total, *e_splits)
 
@@ -68,9 +68,14 @@ def geo_opt(
 
   for i in range(epoch):
     Es_batch = []
+
+    _grids, _weights = _gen_grid(
+      mol.pyscf_mol, level=1, atom_label=False, atom_coords=nuclei['loc']
+    )
     # this can be replaced by just shifting the grids according to the new atom
     # coordinates, instead of resampling.
 
+    batch = (_grids, _weights)
     params, nuclei, opt_state, Es = update(params, nuclei, opt_state, batch)
     Es_batch.append(Es)
 
@@ -120,11 +125,11 @@ if __name__ == "__main__":
   H 0.0000 0.0000 1.2;
   """
 
-  mol = molecule(h2_start, spin=0, level=1, basis="6-31g", mode='go')
+  mol = molecule(h2_start, spin=0, level=2, basis="6-31g", mode='go')
   geo_opt(
     mol,
-    epoch=1000,
-    lr=1e-3,
-    batch_size=1000,
+    epoch=200,
+    lr=4e-3,
+    batch_size=50000,
     converge_threshold=1e-7,
   )
