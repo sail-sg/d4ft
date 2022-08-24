@@ -3,6 +3,7 @@
 import jax
 from jax import vmap
 import jax.numpy as jnp
+import numpy as np
 # from scipy.special import factorial2 as factorial2
 
 
@@ -56,10 +57,10 @@ def gaussian_intergral(alpha, n):
   #     raise NotImplementedError()
 
   return (
-    (n == 0) * jnp.sqrt(jnp.pi / alpha) +
-    (n == 2) * 1 / 2 / alpha * jnp.sqrt(jnp.pi / alpha) +
-    (n == 4) * 3 / 4 / alpha**2 * jnp.sqrt(jnp.pi / alpha) +
-    (n == 6) * 15 / 8 / alpha**3 * jnp.sqrt(jnp.pi / alpha)
+      (n == 0) * jnp.sqrt(jnp.pi / alpha) +
+      (n == 2) * 1 / 2 / alpha * jnp.sqrt(jnp.pi / alpha) +
+      (n == 4) * 3 / 4 / alpha**2 * jnp.sqrt(jnp.pi / alpha) +
+      (n == 6) * 15 / 8 / alpha**3 * jnp.sqrt(jnp.pi / alpha)
   )
 
 
@@ -74,3 +75,41 @@ def decov(cov):
 def set_diag_zero(x):
   """Set diagonal items to zero."""
   return x.at[jnp.diag_indices(x.shape[0])].set(0)
+
+
+def minibatch_vmap(f, in_axes=0, batch_size=10):
+  """
+    automatic batched vmap operation.
+  """
+  batch_f = jax.vmap(f, in_axes=in_axes)
+
+  def _minibatch_vmap_f(*args):
+    nonlocal in_axes
+    if not isinstance(in_axes, (tuple, list)):
+      in_axes = (in_axes,) * len(args)
+    for i, ax in enumerate(in_axes):
+      if ax is not None:
+        num = args[i].shape[ax]
+    num_shards = int(np.ceil(num / batch_size))
+    size = num_shards * batch_size
+    indices = jnp.arange(0, size, batch_size)
+
+    def _process_batch(start_index):
+      batch_args = (
+          jax.lax.dynamic_slice_in_dim(
+              a,
+              start_index=start_index,
+              slice_size=batch_size,
+              axis=ax,
+          ) if ax is not None else a for a, ax in zip(args, in_axes)
+      )
+      return batch_f(*batch_args)
+
+    out = jax.lax.map(_process_batch, indices)
+    if isinstance(out, jnp.ndarray):
+      out = jnp.reshape(out, (-1, *out.shape[2:]))[:num]
+    elif isinstance(out, (tuple, list)):
+      out = tuple(jnp.reshape(o, (-1, *o.shape[2:]))[:num] for o in out)
+    return out
+
+  return _minibatch_vmap_f
