@@ -134,7 +134,7 @@ class PopleFast(Basis):
         |r: (3) coordinate.
     '''
 
-    atom_coords = self.atom_coords
+    atom_coords = kwargs.get('atom_coords', self.atom_coords)
     output = []
     for idx in np.arange(len(self.elements)):
       element = self.elements[idx]
@@ -145,7 +145,7 @@ class PopleFast(Basis):
           output.append(
             jnp.sum(
               prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
+              jnp.exp(-prm_array[:, 0] * jnp.sum((r - coord)**2)) *
               (2 * prm_array[:, 0] / jnp.pi)**(3 / 4)
             )
           )
@@ -155,7 +155,7 @@ class PopleFast(Basis):
           output += [
             (r[j] - coord[j]) * jnp.sum(
               prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.linalg.norm(r - coord)**2) *
+              jnp.exp(-prm_array[:, 0] * jnp.sum((r - coord)**2)) *
               (2 * prm_array[:, 0] / jnp.pi)**(3 / 4) *
               (4 * prm_array[:, 0])**0.5
             ) for j in np.arange(3)
@@ -167,7 +167,10 @@ class PopleFast(Basis):
       g = kwargs['grids']
       w = kwargs['weights']
 
-      w_grids = jax.vmap(self.__call__)(g)
+      def f(r):
+        return self.__call__(r, **kwargs)
+
+      w_grids = jax.vmap(f)(g)
       w_grids = jnp.reshape(w_grids, newshape=(w_grids.shape[0], -1))
       w_grids_weighted = w_grids * jnp.expand_dims(w, axis=(1))
       return jnp.matmul(w_grids_weighted.T, w_grids)
