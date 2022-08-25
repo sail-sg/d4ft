@@ -48,6 +48,23 @@ def integrand_kinetic(mo: Callable, keep_dim=False):
   return lambda r: -jnp.sum(f(r) * mo(r)) / 2
 
 
+def integrand_kinetic_alt(mo: Callable):
+  r"""
+  the kinetic intergrand:  - \psi(r) \nabla psi(r) /2,
+  this function calculates: jacobian(\psi(r)) * jacobian(\psi(r)) /2
+  Args:
+    mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
+    mo only takes one argment, which is the coordinate.
+  Return:
+    a [3] -> [1] function.
+  """
+
+  def f(r):
+    return jnp.sum(jax.jacobian(mo)(r) * jax.jacobian(mo)(r))
+
+  return lambda r: f(r) / 2
+
+
 def integrand_external(mo: Callable, nuclei, keep_dim=False):
   r"""
   the external intergrand: 1 / (r - R) * \psi^2.
@@ -138,7 +155,7 @@ def e_nuclear(nuclei):
 
 
 def energy_gs(mo: Callable, nuclei: dict, batch1, batch2):
-  e_kin = integrate(integrand_kinetic(mo), batch1)
+  e_kin = integrate(integrand_kinetic_alt(mo), batch1)
   e_ext = integrate(integrand_external(mo, nuclei), batch1)
   e_hartree = integrate(integrand_hartree(mo), batch1, batch2)
   e_xc = integrate(integrand_xc_lda(mo), batch1)
