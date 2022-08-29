@@ -50,25 +50,6 @@ def energy_external(mo: Callable, nuclei, batch):
   return integrate_s(integrand_external(mo, nuclei), batch)
 
 
-"""def hamil_hartree(ao: Callable, mo_old, batch1, batch2):
-  density = wave2density(mo_old)
-
-  def g(r):
-
-    def v(x):
-      return density(x) / jnp.clip(
-        jnp.linalg.norm(x - r), a_min=1e-8
-      ) * jnp.any(x != r)
-
-    return integrate_s(v, batch1)
-
-  def m(r):
-    return jax.vmap(jnp.outer)(ao(r), ao(r))
-
-  return integrate_s(lambda r: g(r) * m(r), batch2)
-"""
-
-
 def hamil_hartree(ao: Callable, mo_old, batch):
   density = wave2density(mo_old)
 
@@ -138,13 +119,6 @@ def energy_lda(mo_old, batch):
 
 
 def get_fork(ao: Callable, mo_old: Callable, nuclei, batch):
-  """H_kin, H_ext, H_lda, H_hartree = 0, 0, 0, 0
-  for batch in dataset1.as_numpy_iterator():
-    H_kin, H_ext, H_lda = H_kin + hamil_kinetic(ao, batch), H_ext + hamil_external(ao, nuclei, batch), H_lda + hamil_lda(ao, mo_old, batch)
-  for batch1 in dataset1.as_numpy_iterator():
-    for batch2 in dataset2.as_numpy_iterator():
-      H_hartree += hamil_hartree(ao, mo_old, batch1, batch2)
-  return H_kin + H_ext + H_lda + H_hartree"""
   return hamil_kinetic(ao, batch) + \
       hamil_external(ao, nuclei, batch) + \
       hamil_hartree(ao, mo_old, batch) + \
@@ -178,51 +152,8 @@ def integrate_s(integrand: Callable, batch):
   @jax.jit
   def minibatch_f(g, w):
     return jnp.sum(minibatch_vmap(v, batch_size=args.batch_size)(g, w), axis=0)
-  """def f(g, w):
-    if args.mini_batch == False:
-      return jnp.sum(jax.vmap(v)(g, w), axis=0)
-    else:
-      return jnp.sum(minibatch_vmap(v, batch_size=args.batch_size)(g, w), axis=0)"""
 
   return f(g, w) if args.mini_batch == False else minibatch_f(g, w)
-
-
-"""def minibatch_vmap(f, in_axes=0, batch_size=10):
-  batch_f = jax.vmap(f, in_axes=in_axes)
-
-  def _minibatch_vmap_f(*args):
-    nonlocal in_axes
-    if not isinstance(in_axes, (tuple, list)):
-      in_axes = (in_axes,) * len(args)
-    for i, ax in enumerate(in_axes):
-      if ax is not None:
-        num = args[i].shape[ax]
-    num_shards = int(np.ceil(num / batch_size))
-    size = num_shards * batch_size
-    indices = jnp.arange(0, size, batch_size)
-
-    def _process_batch(start_index):
-      batch_args = (
-        jax.lax.dynamic_slice_in_dim(
-          a,
-          start_index=start_index,
-          slice_size=batch_size,
-          axis=ax,
-        ) if ax is not None else a for a, ax in zip(args, in_axes)
-      )
-      return batch_f(*batch_args)
-
-    def _sum_process_batch(start_index):
-      return jnp.sum(_process_batch(start_index))
-
-    out = jax.lax.map(_process_batch, indices)
-    if isinstance(out, jnp.ndarray):
-      out = jnp.reshape(out, (-1, *out.shape[2:]))[:num]
-    elif isinstance(out, (tuple, list)):
-      out = tuple(jnp.reshape(o, (-1, *o.shape[2:]))[:num] for o in out)
-    return out
-
-  return _minibatch_vmap_f"""
 
 
 def minibatch_vmap(f, in_axes=0, batch_size=10):
@@ -263,9 +194,9 @@ def minibatch_vmap(f, in_axes=0, batch_size=10):
   return _minibatch_vmap_f
 
 
-def scf(iter, mol, seed=123, momentum=0.5):
+def scf(mol):
   batch = (mol.grids, mol.weights)
-  params = mol._init_param(seed)
+  params = mol._init_param(args.seed)
   mo_params, _ = params
   _diag_one_ = jnp.ones([2, mol.mo.nmo])
   _diag_one_ = jax.vmap(jnp.diag)(_diag_one_)
@@ -294,8 +225,7 @@ def scf(iter, mol, seed=123, momentum=0.5):
     def mo(r):
       return mol.mo((mo_params, None), r) * mol.nocc
 
-    return mo_params, get_energy(mo, mol.nuclei, batch)#energy_gs(mo, mol.nuclei, batch, batch)
-    #get_energy(mo, mol.nuclei, batch)
+    return mo_params, get_energy(mo, mol.nuclei, batch)
   
   @jax.jit
   def PySCF_Trick(new_params):
@@ -316,91 +246,44 @@ def scf(iter, mol, seed=123, momentum=0.5):
 
   # the main loop.
   logging.info(f" Starting...SCF loop")
-  for i in range(iter):
+  for i in range(args.epoch):
+
+    iter_start = time.time()
+
     new_params, Es = update(mo_params)
-    mo_params = (1 - momentum) * new_params + momentum * mo_params
+    mo_params = (1 - args.momentum) * new_params + args.momentum * mo_params
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
 
-    logging.info(f" Iter: {i+1}/{iter}")
+    iter_end = time.time()
+
+    logging.info(f" Iter: {i+1}/{args.epoch}")
     logging.info(f" Ground State: {e_total}")
     logging.info(f" Kinetic: {e_kin}")
     logging.info(f" External: {e_ext}")
     logging.info(f" Exchange-Correlation: {e_xc}")
     logging.info(f" Hartree: {e_hartree}")
     logging.info(f" Nucleus Repulsion: {e_nuc}")
+    logging.info(f" One Iteration Time: {iter_end - iter_start}")
 
-  """batch = (mol.grids, mol.weights)
 
-  if batch_size > mol.grids.shape[0]:
-    batch_size = mol.grids.shape[0]
-
-  dataset1 = tf.data.Dataset.from_tensor_slices((
-      mol.grids,
-      mol.weights,
-  )).shuffle(
-      len(mol.grids), seed=seed
-  ).batch(
-      batch_size, drop_remainder=False
-  )
-
-  dataset2 = tf.data.Dataset.from_tensor_slices((
-      mol.grids,
-      mol.weights,
-  )).shuffle(
-      len(mol.grids), seed=seed + 1
-  ).batch(
-      batch_size, drop_remainder=False
-  )
-
-  params = mol._init_param(seed)
+def scf_v2(mol):
+  batch = (mol.grids, mol.weights)
+  params = mol._init_param(args.seed)
   mo_params, _ = params
   _diag_one_ = jnp.ones([2, mol.mo.nmo])
   _diag_one_ = jax.vmap(jnp.diag)(_diag_one_)
+  
+  shift = jnp.zeros(mol.mo.nmo)
+  for i in range(args.shift, mol.mo.nmo):
+    shift = shift.at[i].set(1)
+  shift = jnp.diag(shift)
 
-  def scf_energy_gs(mo, mol):
-    dataset1_ = tf.data.Dataset.from_tensor_slices((
-        mol.grids,
-        mol.weights,
-    )).shuffle(
-        len(mol.grids), seed=seed
-    ).batch(
-        batch_size, drop_remainder=True
-    )
+  fork = jnp.zeros((mol.mo.nmo, mol.mo.nmo))
+  #print(shift)
 
-    dataset2_ = tf.data.Dataset.from_tensor_slices((
-        mol.grids,
-        mol.weights,
-    )).shuffle(
-        len(mol.grids), seed=seed + 1
-    ).batch(
-        batch_size, drop_remainder=True
-    )
-
-    def reweigt(batch):
-      g, w = batch
-      w = w * len(mol.grids) / w.shape[0]
-      return g, w
-
-    Es_batch = []
-
-    for batch1, batch2 in zip(
-        dataset1_.as_numpy_iterator(), dataset2_.as_numpy_iterator()
-    ):
-      batch1 = reweigt(batch1) # (5000, 3), (5000, )
-      batch2 = reweigt(batch2)
-      e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc) = energy_gs(mo, mol.nuclei, batch1, batch2)
-      Es_batch.append((e_total, e_kin, e_ext, e_xc, e_hartree, e_nuc))
-
-    # retrieve all energy terms
-    e_total, e_kin, e_ext, e_xc, e_hartree, e_nuc = jnp.mean(
-        jnp.array(Es_batch), axis=0
-    )
-    return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
-    return 0, (0, 0, 0, 0, 0)
-
-  #@jax.jit
-  def update(mo_params, dataset1, dataset2):
+  @jax.jit
+  def update(mo_params, fock_old):
 
     def ao(r):
       return mol.mo((_diag_one_, None), r)
@@ -408,30 +291,57 @@ def scf(iter, mol, seed=123, momentum=0.5):
     def mo_old(r):
       return mol.mo((mo_params, None), r) * mol.nocc
 
-    fork = get_fork(ao, mo_old, mol.nuclei, dataset1, dataset2)
+    fork = get_fork(ao, mo_old, mol.nuclei, batch)
+
+    fork = (1 - args.fock_momentum) * fork + args.fock_momentum * fock_old
+    fork = fork - args.sigma * shift
+
     _, mo_params = jnp.linalg.eigh(fork)
     mo_params = jnp.transpose(mo_params, (0, 2, 1))
 
     def mo(r):
       return mol.mo((mo_params, None), r) * mol.nocc
-    
-    return mo_params, scf_energy_gs(mo, mol) #energy_gs(mo, mol.nuclei, batch, batch)
+
+    return mo_params, fork, get_energy(mo, mol.nuclei, batch)
+  
+  @jax.jit
+  def PySCF_Trick(new_params):
+    def cov(cov):
+      """Decomposition of covariance matrix."""
+      v, u = jnp.linalg.eigh(cov)
+      v = jnp.diag(jnp.real(v)**(1 / 2)) + jnp.eye(v.shape[0]) * 1e-10
+      ut = jnp.real(u)
+      return jnp.matmul(ut, v)
+
+    from jdft.functions import decov
+    new_params = new_params @ decov(mol.ao.overlap)
+    idx = jnp.argmax(jnp.abs(jnp.real(new_params)), axis=0)
+    new_params[:, jnp.real(new_params[idx, jnp.arange(jnp.shape(new_params)[-1])]) < 0] *= -1
+    new_params = new_params @ cov(mol.ao.overlap)
+
+    return new_params
 
   # the main loop.
   logging.info(f" Starting...SCF loop")
-  for i in range(iter):
-    new_params, Es = update(mo_params, dataset1, dataset2)
-    mo_params = (1 - momentum) * new_params + momentum * mo_params
+  for i in range(args.epoch):
+
+    iter_start = time.time()
+
+    new_params, fork, Es = update(mo_params, fork)
+    mo_params = (1 - args.momentum) * new_params + args.momentum * mo_params
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
 
-    logging.info(f" Iter: {i+1}/{iter}")
+    iter_end = time.time()
+
+    logging.info(f" Iter: {i+1}/{args.epoch}")
     logging.info(f" Ground State: {e_total}")
     logging.info(f" Kinetic: {e_kin}")
     logging.info(f" External: {e_ext}")
     logging.info(f" Exchange-Correlation: {e_xc}")
     logging.info(f" Hartree: {e_hartree}")
-    logging.info(f" Nucleus Repulsion: {e_nuc}")"""
+    logging.info(f" Nucleus Repulsion: {e_nuc}")
+    logging.info(f" One Iteration Time: {iter_end - iter_start}")
 
 
 if __name__ == '__main__':
@@ -446,7 +356,7 @@ if __name__ == '__main__':
   parser.add_argument("--epoch", type=int, default=5)
   parser.add_argument("--seed", type=int, default=1234)
   parser.add_argument("--geometry", type=str, default="benzene")
-  parser.add_argument("--basis_set", type=str, default="6-31g")
+  parser.add_argument("--basis_set", type=str, default="sto-3g")
   parser.add_argument("--momentum", type=float, default=0)
   parser.add_argument("--fock_momentum", type=float, default=0)
   parser.add_argument("--sigma", type=float, default=0)
@@ -468,9 +378,13 @@ if __name__ == '__main__':
   )
   
   start = time.time()
-  scf(args.epoch, mol, seed=args.seed, momentum=args.momentum)
+  if args.momentum !=0 :
+    scf(mol)
+  else:#if args.fock_momentum != 0:
+    scf_v2(mol)
   end = time.time()
-  logging.info(f" Time spent: {end - start}")
+
+  logging.info(f" Overall time spent: {end - start}")
   logging.info(args)
 
 
@@ -526,41 +440,81 @@ INFO:absl: Hartree: 33.45330047607422
 INFO:absl: Nucleus Repulsion: 13.47203254699707
 INFO:absl: Time spent: 15.56773042678833
 INFO:absl:Namespace(basis_set='sto-3g', batch_size=1000, epoch=100, geometry='ch4', mini_batch=False, momentum=0.9, seed=1234, sigma=0.0)
-PySCF: -39.7268
+PySCF: -39.7268 (sto-3g)
 ==========================================================================
-INFO:absl: Iter: 1/1
-INFO:absl: Ground State: -224.12966918945312
-INFO:absl: Kinetic: 241.15530395507812
-INFO:absl: External: -962.1401977539062
-INFO:absl: Exchange-Correlation: -30.910701751708984
-INFO:absl: Hartree: 324.53936767578125
+NFO:absl: Ground State: -228.68563842773438
+INFO:absl: Kinetic: 230.7908477783203
+INFO:absl: External: -944.83544921875
+INFO:absl: Exchange-Correlation: -29.945390701293945
+INFO:absl: Hartree: 312.07781982421875
 INFO:absl: Nucleus Repulsion: 203.22653198242188
-INFO:absl: Time spent: 153.5192084312439
-INFO:absl:Namespace(basis_set='6-31g', batch_size=2000, epoch=1, geometry='benzene', mini_batch=False, momentum=0.9, pyscf_trick=False, seed=1234, shift=55, sigma=6.0)
-PySCF: -224.573862
+INFO:absl: One Iteration Time: 0.06237077713012695
+INFO:absl: Overall time spent: 294.9105236530304
+INFO:absl:Namespace(basis_set='6-31g', batch_size=10000, epoch=10, fock_momentum=0.9, geometry='benzene', mini_batch=False, momentum=0, pyscf_trick=False, seed=1234, shift=55, sigma=0.0)
+PySCF: -230.62 (6-31g)
+==========================================================================
+INFO:absl: Ground State: -225.88473510742188
+INFO:absl: Kinetic: 225.66070556640625
+INFO:absl: External: -937.7747802734375
+INFO:absl: Exchange-Correlation: -29.94594383239746
+INFO:absl: Hartree: 312.94873046875
+INFO:absl: Nucleus Repulsion: 203.22653198242188
+INFO:absl: One Iteration Time: 0.03662824630737305
+INFO:absl: Overall time spent: 164.55355262756348
+INFO:absl:Namespace(basis_set='sto-3g', batch_size=10000, epoch=10, fock_momentum=0.9, geometry='benzene', mini_batch=False, momentum=0, pyscf_trick=False, seed=1234, shift=33, sigma=0)
+PySCF: -224.573862 (sto-3g)
+==========================================================================
+INFO:absl: Ground State: -152.84397888183594
+INFO:absl: Kinetic: 154.24879455566406
+INFO:absl: External: -526.5555419921875
+INFO:absl: Exchange-Correlation: -18.73280906677246
+INFO:absl: Hartree: 156.1848602294922
+INFO:absl: Nucleus Repulsion: 82.0107421875
+INFO:absl: One Iteration Time: 0.020052671432495117
+INFO:absl: Overall time spent: 149.43496322631836
+INFO:absl:Namespace(basis_set='6-31g', batch_size=10000, epoch=10, fock_momentum=0.9, geometry='ethonal', mini_batch=False, momentum=0, pyscf_trick=False, seed=1234, shift=33, sigma=0)
+PySCF: -154.009 (6-31g)
+==========================================================================
+INFO:absl: Ground State: -150.89712524414062
+INFO:absl: Kinetic: 150.93431091308594
+INFO:absl: External: -522.0359497070312
+INFO:absl: Exchange-Correlation: -18.8079776763916
+INFO:absl: Hartree: 157.00173950195312
+INFO:absl: Nucleus Repulsion: 82.0107421875
+INFO:absl: One Iteration Time: 0.001293182373046875
+INFO:absl: Overall time spent: 78.89356064796448
+INFO:absl:Namespace(basis_set='sto-3g', batch_size=10000, epoch=10, fock_momentum=0.9, geometry='ethonal', mini_batch=False, momentum=0, pyscf_trick=False, seed=1234, shift=33, sigma=0)
+PySCF: -150.023 (sto-3g)
+==========================================================================
+INFO:absl: Ground State: -741.484619140625
+INFO:absl: Kinetic: 743.3734130859375
+INFO:absl: External: -4708.423828125
+INFO:absl: Exchange-Correlation: -94.46315002441406
+INFO:absl: Hartree: 1834.6651611328125
+INFO:absl: Nucleus Repulsion: 1483.363525390625
+INFO:absl: One Iteration Time: 1.6915552616119385
+INFO:absl: Overall time spent: 426.85986852645874
+INFO:absl:Namespace(basis_set='sto-3g', batch_size=10000, epoch=50, fock_momentum=0.9, geometry='c20', mini_batch=True, momentum=0, pyscf_trick=False, seed=1234, shift=33, sigma=0)
+PySCF: -747.018 (sto-3g)
 ==========================================================================
 INFO:absl: Iter: 10/10
-INFO:absl: Ground State: -151.28616333007812
-INFO:absl: Kinetic: 164.54637145996094
-INFO:absl: External: -544.6715087890625
-INFO:absl: Exchange-Correlation: -19.800884246826172
-INFO:absl: Hartree: 166.62908935546875
-INFO:absl: Nucleus Repulsion: 82.0107421875
-INFO:absl: Time spent: 77.69645428657532
-INFO:absl:Namespace(basis_set='6-31g', batch_size=2000, epoch=10, geometry='ethonal', mini_batch=False, momentum=0.9, pyscf_trick=False, seed=1234, shift=30, sigma=6.0)
-PySCF: -150.023
+INFO:absl: Ground State: -1340.4775390625
+INFO:absl: Kinetic: 1362.8568115234375
+INFO:absl: External: -10800.6201171875
+INFO:absl: Exchange-Correlation: -168.67532348632812
+INFO:absl: Hartree: 4443.1513671875
+INFO:absl: Nucleus Repulsion: 3822.810546875
+INFO:absl: One Iteration Time: 21.403024911880493
+INFO:absl: Overall time spent: 747.3907215595245
+INFO:absl:Namespace(basis_set='6-31g', batch_size=10000, epoch=10, fock_momentum=0, geometry='c36', mini_batch=True, momentum=0.99, pyscf_trick=False, seed=1234, shift=250, sigma=10.0)
 ==========================================================================
-INFO:absl: Iter: 1/1
-INFO:absl: Ground State: -738.982666015625
-INFO:absl: Kinetic: 792.5358276367188
-INFO:absl: External: -4800.94384765625
-INFO:absl: Exchange-Correlation: -97.14138793945312
-INFO:absl: Hartree: 1883.203125
-INFO:absl: Nucleus Repulsion: 1483.363525390625
-INFO:absl: Time spent: 303.60129618644714
-INFO:absl:Namespace(basis_set='6-31g', batch_size=10000, epoch=1, geometry='c20', mini_batch=True, momentum=0.99, pyscf_trick=False, seed=1234, shift=160, sigma=10.0)
-PySCF: -737.140
-==========================================================================
-
-PySCF: -1345.433873991594
+INFO:absl: Iter: 29/<built-in function iter>
+INFO:absl: Ground State: -1335.419921875
+INFO:absl: Kinetic: 1336.0125732421875
+INFO:absl: External: -10779.876953125
+INFO:absl: Exchange-Correlation: -169.91387939453125
+INFO:absl: Hartree: 4455.5478515625
+INFO:absl: Nucleus Repulsion: 3822.810546875
+INFO:absl: One Iteration Time: 8.578341722488403
+PySCF: -1345.433873991594 (sto-3g)
 """
