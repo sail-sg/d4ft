@@ -6,6 +6,7 @@ from absl import logging
 import tensorflow as tf
 import numpy as np
 import time
+import pandas as pd
 
 def hamil_kinetic(ao: Callable, batch):
   """
@@ -268,6 +269,8 @@ def scf(mol):
 
 
 def scf_v2(mol):
+  epoch_d, e_tot_d, e_kin_d, e_ext_d, e_xc_d, e_hartree_d, e_nuc_d, time_d, acc_time_d = [],[],[],[],[],[],[],[],[0]  
+
   batch = (mol.grids, mol.weights)
   params = mol._init_param(args.seed)
   mo_params, _ = params
@@ -343,10 +346,17 @@ def scf_v2(mol):
     logging.info(f" Nucleus Repulsion: {e_nuc}")
     logging.info(f" One Iteration Time: {iter_end - iter_start}")
 
+    time_d.append(iter_end - iter_start); acc_time_d.append(acc_time_d[-1] + iter_end - iter_start); epoch_d.append(i+1);
+    e_tot_d.append(e_total); e_kin_d.append(e_kin); e_ext_d.append(e_ext); e_xc_d.append(e_xc); e_hartree_d.append(e_hartree); e_nuc_d.append(e_nuc);
+
+  info_dict = {"epoch":epoch_d, "e_tot":e_tot_d, "e_kin":e_kin_d, "e_ext":e_ext_d, "e_xc":e_xc_d, "e_hartree":e_hartree_d, "e_nuc":e_nuc_d, \
+    "time":time_d, "acc_time":acc_time_d[1:]}
+
+  df = pd.DataFrame(data=info_dict, index=None)
+  df.to_excel("jdft_functional/results/"+args.geometry+"/"+args.geometry+"_"+str(args.seed)+"_scf.xlsx", index=False)
 
 if __name__ == '__main__':
   import jdft.geometries
-  from jdft.geometries import h2_geometry, o2_geometry, h2o_geometry, benzene_geometry
   from molecule import molecule
   import argparse
 
@@ -358,18 +368,11 @@ if __name__ == '__main__':
   parser.add_argument("--geometry", type=str, default="benzene")
   parser.add_argument("--basis_set", type=str, default="sto-3g")
   parser.add_argument("--momentum", type=float, default=0)
-  parser.add_argument("--fock_momentum", type=float, default=0)
+  parser.add_argument("--fock_momentum", type=float, default=0.9)
   parser.add_argument("--sigma", type=float, default=0)
   parser.add_argument("--shift", type=int, default=33)
   parser.add_argument("--pyscf_trick", type=bool, default=False)
   args = parser.parse_args()
-
-  if args.geometry == "h2":
-    geometry = h2_geometry
-  elif args.geometry == "h2o":
-    geometry = h2o_geometry
-  elif args.geometry == "benzene":
-    geometry = benzene_geometry
 
   geometry = getattr(jdft.geometries, args.geometry+"_geometry")
 
