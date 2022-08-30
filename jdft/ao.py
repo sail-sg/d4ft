@@ -3,8 +3,7 @@ import jax
 import jax.numpy as jnp
 from jdft.functions import factorial
 # from scipy.special import factorial
-from jdft.orbitals.basis import Basis
-from ao_int import _ao_overlap_int
+from jdft.ao_int import _ao_overlap_int
 
 
 def gaussian_primitive(r, alpha, ijk):
@@ -27,7 +26,7 @@ def gaussian_primitive(r, alpha, ijk):
   return xyz_ijk * jnp.exp(-alpha * jnp.linalg.norm(r)**2) * normalization
 
 
-class Pople(Basis):
+class Pople():
 
   def __init__(self, pyscf_mol):
     super().__init__()
@@ -117,7 +116,7 @@ class Pople(Basis):
     return None
 
 
-class PopleFast(Basis):
+class PopleFast():
   # this is a Pople type atomic orbital class.
 
   def __init__(self, pyscf_mol):
@@ -182,7 +181,7 @@ class PopleFast(Basis):
     return None
 
 
-class Gaussian(Basis):
+class Gaussian():
 
   def __init__(self, pyscf_mol):
     self.pyscf_mol = pyscf_mol

@@ -1,10 +1,9 @@
 import jax
 import jax.numpy as jnp
 from jdft.functions import decov
-from jdft.orbitals.basis import Basis
 
 
-class MO(Basis):
+class MO(object):
 
   def __init__(self, nmo, ao):
     """Initialize molecular orbital"""
@@ -42,7 +41,7 @@ class MO(Basis):
     return jax.vmap(f)(mo_params)
 
 
-class MO_qr(Basis):
+class MO_qr(object):
   """Molecular orbital using QR decomposition."""
 
   def __init__(self, nmo, ao):
@@ -70,7 +69,7 @@ class MO_qr(Basis):
     mo_params, ao_params = params
     mo_params = jnp.expand_dims(mo_params, 0)
     mo_params = jnp.repeat(mo_params, 2, 0)
-    ao_fun_vec = self.ao(r, ao_params)
+    ao_fun_vec = self.ao(r, ao_params, **kwargs)
 
     def wave_fun_i(param_i, ao_fun_vec):
       orthogonal, _ = jnp.linalg.qr(param_i)  # q is column-orthogal.
@@ -84,7 +83,7 @@ class MO_qr(Basis):
     return jax.vmap(f)(mo_params)
 
 
-class MO_vpf(Basis):
+class MO_vpf(object):
 
   def __init__(self, nmo, ao, vpf):
     self.ao = ao

@@ -1,15 +1,15 @@
 import jax
 import jax.numpy as jnp
-from energy import energy_gs, wave2density, integrand_kinetic
+from jdft.energy import energy_gs, wave2density, integrand_kinetic
 from typing import Callable
 from absl import logging
 
 
 def hamil_kinetic(ao: Callable, batch):
-  """
+  r"""
   \int \phi_i \nabla^2 \phi_j dx
   Args:
-    mo (Callable): 
+    ao (Callable):
     batch: a tuple of (grids, weights)
   Return:
     [2, N, N] Array.
@@ -18,7 +18,7 @@ def hamil_kinetic(ao: Callable, batch):
 
 
 def hamil_external(ao: Callable, nuclei, batch):
-  """
+  r"""
   \int \phi_i \nabla^2 \phi_j dx
   Args:
     mo (Callable): a [3] -> [2, N] function
@@ -78,7 +78,7 @@ def hamil_lda(ao: Callable, mo_old, batch):
   return integrate_s(lambda r: g(density(r)) * m(r), batch)
 
 
-def get_fork(ao: Callable, mo_old: Callable, nuclei, batch):
+def get_fock(ao: Callable, mo_old: Callable, nuclei, batch):
   return hamil_kinetic(ao, batch) + \
       hamil_external(ao, nuclei, batch) + \
       hamil_hartree(ao, mo_old, batch) + \
@@ -109,7 +109,7 @@ def scf(iter, mol, seed=123, momentum=0.5):
   _diag_one_ = jax.vmap(jnp.diag)(_diag_one_)
 
   @jax.jit
-  def update(mo_params):
+  def update(mo_params, fock):
 
     def ao(r):
       return mol.mo((_diag_one_, None), r)
@@ -117,20 +117,23 @@ def scf(iter, mol, seed=123, momentum=0.5):
     def mo_old(r):
       return mol.mo((mo_params, None), r) * mol.nocc
 
-    fork = get_fork(ao, mo_old, mol.nuclei, batch)
-    _, mo_params = jnp.linalg.eigh(fork)
+    fock = get_fock(ao, mo_old, mol.nuclei, batch)
+    fock = momentum * fock + (1 - momentum) * fock
+    _, mo_params = jnp.linalg.eigh(fock)
     mo_params = jnp.transpose(mo_params, (0, 2, 1))
 
     def mo(r):
       return mol.mo((mo_params, None), r) * mol.nocc
 
-    return mo_params, energy_gs(mo, mol.nuclei, batch, batch)
+    return mo_params, fock, energy_gs(mo, mol.nuclei, batch, batch)
 
   # the main loop.
-  logging.info(f" Starting...SCF loop")
+  logging.info(" Starting...SCF loop")
+  fock = jnp.eye(mol.nao)
+
   for i in range(iter):
-    new_params, Es = update(mo_params)
-    mo_params = (1 - momentum) * new_params + momentum * mo_params
+    mo_params, fock, Es = update(mo_params, fock)
+
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
 
@@ -144,10 +147,11 @@ def scf(iter, mol, seed=123, momentum=0.5):
 
 
 if __name__ == '__main__':
-  from jdft.geometries import h2_geometry
-  from molecule import molecule
-  mol = molecule(
-    h2_geometry, spin=0, level=1, mode='scf', basis="6-31g"
-  )
-  
-  scf(20, mol, seed=1234, momentum=0)
+  from jdft.geometries import benzene_geometry
+  from jdft.molecule import molecule
+
+  logging.set_verbosity(logging.INFO)
+
+  mol = molecule(benzene_geometry, spin=0, level=1, mode='scf', basis="6-31g")
+
+  scf(80, mol, seed=123, momentum=0.05)

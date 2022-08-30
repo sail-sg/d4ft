@@ -67,7 +67,8 @@ def gaussian_intergral(alpha, n):
 def decov(cov):
   """Decomposition of covariance matrix."""
   v, u = jnp.linalg.eigh(cov)
-  v = jnp.diag(jnp.real(v)**(-1 / 2)) + jnp.eye(v.shape[0]) * 1e-7
+  v = jnp.clip(v, a_min=0)
+  v = jnp.diag(jnp.real(v)**(-1 / 2))
   ut = jnp.real(u).transpose()
   return jnp.matmul(v, ut)
 

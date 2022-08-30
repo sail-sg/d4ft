@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 import distrax
 import numpy as np
-from jdft_functional.ao import gaussian_primitive
+from jdft.ao import gaussian_primitive
 from absl.testing import absltest, parameterized
 
 

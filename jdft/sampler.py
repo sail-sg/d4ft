@@ -8,35 +8,34 @@ import matplotlib.pyplot as plt
 import jax.random as jrdm
 
 
-def batch_sampler(grids, weights, batchsize, seed=1):
+def batch_sampler(grids, weights, batch_size, seed=1):
   """Sample a batch from the grids.
 
-  inputs:
-  |grids: (N, 3)
-  |weights: (N, )
-  |factor: percentage that split the grids.
-  output:
-  a list of ceil(1/factor) with each element is a subset of grids.
+  Args:
+    grids: (N, 3)
+    weights: (N, )
+    factor: percentage that split the grids.
+  Return:
+    a list of ceil(1/factor) with each element is a subset of grids.
   """
   npoint = grids.shape[0]
   key = jrdm.PRNGKey(seed)
   idx = jrdm.permutation(key, jnp.arange(npoint), independent=True)
-  batchsize = min(npoint, batchsize)
-  nbatch = int(npoint / batchsize)
+  batchsize = min(npoint, batch_size)
+  nbatch = int(npoint / batch_size)
 
-  sample_boundary = jnp.arange(nbatch + 1) * batchsize
+  sample_boundary = jnp.arange(nbatch + 1) * batch_size
   sample_boundary = jnp.asarray(sample_boundary, jnp.int32)
-  output_grid = []
-  output_weight = []
+  output = []
   batch_idx = [
     idx[sample_boundary[i]:sample_boundary[i + 1]] for i in jnp.arange(nbatch)
   ]
 
   for i in jnp.arange(nbatch):
-    output_grid.append(grids[batch_idx[i]])
-    output_weight.append(weights[batch_idx[i]] * npoint / batchsize)
-
-  return output_grid, output_weight
+    output += [
+      (grids[batch_idx[i]], weights[batch_idx[i]] * npoint / batchsize)
+    ]
+  return output
 
 
 def simple_grid(key, limit, cellsize, n=100, verbose=False):

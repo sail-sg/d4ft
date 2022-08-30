@@ -99,7 +99,8 @@ def get_partition(
 
   coords_all = []
   weights_all = []
-  atam_all = []
+  atom_all = []
+
   for ia in range(mol.natm):
     coords, vol = atom_grids_tab[mol.atom_symbol(ia)]
     coords = coords + atm_coords[ia]
@@ -107,14 +108,14 @@ def get_partition(
     weights = vol * pbecke[ia] * (1. / pbecke.sum(axis=0))
     coords_all.append(coords)
     weights_all.append(weights)
-    atam_all += [ia] * len(weights)
+    atom_all += [ia] * len(weights)
   if concat:
     coords_all = np.vstack(coords_all)
     weights_all = np.hstack(weights_all)
-    atam_all = np.hstack(atam_all)
+    atom_all = np.hstack(atom_all)
 
   if atom_label:
-    return coords_all, weights_all, atam_all
+    return coords_all, weights_all, atom_all
   else:
     return coords_all, weights_all
 
@@ -123,3 +124,10 @@ def _gen_grid(mol, level=1, atom_label=False, **kwargs):
   return get_partition(
     mol, gen_grid.gen_atomic_grids(mol, level=level), atom_label, **kwargs
   )
+
+
+def _grid_shift(grids, atoms, atom_coords_old, atom_coords_new):
+  atom_shift = atom_coords_new - atom_coords_old
+  grid_shift = atom_shift[atoms, :]
+  grids += grid_shift
+  return grids

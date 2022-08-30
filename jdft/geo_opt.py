@@ -2,34 +2,36 @@ from absl import logging
 import time
 import jax
 import jax.numpy as jnp
-from energy import energy_gs
+from jdft.energy import energy_gs
 import optax
-from grids import _gen_grid, _grid_shift
-from jdft.functions import distmat
+from jdft.grids import _gen_grid
+# from jdft.functions import distmat
 import copy
+from pyscf import gto
+from pyscf.dft import gen_grid
 
 from jax.config import config
 
 config.update("jax_debug_nans", True)
 
 
-def geo_opt(
-  mol,
-  epoch,
-  lr,
-  seed=123,
-  converge_threshold=1e-3,
-  batch_size=1000,
-  momentum=0.1
-):
+def _get_config_from_coords(nuclei):
+  output = []
+  natm = len(nuclei['symbol'])
+  output += [
+    nuclei['symbol'][i] + ' ' +
+    ' '.join(str(j * 0.529177249)
+             for j in nuclei['loc'][i].tolist()) + ';'
+    for i in range(natm)
+  ]
+  output = ' '.join(i for i in output)
+  return output
+
+
+def geo_opt(mol, epoch, lr, seed=123, converge_threshold=1e-3, geo_mask=None):
   """Run the main training loop."""
 
   nuclei = mol.nuclei
-
-  params_mask = jnp.ones_like(nuclei['loc'])
-  params_mask = params_mask.at[:, 0].set(0)
-  params_mask = params_mask.at[:, 1].set(0)
-  params_mask = params_mask.at[0, :].set(0)
 
   bond_length = jnp.zeros([1, 1]) + nuclei['loc'][-1, -1]
 
@@ -39,7 +41,7 @@ def geo_opt(
   schedule = optax.warmup_cosine_decay_schedule(
     init_value=0.00001,
     peak_value=0.01,
-    warmup_steps=100,
+    warmup_steps=500,
     decay_steps=epoch / 2,
     end_value=lr,
   )
@@ -60,8 +62,7 @@ def geo_opt(
 
     def loss(params):
       mo_params, ao_params, bond_length = params
-      atom_coords = nuclei['loc'] * (1 - params_mask) \
-        + params_mask * bond_length
+      atom_coords = nuclei['loc'] * (1 - geo_mask) + geo_mask * bond_length
 
       # _grids = _grid_shift(g, _atoms, nuclei['loc'], atom_coords)
 
@@ -116,7 +117,24 @@ def geo_opt(
     # this can be replaced by just shifting the grids according to the new atom
     # coordinates, instead of resampling.
 
-    _grids = _grid_shift(_grids, _atoms, nuclei_old['loc'], nuclei_new['loc'])
+    # _grids = _grid_shift(_grids, _atoms, nuclei_old['loc'], nuclei_new['loc'])
+    # mol.atom_coords
+    config = _get_config_from_coords(
+      {
+        'symbol': mol.atom_symbol,
+        'loc': nuclei_old['loc'],
+        'charge': nuclei_old['charge']
+      }
+    )
+
+    print(config)
+    _mol = gto.M(atom=config, basis=mol.basis, spin=0)
+    g = gen_grid.Grids(_mol)
+    g.level = mol.level
+    g.build()
+    _grids = jnp.array(g.coords)
+    _weights = jnp.array(g.weights)
+
     batch = (_grids, _weights)
     # batches = batch_sampler(_grids, _weights, batch_size, seed=seed+i)
     # batch = (mol.grids, mol.weights)
@@ -144,12 +162,18 @@ def geo_opt(
     e_train.append(e_total)
 
     if (i + 1) % 10 == 0:
-      print(e_total, e_kin, e_ext, e_xc, e_hartree, e_nuc)
+      logging.info("Energy:")
+      logging.info(f" Ground State: {e_total}")
+      logging.info(f" Kinetic: {e_kin}")
+      logging.info(f" External: {e_ext}")
+      logging.info(f" Exchange-Correlation: {e_xc}")
+      logging.info(f" Hartree: {e_hartree}")
+      logging.info(f" Nucleus Repulsion: {e_nuc}")
       logging.info(f"Iter: {i+1}/{epoch}. Ground State Energy: {e_total:.3f}.")
-      logging.info(f"current coords: {nuclei_new['loc'].tolist()}")
-      logging.info(f"{distmat(nuclei_new['loc'])*0.529177249}")
+      # logging.info(f"current coords: {nuclei_new['loc'].tolist()}")
+      # logging.info(f"{distmat(nuclei_new['loc'])*0.529177249}")
 
-    if jnp.abs(prev_loss - e_total) < converge_threshold - 1:
+    if jnp.abs(prev_loss - e_total) < converge_threshold:
       converged = True
       break
     else:
@@ -178,16 +202,25 @@ if __name__ == "__main__":
 
   h2_start = """
   H 0.0000 0.0000 0.0000;
-  H 0.0000 0.0000 0.6;
+  H 0.0000 0.0000 1.2;
   """
   print(h2_start)
 
   mol = molecule(h2_start, spin=0, level=3, basis="6-31g", mode='go')
+
+  # print(mol.nuclei)
+  # print(_get_config_from_coords(mol.nuclei))
+  geo_mask = jnp.ones_like(mol.nuclei['loc'])
+  geo_mask = geo_mask.at[:, 0].set(0)
+  geo_mask = geo_mask.at[:, 1].set(0)
+  geo_mask = geo_mask.at[0, :].set(0)
+
   geo_opt(
     mol,
     epoch=5000,
-    lr=2e-4,
-    seed=15789,
+    lr=1e-3,
+    seed=1235,
     batch_size=50000,
     converge_threshold=1e-8,
+    geo_mask=geo_mask
   )

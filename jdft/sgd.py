@@ -3,14 +3,32 @@ import time
 import jax
 import jax.numpy as jnp
 import tensorflow as tf
-from energy import energy_gs
+from jdft.energy import _energy_gs, energy_gs
 import optax
+from jdft.functions import decov
+from jdft.ao_int import _ao_ext_int, _ao_kin_int
 
 
-def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
+def sgd(
+  mol,
+  epoch,
+  lr,
+  seed=123,
+  converge_threshold=1e-3,
+  batch_size=1000,
+  optimizer='sgd',
+  pre_cal=False
+):
   """Run the main training loop."""
   params = mol._init_param(seed)
-  optimizer = optax.sgd(lr)
+
+  if optimizer == 'sgd':
+    optimizer = optax.sgd(lr)
+  elif optimizer == 'adam':
+    optimizer = optax.adam(lr)
+  else:
+    raise NotImplementedError
+
   opt_state = optimizer.init(params)
 
   if batch_size > mol.grids.shape[0]:
@@ -39,16 +57,54 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
     batch_size, drop_remainder=True
   )
 
+  if pre_cal:
+    logging.info('Preparing for integration...')
+    start = time.time()
+    overlap_decov = decov(mol.ao.overlap())
+
+    @jax.jit
+    def _ao_kin_mat_fun(batch):
+      g, w = reweigt(batch)
+      _ao_kin_mat = _ao_kin_int(mol.ao, g, w)
+      _ao_kin_mat = overlap_decov @ _ao_kin_mat @ overlap_decov.T
+
+      return _ao_kin_mat
+
+    @jax.jit
+    def _ao_ext_mat_fun(batch):
+      g, w = reweigt(batch)
+      _ao_ext_mat = _ao_ext_int(mol.ao, mol.nuclei, g, w)
+      _ao_ext_mat = overlap_decov @ _ao_ext_mat @ overlap_decov.T
+
+      return _ao_ext_mat
+
+    _ao_kin_mat = jnp.zeros([mol.nao, mol.nao])
+    _ao_ext_mat = jnp.zeros([mol.nao, mol.nao])
+
+    for batch in dataset1.as_numpy_iterator():
+
+      _ao_kin_mat += _ao_kin_mat_fun(batch)
+      _ao_ext_mat += _ao_ext_mat_fun(batch)
+
+    _ao_kin_mat /= len(list(dataset1.as_numpy_iterator()))
+    _ao_ext_mat /= len(list(dataset1.as_numpy_iterator()))
+    logging.info(f"Pre-calculation finished. Time: {(time.time()-start):.3f}")
+
   @jax.jit
   def update(params, opt_state, batch1, batch2):
-    g, w = batch1
 
     def loss(params):
 
       def mo(r):
-        return mol.mo(params, r, grids=g, weights=w) * mol.nocc
+        return mol.mo(params, r) * mol.nocc
 
-      return energy_gs(mo, mol.nuclei, batch1, batch2)
+      if pre_cal:
+        return _energy_gs(
+          mo, mol.nuclei, params, _ao_kin_mat, _ao_ext_mat, mol.nocc, batch1,
+          batch2
+        )
+      else:
+        return energy_gs(mo, mol.nuclei, batch1, batch2)
 
     (e_total, e_splits), grad = jax.value_and_grad(loss, has_aux=True)(params)
     updates, opt_state = optimizer.update(grad, opt_state)
@@ -65,6 +121,7 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
   logging.info(f"Batch size: {batch_size}")
   logging.info(f"Total grid points: {len(mol.grids)}")
 
+  # batch = (mol.grids, mol.weights)
   for i in range(epoch):
     Es_batch = []
 
@@ -105,17 +162,19 @@ def train(mol, epoch, lr, seed=123, converge_threshold=1e-3, batch_size=1000):
   logging.info(f" Hartree: {e_hartree}")
   logging.info(f" Nucleus Repulsion: {e_nuc}")
 
-  return params
+  return e_total, params
 
 
 if __name__ == "__main__":
-  from jdft.geometries import co2_geometry
-  from molecule import molecule
+  from jdft.geometries import h2_geometry
+  from jdft.molecule import molecule
 
-  mol = molecule(
-    co2_geometry, spin=0, level=1, basis="gaussian", mode='vpf', layers='ococ'
+  mol = molecule(h2_geometry, spin=0, level=1, basis="6-31g")
+  sgd(
+    mol,
+    epoch=200,
+    lr=1e-2,
+    batch_size=20000,
+    converge_threshold=1e-5,
+    pre_cal=True
   )
-  params = train(
-    mol, epoch=200, lr=1e-3, batch_size=20000, converge_threshold=1e-5
-  )
-  print(params[2])
