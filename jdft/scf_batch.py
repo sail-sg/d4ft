@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from energy import energy_gs, wave2density, integrand_kinetic, integrand_external, integrand_xc_lda, e_nuclear
 from typing import Callable
 from absl import logging
+logging.set_verbosity(logging.INFO)
 import numpy as np
 import time
 import pandas as pd
@@ -249,13 +250,12 @@ def scf(mol):
   for i in range(args.epoch):
 
     iter_start = time.time()
-
     new_params, Es = update(mo_params)
     mo_params = (1 - args.momentum) * new_params + args.momentum * mo_params
+    iter_end = time.time()
+
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
-
-    iter_end = time.time()
 
     logging.info(f" Iter: {i+1}/{args.epoch}")
     logging.info(f" Ground State: {e_total}")
@@ -294,23 +294,25 @@ def scf_v2(mol):
     _, mo_params = jnp.linalg.eigh(fork)
     mo_params = jnp.transpose(mo_params, (0, 2, 1))
 
-    def mo(r):
-      return mol.mo((mo_params, None), r) * mol.nocc
+    """def mo(r):
+      return mol.mo((mo_params, None), r) * mol.nocc"""
 
-    return mo_params, fork, get_energy(mo, mol.nuclei, batch)
+    return mo_params, fork#, get_energy(mo, mol.nuclei, batch)
 
   # the main loop.
   logging.info(f" Starting...SCF loop")
   for i in range(args.epoch):
 
     iter_start = time.time()
+    #mo_params, fork, Es = update(mo_params, fork)
+    mo_params, fork = update(mo_params, fork)
+    iter_end = time.time()
 
-    mo_params, fork, Es = update(mo_params, fork)
-    #mo_params = (1 - args.momentum) * new_params + args.momentum * mo_params
+    def mo(r):
+      return mol.mo((mo_params, None), r) * mol.nocc
+    Es = get_energy(mo, mol.nuclei, batch)
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
-
-    iter_end = time.time()
 
     logging.info(f" Iter: {i+1}/{args.epoch}")
     logging.info(f" Ground State: {e_total}")
