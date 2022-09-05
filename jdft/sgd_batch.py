@@ -1,4 +1,5 @@
 from absl import logging
+logging.set_verbosity(logging.INFO)
 import time
 import jax
 import jax.numpy as jnp
