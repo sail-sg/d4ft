@@ -5,26 +5,8 @@ energy integrands and integration.
 from typing import Callable
 import jax
 import jax.numpy as jnp
-from jdft.functions import set_diag_zero, distmat
+from jdft.functions import set_diag_zero, distmat, wave2density
 from jdft.ao_int import _energy_precal
-
-
-def wave2density(mo: Callable, nocc=1., keep_spin=False):
-  """
-  Transform the wave function into density function.
-  Args:
-    mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
-        mo only takes one argment, which is the coordinate.
-    keep_spin: if True will return a 1D array with two elements indicating
-    the density of each spin
-  Return:
-    density function: [3] -> float or 1D array.
-  """
-
-  if keep_spin:
-    return lambda r: jnp.sum((mo(r) * nocc)**2, axis=1)
-  else:
-    return lambda r: jnp.sum((mo(r) * nocc)**2)
 
 
 def integrand_kinetic(mo: Callable, keep_dim=False):
@@ -77,7 +59,7 @@ def integrand_external(mo: Callable, nuclei, keep_dim=False):
 
   def v(r):
     return jnp.sum(
-      nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-20)
+      nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-10)
     )
 
   if keep_dim:
@@ -96,8 +78,8 @@ def integrand_hartree(mo: Callable):
   r"""
   Return n(x)n(y)/|x-y|
   Args:
-    mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
-    mo only takes one argment, which is the coordinate.
+    mo (Callable): a [3] -> [2, N] function, where N is the number of molecular
+    orbitals. mo only takes one argment, which is the coordinate.
   Return:
     a function: [3] x [3] -> [1]
   """
@@ -110,19 +92,46 @@ def integrand_hartree(mo: Callable):
   return v
 
 
-def integrand_xc_lda(mo, keep_spin=False):
+def integrand_x_lda(mo: Callable, keep_spin=False):
+  """
+  Local density approximation
+  Args:
+      mo (callable):
+      keep_spin (bool, optional): If true, will return a array of shape [2].
+        Defaults to False.
+
+  Returns:
+      Callable: integrand of lda.
+  """
   const = -3 / 4 * (3 / jnp.pi)**(1 / 3)
   return lambda x: const * wave2density(mo, keep_spin=keep_spin)(x)**(4 / 3)
 
 
+def integrand_x_lsda(mo: Callable):
+  r"""
+  https://www.chem.fsu.edu/~deprince/programming_projects/lda/
+  Local spin-density approximation
+    E_\sigma = 2^(1/3) C \int \rho_\sigma^(4/3) dr
+    where C = (3/4)(3/\pi)^(1/3)
+  Args:
+    mo (Callable): a [3] -> [2, N] function, where N is the number of molecular 
+    orbitals. mo only takes one argment, which is the coordinate.
+  Returns:
+  """
+  const = -3 / 4 * (3 / jnp.pi)**(1 / 3)
+
+  def v(x):
+    jnp.power(2., 1 / 3) * const * jnp.sum(wave2density(mo, True)(x)**(4 / 3))
+
+  return v
+
+
 def integrate(integrand: Callable, *coords_and_weights):
   """Numerically integrate the integrand.
-
   Args:
     integrand: a multivariable function.
     coords_and_weights: the points that the function will be evaluated
       and the weights of these points.
-
   Returns:
     A scalar value as the result of the integral.
   """
@@ -154,11 +163,16 @@ def e_nuclear(nuclei):
   return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
-def energy_gs(mo: Callable, nuclei: dict, batch1, batch2):
+def energy_gs(mo: Callable, nuclei: dict, batch1, batch2, xc='lda'):
   e_kin = integrate(integrand_kinetic_alt(mo), batch1)
   e_ext = integrate(integrand_external(mo, nuclei), batch1)
   e_hartree = integrate(integrand_hartree(mo), batch1, batch2)
-  e_xc = integrate(integrand_xc_lda(mo), batch1)
+
+  if xc == 'lda':
+    e_xc = integrate(integrand_x_lda(mo), batch1)
+  else:
+    raise NotImplementedError
+
   e_nuc = e_nuclear(nuclei)
   e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
 
@@ -181,7 +195,7 @@ def _energy_gs(
   e_kin = _energy_precal(params, _ao_kin_mat, nocc)
   e_ext = _energy_precal(params, _ao_ext_mat, nocc)
   e_hartree = integrate(integrand_hartree(mo), batch1, batch2)
-  e_xc = integrate(integrand_xc_lda(mo), batch1)
+  e_xc = integrate(integrand_x_lda(mo), batch1)
   e_nuc = e_nuclear(nuclei)
   e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
 

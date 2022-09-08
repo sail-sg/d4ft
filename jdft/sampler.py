@@ -9,34 +9,22 @@ import jax.random as jrdm
 
 
 def batch_sampler(grids, weights, batch_size, seed=1):
-  """Sample a batch from the grids.
-
-  Args:
-    grids: (N, 3)
-    weights: (N, )
-    factor: percentage that split the grids.
-  Return:
-    a list of ceil(1/factor) with each element is a subset of grids.
-  """
+  weights = jnp.expand_dims(weights, 1)
+  gw = jnp.concatenate((grids, weights), axis=1)
   npoint = grids.shape[0]
-  key = jrdm.PRNGKey(seed)
-  idx = jrdm.permutation(key, jnp.arange(npoint), independent=True)
   batchsize = min(npoint, batch_size)
+  key = jrdm.PRNGKey(seed)
+  gw = jrdm.permutation(key, gw)
+  g = gw[:, :3]
+  w = jnp.squeeze(gw[:, 3])
+  
+  batch_size = min(npoint, batch_size)
   nbatch = int(npoint / batch_size)
 
-  sample_boundary = jnp.arange(nbatch + 1) * batch_size
-  sample_boundary = jnp.asarray(sample_boundary, jnp.int32)
-  output = []
-  batch_idx = [
-    idx[sample_boundary[i]:sample_boundary[i + 1]] for i in jnp.arange(nbatch)
-  ]
-
-  for i in jnp.arange(nbatch):
-    output += [
-      (grids[batch_idx[i]], weights[batch_idx[i]] * npoint / batchsize)
-    ]
-  return output
-
+  _g = jnp.split(g[:nbatch*batch_size], nbatch)
+  _w = jnp.split((w * npoint / batchsize)[:nbatch*batch_size], nbatch)
+  
+  return list(zip(_g, _w))
 
 def simple_grid(key, limit, cellsize, n=100, verbose=False):
   """Sample meshgrid for integration."""

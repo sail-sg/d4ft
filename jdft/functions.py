@@ -1,10 +1,30 @@
 """Useful functions."""
 
+from typing import Callable
 import jax
 from jax import vmap
 import jax.numpy as jnp
 import numpy as np
+
 # from scipy.special import factorial2 as factorial2
+
+
+def wave2density(mo: Callable, nocc=1., keep_spin=False):
+  """
+  Transform the wave function into density function.
+  Args:
+    mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
+        mo only takes one argment, which is the coordinate.
+    keep_spin: if True will return a 1D array with two elements indicating
+    the density of each spin
+  Return:
+    density function: [3] -> float or 1D array.
+  """
+
+  if keep_spin:
+    return lambda r: jnp.sum((mo(r) * nocc)**2, axis=1)
+  else:
+    return lambda r: jnp.sum((mo(r) * nocc)**2)
 
 
 def euclidean_distance(x, y):
