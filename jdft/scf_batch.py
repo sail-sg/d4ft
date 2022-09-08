@@ -1,18 +1,20 @@
 import jax
 import jax.numpy as jnp
-from energy import energy_gs, wave2density, integrand_kinetic, integrand_external, integrand_xc_lda, e_nuclear
+from energy import wave2density, integrand_kinetic, \
+  integrand_external, integrand_xc_lda, e_nuclear
 from typing import Callable
 from absl import logging
-logging.set_verbosity(logging.INFO)
 import numpy as np
 import time
 import pandas as pd
+logging.set_verbosity(logging.INFO)
+
 
 def hamil_kinetic(ao: Callable, batch):
-  """
+  r"""
   \int \phi_i \nabla^2 \phi_j dx
   Args:
-    mo (Callable): 
+    mo (Callable):
     batch: a tuple of (grids, weights)
   Return:
     [2, N, N] Array.
@@ -25,7 +27,7 @@ def energy_kinetic(mo: Callable, batch):
 
 
 def hamil_external(ao: Callable, nuclei, batch):
-  """
+  r"""
   \int \phi_i \nabla^2 \phi_j dx
   Args:
     mo (Callable): a [3] -> [2, N] function
@@ -149,12 +151,12 @@ def integrate_s(integrand: Callable, batch):
   @jax.jit
   def f(g, w):
     return jnp.sum(jax.vmap(v)(g, w), axis=0)
-  
+
   @jax.jit
   def minibatch_f(g, w):
     return jnp.sum(minibatch_vmap(v, batch_size=args.batch_size)(g, w), axis=0)
 
-  return f(g, w) if args.mini_batch == False else minibatch_f(g, w)
+  return f(g, w) if args.mini_batch is False else minibatch_f(g, w)
 
 
 def minibatch_vmap(f, in_axes=0, batch_size=10):
@@ -201,7 +203,7 @@ def scf(mol):
   mo_params, _ = params
   _diag_one_ = jnp.ones([2, mol.mo.nmo])
   _diag_one_ = jax.vmap(jnp.diag)(_diag_one_)
-  
+
   shift = jnp.zeros(mol.mo.nmo)
   for i in range(args.shift, mol.mo.nmo):
     shift = shift.at[i].set(1)
@@ -228,7 +230,7 @@ def scf(mol):
     return mo_params, get_energy(mo, mol.nuclei, batch)
 
   # the main loop.
-  logging.info(f" Starting...SCF loop")
+  logging.info(f'{" Starting...SCF loop"}')
   for i in range(args.epoch):
 
     iter_start = time.time()
@@ -250,7 +252,8 @@ def scf(mol):
 
 
 def scf_v2(mol):
-  epoch_d, e_tot_d, e_kin_d, e_ext_d, e_xc_d, e_hartree_d, e_nuc_d, time_d, acc_time_d = [],[],[],[],[],[],[],[],[0]  
+  epoch_d, e_tot_d, e_kin_d, e_ext_d, e_xc_d, e_hartree_d, \
+    e_nuc_d, time_d, acc_time_d = [], [], [], [], [], [], [], [], [0]
 
   batch = (mol.grids, mol.weights)
   params = mol._init_param(args.seed)
@@ -279,11 +282,10 @@ def scf_v2(mol):
     return mo_params, fork
 
   # the main loop.
-  logging.info(f" Starting...SCF loop")
+  logging.info(f'{" Starting...SCF loop"}')
   for i in range(args.epoch):
 
     iter_start = time.time()
-    #mo_params, fork, Es = update(mo_params, fork)
     mo_params, fork = update(mo_params, fork)
     iter_end = time.time()
 
@@ -302,13 +304,25 @@ def scf_v2(mol):
     logging.info(f" Nucleus Repulsion: {e_nuc}")
     logging.info(f" One Iteration Time: {iter_end - iter_start}")
 
-    time_d.append(iter_end - iter_start); acc_time_d.append(acc_time_d[-1] + iter_end - iter_start); epoch_d.append(i+1);
-    e_tot_d.append(e_total); e_kin_d.append(e_kin); e_ext_d.append(e_ext); e_xc_d.append(e_xc); e_hartree_d.append(e_hartree); e_nuc_d.append(e_nuc);
+    time_d.append(iter_end - iter_start)
+    acc_time_d.append(acc_time_d[-1] + iter_end - iter_start)
+    epoch_d.append(i+1)
+    e_tot_d.append(e_total)
+    e_kin_d.append(e_kin)
+    e_ext_d.append(e_ext)
+    e_xc_d.append(e_xc)
+    e_hartree_d.append(e_hartree)
+    e_nuc_d.append(e_nuc)
 
-  info_dict = {"epoch":epoch_d, "e_tot":e_tot_d, "e_kin":e_kin_d, "e_ext":e_ext_d, "e_xc":e_xc_d, "e_hartree":e_hartree_d, "e_nuc":e_nuc_d, "time":time_d, "acc_time":acc_time_d[1:]}
+  info_dict = {"epoch": epoch_d, "e_tot": e_tot_d, "e_kin": e_kin_d,
+               "e_ext": e_ext_d, "e_xc": e_xc_d, "e_hartree": e_hartree_d,
+               "e_nuc": e_nuc_d, "time": time_d, "acc_time": acc_time_d[1:]}
 
   df = pd.DataFrame(data=info_dict, index=None)
-  df.to_excel("jdft/results/"+args.geometry+"/"+args.geometry+"_"+str(args.batch_size)+"_"+str(args.seed)+"_scf.xlsx", index=False)
+  df.to_excel("jdft/results/" + args.geometry + "/" + args.geometry +
+              "_" + str(args.batch_size) + "_"+str(args.seed)
+              + "_scf.xlsx", index=False)
+
 
 if __name__ == '__main__':
   import jdft.geometries
@@ -334,9 +348,8 @@ if __name__ == '__main__':
   mol = molecule(
     geometry, spin=0, level=1, mode="scf", basis=args.basis_set
   )
-  
   start = time.time()
-  if args.momentum !=0 :
+  if args.momentum != 0:
     scf(mol)
   else:
     scf_v2(mol)
