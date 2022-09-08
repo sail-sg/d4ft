@@ -114,7 +114,7 @@ def integrand_x_lsda(mo: Callable):
     E_\sigma = 2^(1/3) C \int \rho_\sigma^(4/3) dr
     where C = (3/4)(3/\pi)^(1/3)
   Args:
-    mo (Callable): a [3] -> [2, N] function, where N is the number of molecular 
+    mo (Callable): a [3] -> [2, N] function, where N is the number of molecular
     orbitals. mo only takes one argment, which is the coordinate.
   Returns:
   """
