@@ -7,6 +7,7 @@ from absl import logging
 import numpy as np
 import time
 import pandas as pd
+
 logging.set_verbosity(logging.INFO)
 
 
@@ -291,6 +292,7 @@ def scf_v2(mol):
 
     def mo(r):
       return mol.mo((mo_params, None), r) * mol.nocc
+
     Es = get_energy(mo, mol.nuclei, batch)
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
@@ -306,7 +308,7 @@ def scf_v2(mol):
 
     time_d.append(iter_end - iter_start)
     acc_time_d.append(acc_time_d[-1] + iter_end - iter_start)
-    epoch_d.append(i+1)
+    epoch_d.append(i + 1)
     e_tot_d.append(e_total)
     e_kin_d.append(e_kin)
     e_ext_d.append(e_ext)
@@ -314,14 +316,24 @@ def scf_v2(mol):
     e_hartree_d.append(e_hartree)
     e_nuc_d.append(e_nuc)
 
-  info_dict = {"epoch": epoch_d, "e_tot": e_tot_d, "e_kin": e_kin_d,
-               "e_ext": e_ext_d, "e_xc": e_xc_d, "e_hartree": e_hartree_d,
-               "e_nuc": e_nuc_d, "time": time_d, "acc_time": acc_time_d[1:]}
+  info_dict = {
+    "epoch": epoch_d,
+    "e_tot": e_tot_d,
+    "e_kin": e_kin_d,
+    "e_ext": e_ext_d,
+    "e_xc": e_xc_d,
+    "e_hartree": e_hartree_d,
+    "e_nuc": e_nuc_d,
+    "time": time_d,
+    "acc_time": acc_time_d[1:]
+  }
 
   df = pd.DataFrame(data=info_dict, index=None)
-  df.to_excel("jdft/results/" + args.geometry + "/" + args.geometry +
-              "_" + str(args.batch_size) + "_"+str(args.seed)
-              + "_scf.xlsx", index=False)
+  df.to_excel(
+    "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
+    str(args.batch_size) + "_" + str(args.seed) + "_scf.xlsx",
+    index=False
+  )
 
 
 if __name__ == '__main__':
@@ -343,11 +355,9 @@ if __name__ == '__main__':
   parser.add_argument("--pyscf_trick", type=bool, default=False)
   args = parser.parse_args()
 
-  geometry = getattr(jdft.geometries, args.geometry+"_geometry")
+  geometry = getattr(jdft.geometries, args.geometry + "_geometry")
 
-  mol = molecule(
-    geometry, spin=0, level=1, mode="scf", basis=args.basis_set
-  )
+  mol = molecule(geometry, spin=0, level=1, mode="scf", basis=args.basis_set)
   start = time.time()
   if args.momentum != 0:
     scf(mol)
