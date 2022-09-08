@@ -17,14 +17,15 @@ def batch_sampler(grids, weights, batch_size, seed=1):
   gw = jrdm.permutation(key, gw)
   g = gw[:, :3]
   w = jnp.squeeze(gw[:, 3])
-  
+
   batch_size = min(npoint, batch_size)
   nbatch = int(npoint / batch_size)
 
-  _g = jnp.split(g[:nbatch*batch_size], nbatch)
-  _w = jnp.split((w * npoint / batchsize)[:nbatch*batch_size], nbatch)
-  
+  _g = jnp.split(g[:nbatch * batch_size], nbatch)
+  _w = jnp.split((w * npoint / batchsize)[:nbatch * batch_size], nbatch)
+
   return list(zip(_g, _w))
+
 
 def simple_grid(key, limit, cellsize, n=100, verbose=False):
   """Sample meshgrid for integration."""
