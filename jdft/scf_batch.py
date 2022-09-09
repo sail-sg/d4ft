@@ -7,6 +7,9 @@ from absl import logging
 import numpy as np
 import time
 import pandas as pd
+import tensorflow as tf
+from jdft.functions import decov
+from jdft.ao_int import _ao_ext_int, _ao_kin_int
 
 logging.set_verbosity(logging.INFO)
 
@@ -123,21 +126,27 @@ def energy_lda(mo_old, batch):
 
 
 def get_fork(ao: Callable, mo_old: Callable, nuclei, batch):
+  if args.pre_cal:
+    return hamil_hartree(ao, mo_old, batch) + hamil_lda(ao, mo_old, batch)
   return hamil_kinetic(ao, batch) + \
       hamil_external(ao, nuclei, batch) + \
       hamil_hartree(ao, mo_old, batch) + \
       hamil_lda(ao, mo_old, batch)
 
 
-def get_energy(mo_old: Callable, nuclei, batch):
-  e_kin = energy_kinetic(mo_old, batch)
-  e_ext = energy_external(mo_old, nuclei, batch)
-  e_hartree = energy_hartree(mo_old, batch)
-  e_xc = energy_lda(mo_old, batch)
-  e_nuc = e_nuclear(nuclei)
-  e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
+def _energy_precal(params, _ao_kin_mat, nocc):
+  mo_params, _ = params
+  mo_params = jnp.expand_dims(mo_params, 0)
+  mo_params = jnp.repeat(mo_params, 2, 0)  # shape: [2, N, N]
 
-  return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
+  def f(param, nocc):
+    #orthogonal, _ = jnp.linalg.qr(param)
+    print(param @ param.T)
+    orthogonal = param
+    orthogonal *= jnp.expand_dims(nocc, axis=0)
+    return jnp.sum(jnp.diagonal(orthogonal.T @ _ao_kin_mat @ orthogonal))
+
+  return jnp.sum(jax.vmap(f)(mo_params, nocc))
 
 
 def integrate_s(integrand: Callable, batch):
@@ -205,10 +214,11 @@ def scf(mol):
   _diag_one_ = jnp.ones([2, mol.mo.nmo])
   _diag_one_ = jax.vmap(jnp.diag)(_diag_one_)
 
-  shift = jnp.zeros(mol.mo.nmo)
-  for i in range(args.shift, mol.mo.nmo):
-    shift = shift.at[i].set(1)
-  shift = jnp.diag(shift)
+  if args.sigma > 0:
+    shift = jnp.zeros(mol.mo.nmo)
+    for i in range(args.shift, mol.mo.nmo):
+      shift = shift.at[i].set(1)
+    shift = jnp.diag(shift)
 
   @jax.jit
   def update(mo_params):
@@ -262,7 +272,115 @@ def scf_v2(mol):
   _diag_one_ = jnp.ones([2, mol.mo.nmo])
   _diag_one_ = jax.vmap(jnp.diag)(_diag_one_)
 
-  fork = jnp.zeros((mol.mo.nmo, mol.mo.nmo))
+  def ao(r):
+    return mol.mo((_diag_one_, None), r)
+
+
+  def mo_old(r):
+    return mol.mo((mo_params, None), r) * mol.nocc
+
+
+  fork = get_fork(ao, mo_old, mol.nuclei, batch)#jnp.zeros((mol.mo.nmo, mol.mo.nmo))
+
+  if args.pre_cal:
+    logging.info('Preparing for integration...')
+    start = time.time()
+
+    @jax.jit
+    def _hamil_kinetic(batch):
+      r"""
+      \int \phi_i \nabla^2 \phi_j dx
+      Args:
+        mo (Callable):
+        batch: a tuple of (grids, weights)
+      Return:
+        [2, N, N] Array.
+      """
+      return integrate_s(integrand_kinetic(ao, True), batch)
+
+    
+    @jax.jit
+    def _hamil_external(batch):
+      r"""
+      \int \phi_i \nabla^2 \phi_j dx
+      Args:
+        mo (Callable): a [3] -> [2, N] function
+        batch: a tuple (grids, weights)
+      Return:
+        [2, N, N] Array
+      """
+      nuclei_loc = mol.nuclei['loc']
+      nuclei_charge = mol.nuclei['charge']
+
+      def v(r):
+        return -jnp.sum(
+          nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-16)
+        )
+
+      def m(r):
+        return jax.vmap(jnp.outer)(ao(r), ao(r))
+
+      return integrate_s(lambda r: v(r) * m(r), batch)
+
+
+    def ao(r):
+      return mol.mo((_diag_one_, None), r)
+
+    _h_kin = _hamil_kinetic(batch)
+    _h_ext = _hamil_external(batch)
+
+    print(f"Pre-calculation finished. Time: {(time.time()-start):.3f}")
+
+  if args.pre_cal_e:
+    dataset1 = tf.data.Dataset.from_tensor_slices((
+      mol.grids,
+      mol.weights,
+    )).shuffle(
+      len(mol.grids), seed=args.seed
+    ).batch(
+      args.batch_size, drop_remainder=False
+    )
+
+    dataset2 = tf.data.Dataset.from_tensor_slices((
+      mol.grids,
+      mol.weights,
+    )).shuffle(
+      len(mol.grids), seed=args.seed + 1
+    ).batch(
+      args.batch_size, drop_remainder=False
+    )
+
+    logging.info('Preparing for integration...')
+    start = time.time()
+    overlap_decov = decov(mol.ao.overlap())
+
+    @jax.jit
+    def _ao_kin_mat_fun(batch):
+      #g, w = reweigt(batch)
+      g, w = batch
+      _ao_kin_mat = _ao_kin_int(mol.ao, g, w)
+      _ao_kin_mat = overlap_decov @ _ao_kin_mat @ overlap_decov.T
+
+      return _ao_kin_mat
+
+    @jax.jit
+    def _ao_ext_mat_fun(batch):
+      #g, w = reweigt(batch)
+      g, w = batch
+      _ao_ext_mat = _ao_ext_int(mol.ao, mol.nuclei, g, w)
+      _ao_ext_mat = overlap_decov @ _ao_ext_mat @ overlap_decov.T
+
+      return _ao_ext_mat
+
+    _ao_kin_mat = jnp.zeros([mol.nao, mol.nao])
+    _ao_ext_mat = jnp.zeros([mol.nao, mol.nao])
+
+    for batch in dataset1.as_numpy_iterator():
+
+      _ao_kin_mat += _ao_kin_mat_fun(batch)
+      _ao_ext_mat += _ao_ext_mat_fun(batch)
+
+    print(f"Pre-calculation finished. Time: {(time.time()-start):.3f}")
 
   @jax.jit
   def update(mo_params, fock_old):
@@ -274,6 +392,8 @@ def scf_v2(mol):
       return mol.mo((mo_params, None), r) * mol.nocc
 
     fork = get_fork(ao, mo_old, mol.nuclei, batch)
+    if args.pre_cal:
+      fork += (_h_ext + _h_kin)
 
     fork = (1 - args.fock_momentum) * fork + args.fock_momentum * fock_old
 
@@ -281,6 +401,31 @@ def scf_v2(mol):
     mo_params = jnp.transpose(mo_params, (0, 2, 1))
 
     return mo_params, fork
+
+
+  @jax.jit
+  def get_energy(mo_params, batch):
+    def mo_old(r):
+      return mol.mo((mo_params, None), r) * mol.nocc
+    e_kin = energy_kinetic(mo_old, batch)
+    e_ext = energy_external(mo_old, mol.nuclei, batch)
+    e_hartree = energy_hartree(mo_old, batch)
+    e_xc = energy_lda(mo_old, batch)
+    e_nuc = e_nuclear(mol.nuclei)
+    e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
+    return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
+
+
+  def _get_energy(batch, params):
+    e_kin = _energy_precal(params, _ao_kin_mat, mol.nocc)
+    e_ext = _energy_precal(params, _ao_ext_mat, mol.nocc)
+    e_hartree = energy_hartree(mo, batch)
+    e_xc = energy_lda(mo, batch)
+    e_nuc = e_nuclear(mol.nuclei)
+    e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
+
+    return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
+
 
   # the main loop.
   logging.info(f'{" Starting...SCF loop"}')
@@ -290,12 +435,19 @@ def scf_v2(mol):
     mo_params, fork = update(mo_params, fork)
     iter_end = time.time()
 
+
     def mo(r):
       return mol.mo((mo_params, None), r) * mol.nocc
 
-    Es = get_energy(mo, mol.nuclei, batch)
+
+    e_start = time.time()
+    if args.pre_cal_e:
+      Es = _get_energy(batch, mo_params, _ao_kin_mat, _ao_ext_mat, mol.nocc)
+    else:
+      Es = get_energy(mo_params, batch)
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
+    e_end = time.time()
 
     logging.info(f" Iter: {i+1}/{args.epoch}")
     logging.info(f" Ground State: {e_total}")
@@ -305,6 +457,7 @@ def scf_v2(mol):
     logging.info(f" Hartree: {e_hartree}")
     logging.info(f" Nucleus Repulsion: {e_nuc}")
     logging.info(f" One Iteration Time: {iter_end - iter_start}")
+    logging.info(f" Energy Time: {e_end - e_start}")
 
     time_d.append(iter_end - iter_start)
     acc_time_d.append(acc_time_d[-1] + iter_end - iter_start)
@@ -329,11 +482,18 @@ def scf_v2(mol):
   }
 
   df = pd.DataFrame(data=info_dict, index=None)
-  df.to_excel(
-    "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
-    str(args.batch_size) + "_" + str(args.seed) + "_scf.xlsx",
-    index=False
-  )
+  if args.pre_cal:
+    df.to_excel(
+      "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
+      str(args.batch_size) + "_" + str(args.seed) + "_precal_scf.xlsx",
+      index=False
+    )
+  else:
+    df.to_excel(
+      "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
+      str(args.batch_size) + "_" + str(args.seed) + "_scf.xlsx",
+      index=False
+    )
 
 
 if __name__ == '__main__':
@@ -352,18 +512,15 @@ if __name__ == '__main__':
   parser.add_argument("--fock_momentum", type=float, default=0.9)
   parser.add_argument("--sigma", type=float, default=0)
   parser.add_argument("--shift", type=int, default=33)
-  parser.add_argument("--pyscf_trick", type=bool, default=False)
+  parser.add_argument("--pre_cal", type=bool, default=True)
+  parser.add_argument("--pre_cal_e", type=bool, default=False)
   args = parser.parse_args()
 
   geometry = getattr(jdft.geometries, args.geometry + "_geometry")
 
   mol = molecule(geometry, spin=0, level=1, mode="scf", basis=args.basis_set)
-  start = time.time()
+
   if args.momentum != 0:
     scf(mol)
   else:
     scf_v2(mol)
-  end = time.time()
-
-  logging.info(f" Overall time spent: {end - start}")
-  logging.info(args)
