@@ -1,14 +1,14 @@
 import jax
 import jax.numpy as jnp
-from energy import wave2density, integrand_kinetic, \
-  integrand_external, integrand_xc_lda
+import numpy as np
 from typing import Callable
 from absl import logging
 import time
 import pandas as pd
 import os
 from jdft.sampler import batch_sampler
-from jdft.energy import energy_gs
+from jdft.energy import energy_gs, integrand_kinetic
+from jdft.functions import wave2density
 
 logging.set_verbosity(logging.INFO)
 
@@ -23,10 +23,6 @@ def hamil_kinetic(ao: Callable, batch):
     [2, N, N] Array.
   """
   return integrate_s(integrand_kinetic(ao, True), batch)
-
-
-def energy_kinetic(mo: Callable, batch):
-  return integrate_s(integrand_kinetic(mo), batch)
 
 
 def hamil_external(ao: Callable, nuclei, batch):
@@ -52,10 +48,6 @@ def hamil_external(ao: Callable, nuclei, batch):
   return integrate_s(lambda r: v(r) * m(r), batch)
 
 
-def energy_external(mo: Callable, nuclei, batch):
-  return integrate_s(integrand_external(mo, nuclei), batch)
-
-
 def hamil_hartree(ao: Callable, mo_old, batch1, batch2):
   density = wave2density(mo_old)
 
@@ -66,7 +58,7 @@ def hamil_hartree(ao: Callable, mo_old, batch1, batch2):
 
     def v(x):
       return density(x) / jnp.sqrt(jnp.sum((x - r)**2) +
-                                   1e-10) * jnp.where(jnp.all(x == r), 0, 1)
+                                   1e-20) * jnp.where(jnp.all(x == r), 2e-9, 1)
 
     return integrate_s(v, batch1)
 
@@ -74,34 +66,6 @@ def hamil_hartree(ao: Callable, mo_old, batch1, batch2):
     return jax.vmap(jnp.outer)(ao(r), ao(r))
 
   return integrate_s(lambda r: g(r) * m(r), batch2)
-
-
-def energy_hartree(mo_old: Callable, batch):
-  r"""
-  Return n(x)n(y)/|x-y|
-  Args:
-    mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
-    mo only takes one argment, which is the coordinate.
-  Return:
-    a function: [3] x [3] -> [1]
-  """
-  density = wave2density(mo_old)
-
-  def g(r):
-    r"""
-      g(r) = \int n(r')/|r-r'| dr'
-    """
-
-    def v(x):
-      return density(x) / jnp.sqrt(jnp.sum((x - r)**2) +
-                                   1e-10) * jnp.where(jnp.all(x == r), 0, 1)
-      """return density(x) / jnp.clip(
-        jnp.linalg.norm(x - r), a_min=1e-8
-      ) * jnp.where(jnp.all(x == r), 2e-9, 1)"""
-
-    return integrate_s(v, batch)
-
-  return integrate_s(lambda r: 0.5 * g(r) * density(r), batch)
 
 
 def hamil_lda(ao: Callable, mo_old, batch):
@@ -121,10 +85,6 @@ def hamil_lda(ao: Callable, mo_old, batch):
   return integrate_s(lambda r: g(density(r)) * m(r), batch)
 
 
-def energy_lda(mo_old, batch):
-  return integrate_s(integrand_xc_lda(mo_old), batch)
-
-
 def integrate_s(integrand: Callable, batch):
   '''
   Integrate a [3] -> [2, N, ...] function.
@@ -139,6 +99,60 @@ def integrate_s(integrand: Callable, batch):
     return jnp.sum(jax.vmap(v)(g, w), axis=0)
 
   return f(g, w)
+
+
+def integrate_m(integrand: Callable, batch):
+  '''
+  Integrate a [3] -> [2, N, ...] function.
+  '''
+  g, w = batch
+
+  def v(r, w):
+    return integrand(r) * w
+
+  @jax.jit
+  def minibatch_f(g, w):
+    return jnp.sum(minibatch_vmap(v, batch_size=args.batch_size)(g, w), axis=0)
+
+  return minibatch_f(g, w)
+
+
+def minibatch_vmap(f, in_axes=0, batch_size=10):
+  batch_f = jax.vmap(f, in_axes=in_axes)
+
+  def _minibatch_vmap_f(*args):
+    nonlocal in_axes
+    if not isinstance(in_axes, (tuple, list)):
+      in_axes = (in_axes,) * len(args)
+    for i, ax in enumerate(in_axes):
+      if ax is not None:
+        num = args[i].shape[ax]
+    num_shards = int(np.ceil(num / batch_size))
+    size = num_shards * batch_size
+    indices = jnp.arange(0, size, batch_size)
+
+    def _process_batch(start_index):
+      batch_args = (
+        jax.lax.dynamic_slice_in_dim(
+          a,
+          start_index=start_index,
+          slice_size=batch_size,
+          axis=ax,
+        ) if ax is not None else a for a, ax in zip(args, in_axes)
+      )
+      return batch_f(*batch_args)
+
+    def _sum_process_batch(start_index):
+      return jnp.sum(_process_batch(start_index), axis=0)
+
+    out = jax.lax.map(_sum_process_batch, indices)
+    if isinstance(out, jnp.ndarray):
+      out = jnp.reshape(out, (-1, *out.shape[1:]))[:num]
+    elif isinstance(out, (tuple, list)):
+      out = tuple(jnp.reshape(o, (-1, *o.shape[1:]))[:num] for o in out)
+    return out
+
+  return _minibatch_vmap_f
 
 
 def sscf(mol):
@@ -175,7 +189,7 @@ def sscf(mol):
     Return:
       [2, N, N] Array.
     """
-    return integrate_s(integrand_kinetic(ao, True), batch)
+    return integrate_m(integrand_kinetic(ao, True), batch)
 
   @jax.jit
   def _hamil_external(batch):
@@ -192,13 +206,13 @@ def sscf(mol):
 
     def v(r):
       return -jnp.sum(
-        nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-16)
+        nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-20)
       )
 
     def m(r):
       return jax.vmap(jnp.outer)(ao(r), ao(r))
 
-    return integrate_s(lambda r: v(r) * m(r), batch)
+    return integrate_m(lambda r: v(r) * m(r), batch)
 
   _h_kin = _hamil_kinetic(batch)
   _h_ext = _hamil_external(batch)
