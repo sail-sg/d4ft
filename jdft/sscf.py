@@ -7,12 +7,9 @@ from absl import logging
 import numpy as np
 import time
 import pandas as pd
-import tensorflow as tf
-from jdft.functions import decov
-from jdft.ao_int import _ao_ext_int, _ao_kin_int
 import os
 from jdft.sampler import batch_sampler
-from jdft.energy import _energy_gs, energy_gs
+from jdft.energy import energy_gs
 
 logging.set_verbosity(logging.INFO)
 
@@ -69,9 +66,8 @@ def hamil_hartree(ao: Callable, mo_old, batch1, batch2):
     """
 
     def v(x):
-      return density(x) / jnp.sqrt(
-        jnp.sum((x - r)**2) + 1e-10
-      ) * jnp.where(jnp.all(x == r), 0, 1)
+      return density(x) / jnp.sqrt(jnp.sum((x - r)**2) +
+                                   1e-10) * jnp.where(jnp.all(x == r), 0, 1)
 
     return integrate_s(v, batch1)
 
@@ -98,9 +94,8 @@ def energy_hartree(mo_old: Callable, batch):
     """
 
     def v(x):
-      return density(x) / jnp.sqrt(
-        jnp.sum((x - r)**2) + 1e-10
-      ) * jnp.where(jnp.all(x == r), 0, 1)
+      return density(x) / jnp.sqrt(jnp.sum((x - r)**2) +
+                                   1e-10) * jnp.where(jnp.all(x == r), 0, 1)
       """return density(x) / jnp.clip(
         jnp.linalg.norm(x - r), a_min=1e-8
       ) * jnp.where(jnp.all(x == r), 2e-9, 1)"""
@@ -204,10 +199,11 @@ def sscf(mol):
 
   @jax.jit
   def get_fork(mo_params, batch1, batch2):
+
     def mo_old(r):
       return mol.mo((mo_params, None), r) * mol.nocc
-    return hamil_hartree(ao, mo_old, batch1, batch1) + hamil_lda(ao, mo_old, batch1)
-
+    return hamil_hartree(ao, mo_old, batch1, batch2) +\
+      hamil_lda(ao, mo_old, batch1)
 
   logging.info('Preparing for integration...')
   start = time.time()
@@ -224,7 +220,6 @@ def sscf(mol):
     """
     return integrate_s(integrand_kinetic(ao, True), batch)
 
-  
   @jax.jit
   def _hamil_external(batch):
     r"""
@@ -259,7 +254,6 @@ def sscf(mol):
   def sampler(seed):
     return batch_sampler(mol.grids, mol.weights, args.batch_size, seed=seed)
 
-
   def update(mo_params, fock_old):
     batchs1 = sampler(args.seed)
     batchs2 = sampler(args.seed + 1)
@@ -276,11 +270,12 @@ def sscf(mol):
 
     return mo_params, fork
 
-
   @jax.jit
   def get_energy(mo_params, batch):
+
     def mo_old(r):
       return mol.mo((mo_params, None), r) * mol.nocc
+
     e_kin = energy_kinetic(mo_old, batch)
     e_ext = energy_external(mo_old, mol.nuclei, batch)
     e_hartree = energy_hartree(mo_old, batch)
@@ -289,13 +284,13 @@ def sscf(mol):
     e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
     return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
 
-
   @jax.jit
   def _energy_gs(mo_params, batch1, batch2):
+
     def mo_old(r):
       return mol.mo((mo_params, None), r) * mol.nocc
-    return energy_gs(mo_old, mol.nuclei, batch1, batch2)
 
+    return energy_gs(mo_old, mol.nuclei, batch1, batch2)
 
   def _get_energy(mo_params):
     batchs1 = sampler(args.seed)
@@ -313,20 +308,12 @@ def sscf(mol):
 
     return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
 
-
   # the main loop.
   logging.info(f'{" Starting...SCF loop"}')
   for i in range(args.epoch):
-    #if i == 0:
-    #  args.fock_momentum = 0
-
     iter_start = time.time()
     mo_params, fork = update(mo_params, fork)
     iter_end = time.time()
-
-    #args.fock_momentum = 0.9
-
-
     e_start = time.time()
     if args.fast_e:
       Es = _get_energy(mo_params)
