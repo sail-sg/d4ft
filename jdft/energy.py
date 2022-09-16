@@ -59,8 +59,8 @@ def integrand_external(mo: Callable, nuclei, keep_dim=False):
 
   def v(r):
     return jnp.sum(
-      nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-10)
-    )
+      nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-20)
+    ) 
 
   if keep_dim:
 
@@ -86,8 +86,8 @@ def integrand_hartree(mo: Callable):
 
   def v(x, y):
     return wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
-      jnp.sum((x - y)**2) + 1e-10
-    ) * jnp.where(jnp.all(x == y), 0, 1) / 2
+      jnp.sum((x - y)**2) + 1e-20
+    ) * jnp.where(jnp.all(x == y), 2e-9, 1) / 2
 
   return v
 
@@ -163,7 +163,10 @@ def e_nuclear(nuclei):
   return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
-def energy_gs(mo: Callable, nuclei: dict, batch1, batch2, xc='lda'):
+def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None, xc='lda'):
+  if batch2 is None:
+    batch2 = batch1
+    
   e_kin = integrate(integrand_kinetic_alt(mo), batch1)
   e_ext = integrate(integrand_external(mo, nuclei), batch1)
   e_hartree = integrate(integrand_hartree(mo), batch1, batch2)
@@ -211,6 +214,6 @@ if __name__ == '__main__':
   params = mol._init_param()
 
   def mo(r):
-    return lambda r: mol.mo(params, r)
+    return mol.mo(params, r)
 
   print(energy_gs(mo, mol.nuclei, mol.grids, mol.weights)[0])
