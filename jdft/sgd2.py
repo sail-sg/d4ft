@@ -4,6 +4,7 @@ import jax
 import jax.numpy as jnp
 from jdft.energy import _energy_gs, energy_gs
 import optax
+import os
 from jdft.functions import decov
 from jdft.ao_int import _ao_ext_int, _ao_kin_int
 from jdft.sampler import batch_sampler
@@ -22,21 +23,36 @@ def sgd(
 ):
   epoch_d, e_tot_d, e_kin_d, e_ext_d, e_xc_d, e_hartree_d, \
     e_nuc_d, time_d, acc_time_d = [], [], [], [], [], [], [], [], [0]
-
   """Run the main training loop."""
   params = mol._init_param(seed)
 
+  if batch_size > mol.grids.shape[0]:
+    batch_size = mol.grids.shape[0]
+
+  if args.lr_decay:
+    total_steps = mol.grids.shape[0] / batch_size * epoch
+    scheduler = optax.piecewise_constant_schedule(
+      init_value=lr,
+      boundaries_and_scales={
+        int(total_steps * 0.5): 0.5,
+        int(total_steps * 0.75): 0.5
+      }
+    )
+
   if optimizer == 'sgd':
-    optimizer = optax.sgd(lr)
+    if args.lr_decay:
+      optimizer = optax.sgd(learning_rate=scheduler)
+    else:
+      optimizer = optax.sgd(lr)
   elif optimizer == 'adam':
-    optimizer = optax.adam(lr)
+    if args.lr_decay:
+      optimizer = optax.adam(learning_rate=scheduler)
+    else:
+      optimizer = optax.adam(lr)
   else:
     raise NotImplementedError
 
   opt_state = optimizer.init(params)
-
-  if batch_size > mol.grids.shape[0]:
-    batch_size = mol.grids.shape[0]
 
   @jax.jit
   def sampler(seed):
@@ -127,9 +143,15 @@ def sgd(
     )
     # track total energy for convergence check
 
-    time_d.append(iter_end - iter_start); acc_time_d.append(acc_time_d[-1] + iter_end - iter_start); epoch_d.append(i+1);
-    e_tot_d.append(e_total); e_kin_d.append(e_kin); e_ext_d.append(e_ext); e_xc_d.append(e_xc); e_hartree_d.append(e_hartree); e_nuc_d.append(e_nuc);
-
+    time_d.append(iter_end - iter_start)
+    acc_time_d.append(acc_time_d[-1] + iter_end - iter_start)
+    epoch_d.append(i + 1)
+    e_tot_d.append(e_total)
+    e_kin_d.append(e_kin)
+    e_ext_d.append(e_ext)
+    e_xc_d.append(e_xc)
+    e_hartree_d.append(e_hartree)
+    e_nuc_d.append(e_nuc)
 
     if (i + 1) % 1 == 0:
       logging.info(
@@ -157,11 +179,24 @@ def sgd(
   logging.info(f" Hartree: {e_hartree}")
   logging.info(f" Nucleus Repulsion: {e_nuc}")
 
-  info_dict = {"epoch":epoch_d, "e_tot":e_tot_d, "e_kin":e_kin_d, "e_ext":e_ext_d, "e_xc":e_xc_d, "e_hartree":e_hartree_d, "e_nuc":e_nuc_d, \
-    "time":time_d, "acc_time":acc_time_d[1:]}
+  info_dict = {
+    "epoch": epoch_d,
+    "e_tot": e_tot_d,
+    "e_kin": e_kin_d,
+    "e_ext": e_ext_d,
+    "e_xc": e_xc_d,
+    "e_hartree": e_hartree_d,
+    "e_nuc": e_nuc_d,
+    "time": time_d,
+    "acc_time": acc_time_d[1:]
+  }
 
   df = pd.DataFrame(data=info_dict, index=None)
-  df.to_excel("jdft/results/"+args.geometry+"/"+args.geometry+"_"+str(args.lr)+"_"+str(args.batch_size)+"_"+str(args.seed)+"_gd.xlsx", index=False)
+  df.to_excel(
+    "jdft/results/" + args.geometry + "/" + args.geometry + "_" + str(args.lr) +
+    "_" + str(args.batch_size) + "_" + str(args.seed) + "_gd.xlsx",
+    index=False
+  )
 
   return params
 
@@ -184,9 +219,12 @@ if __name__ == "__main__":
   parser.add_argument("--opt", type=str, default="adam")
   parser.add_argument("--basis_set", type=str, default="sto-3g")
   parser.add_argument("--print_coeff", type=bool, default=False)
+  parser.add_argument("--device", type=str, default="0")
+  parser.add_argument("--lr_decay", type=bool, default=False)
   args = parser.parse_args()
 
-  geometry = getattr(jdft.geometries, args.geometry+"_geometry")
+  geometry = getattr(jdft.geometries, args.geometry + "_geometry")
+  os.environ["CUDA_VISIBLE_DEVICES"] = args.device
   mol = molecule(geometry, spin=0, level=1, basis=args.basis_set)
   sgd(
     mol,
