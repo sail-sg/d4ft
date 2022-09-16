@@ -1,10 +1,9 @@
 import jax
 import jax.numpy as jnp
 from energy import wave2density, integrand_kinetic, \
-  integrand_external, integrand_xc_lda, e_nuclear
+  integrand_external, integrand_xc_lda
 from typing import Callable
 from absl import logging
-import numpy as np
 import time
 import pandas as pd
 import os
@@ -139,49 +138,7 @@ def integrate_s(integrand: Callable, batch):
   def f(g, w):
     return jnp.sum(jax.vmap(v)(g, w), axis=0)
 
-  @jax.jit
-  def minibatch_f(g, w):
-    return jnp.sum(minibatch_vmap(v, batch_size=args.batch_size)(g, w), axis=0)
-
-  return f(g, w) if args.mini_batch is False else minibatch_f(g, w)
-
-
-def minibatch_vmap(f, in_axes=0, batch_size=10):
-  batch_f = jax.vmap(f, in_axes=in_axes)
-
-  def _minibatch_vmap_f(*args):
-    nonlocal in_axes
-    if not isinstance(in_axes, (tuple, list)):
-      in_axes = (in_axes,) * len(args)
-    for i, ax in enumerate(in_axes):
-      if ax is not None:
-        num = args[i].shape[ax]
-    num_shards = int(np.ceil(num / batch_size))
-    size = num_shards * batch_size
-    indices = jnp.arange(0, size, batch_size)
-
-    def _process_batch(start_index):
-      batch_args = (
-        jax.lax.dynamic_slice_in_dim(
-          a,
-          start_index=start_index,
-          slice_size=batch_size,
-          axis=ax,
-        ) if ax is not None else a for a, ax in zip(args, in_axes)
-      )
-      return batch_f(*batch_args)
-
-    def _sum_process_batch(start_index):
-      return jnp.sum(_process_batch(start_index), axis=0)
-
-    out = jax.lax.map(_sum_process_batch, indices)
-    if isinstance(out, jnp.ndarray):
-      out = jnp.reshape(out, (-1, *out.shape[1:]))[:num]
-    elif isinstance(out, (tuple, list)):
-      out = tuple(jnp.reshape(o, (-1, *o.shape[1:]))[:num] for o in out)
-    return out
-
-  return _minibatch_vmap_f
+  return f(g, w)
 
 
 def sscf(mol):
@@ -254,7 +211,7 @@ def sscf(mol):
   def sampler(seed):
     return batch_sampler(mol.grids, mol.weights, args.batch_size, seed=seed)
 
-  def update(mo_params, fock_old):
+  def update(mo_params, fock_old, fock_momentum):
     batchs1 = sampler(args.seed)
     batchs2 = sampler(args.seed + 1)
     H_batch = []
@@ -263,26 +220,12 @@ def sscf(mol):
     fork = jnp.mean(jnp.array(H_batch), axis=0)
     fork += (_h_ext + _h_kin)
 
-    fork = (1 - args.fock_momentum) * fork + args.fock_momentum * fock_old
+    fork = (1 - fock_momentum) * fork + fock_momentum * fock_old
 
     _, mo_params = jnp.linalg.eigh(fork)
     mo_params = jnp.transpose(mo_params, (0, 2, 1))
 
     return mo_params, fork
-
-  @jax.jit
-  def get_energy(mo_params, batch):
-
-    def mo_old(r):
-      return mol.mo((mo_params, None), r) * mol.nocc
-
-    e_kin = energy_kinetic(mo_old, batch)
-    e_ext = energy_external(mo_old, mol.nuclei, batch)
-    e_hartree = energy_hartree(mo_old, batch)
-    e_xc = energy_lda(mo_old, batch)
-    e_nuc = e_nuclear(mol.nuclei)
-    e_total = e_kin + e_ext + e_xc + e_hartree + e_nuc
-    return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
 
   @jax.jit
   def _energy_gs(mo_params, batch1, batch2):
@@ -292,7 +235,7 @@ def sscf(mol):
 
     return energy_gs(mo_old, mol.nuclei, batch1, batch2)
 
-  def _get_energy(mo_params):
+  def get_energy(mo_params):
     batchs1 = sampler(args.seed)
     batchs2 = sampler(args.seed + 1)
     Es_batch = []
@@ -311,14 +254,15 @@ def sscf(mol):
   # the main loop.
   logging.info(f'{" Starting...SCF loop"}')
   for i in range(args.epoch):
+    if i == 0:
+      fock_momentum = 0
+    else:
+      fock_momentum = args.fock_momentum
     iter_start = time.time()
-    mo_params, fork = update(mo_params, fork)
+    mo_params, fork = update(mo_params, fork, fock_momentum)
     iter_end = time.time()
     e_start = time.time()
-    if args.fast_e:
-      Es = _get_energy(mo_params)
-    else:
-      Es = get_energy(mo_params, batch)
+    Es = get_energy(mo_params)
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
     e_end = time.time()
@@ -356,18 +300,11 @@ def sscf(mol):
   }
 
   df = pd.DataFrame(data=info_dict, index=None)
-  if args.pre_cal:
-    df.to_excel(
-      "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
-      str(args.batch_size) + "_" + str(args.seed) + "_precal_sscf.xlsx",
-      index=False
-    )
-  else:
-    df.to_excel(
-      "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
-      str(args.batch_size) + "_" + str(args.seed) + "_sscf.xlsx",
-      index=False
-    )
+  df.to_excel(
+    "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
+    str(args.batch_size) + "_" + str(args.seed) + "_sscf.xlsx",
+    index=False
+  )
 
 
 if __name__ == '__main__':
@@ -377,15 +314,11 @@ if __name__ == '__main__':
 
   parser = argparse.ArgumentParser(description="JDFT Project")
   parser.add_argument("--batch_size", type=int, default=5000)
-  parser.add_argument("--mini_batch", type=bool, default=True)
   parser.add_argument("--epoch", type=int, default=5)
   parser.add_argument("--seed", type=int, default=0)
   parser.add_argument("--geometry", type=str, default="benzene")
   parser.add_argument("--basis_set", type=str, default="sto-3g")
   parser.add_argument("--fock_momentum", type=float, default=0.9)
-  parser.add_argument("--pre_cal", type=bool, default=True)
-  parser.add_argument("--fast_e", type=bool, default=True)
-  parser.add_argument("--batch_size_e", type=int, default=0)
   parser.add_argument("--device", type=str, default="0")
   args = parser.parse_args()
 
