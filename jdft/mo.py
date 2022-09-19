@@ -31,16 +31,31 @@ class MO(object):
     ao_fun_vec = self.ao(r, ao_params)
 
     def wave_fun_i(param_i, ao_fun_vec):
-      return param_i @ decov(
-        self.ao.overlap(params=ao_params, **kwargs)
+      return param_i  @ decov(
+       self.ao.overlap(params=ao_params, **kwargs)
       ) @ ao_fun_vec
-
+     
     def f(param):
       return wave_fun_i(param, ao_fun_vec)
 
     return jax.vmap(f)(mo_params)
+  
 
+class MO_pyscf(MO):
+  
+  def __call__(self, params, r):
+    mo_params, ao_params = params
+    ao_fun_vec = self.ao(r, ao_params)
 
+    def wave_fun_i(param_i, ao_fun_vec):
+      return param_i @ ao_fun_vec
+      
+    def f(param):
+      return wave_fun_i(param, ao_fun_vec)
+
+    return jax.vmap(f)(mo_params)
+  
+  
 class MO_qr(object):
   """Molecular orbital using QR decomposition."""
 

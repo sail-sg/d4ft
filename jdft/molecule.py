@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 from jdft.ao import Pople, PopleFast, Gaussian
-from jdft.mo import MO_qr, MO
+from jdft.mo import MO_qr, MO, MO_pyscf
 # from jdft.grids import _gen_grid
 from absl import logging
 from pyscf import gto
@@ -12,7 +12,16 @@ class molecule():
   """Class to represent a molecule."""
 
   def __init__(
-    self, config, spin, basis='3-21g', level=1, eps=1e-10, mode=None, **args
+    self,
+    config,
+    spin,
+    basis='3-21g',
+    xc='lda',
+    level=1,
+    seed = 123,
+    eps=1e-10,
+    mode=None,
+    **kwargs
   ):
     """Initialize a molecule."""
     if basis == 'gaussian':
@@ -33,6 +42,7 @@ class molecule():
     self.nao = self.pyscf_mol.nao  # number of atomic orbitals
     self._basis = self.pyscf_mol._basis
     self.basis = basis
+    self.xc = xc
 
     self.nocc = jnp.zeros([2, self.nao])  # number of occupied orbital.
     self.nocc = self.nocc.at[0, :int((self.tot_electron + self.spin) /
@@ -54,6 +64,7 @@ class molecule():
     self.weights = jnp.array(g.weights)
 
     self.eps = eps
+    self.seed = seed
     self.timer = []
 
     logging.info(
@@ -73,10 +84,14 @@ class molecule():
     # build mo
     if mode == 'scf':
       self.mo = MO(self.nao, self.ao)
+      
+    elif mode == 'pyscf':
+      self.mo = MO_pyscf(self.nao, self.ao)
 
     else:
       self.mo = MO_qr(self.nao, self.ao)
 
-  def _init_param(self, seed=123):
+  def _init_param(self, seed=None):
+    seed = seed if seed else self.seed
     key = jax.random.PRNGKey(seed)
     return self.mo.init(key)
