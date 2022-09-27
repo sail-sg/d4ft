@@ -83,13 +83,77 @@ def integrand_hartree(mo: Callable):
   Return:
     a function: [3] x [3] -> [1]
   """
-
+  
   def v(x, y):
-    return wave2density(mo)(x) * wave2density(mo)(y) / jnp.sqrt(
-      jnp.sum((x - y)**2) + 1e-20
-    ) * jnp.where(jnp.all(x == y), 2e-9, 1) / 2
-
+    return wave2density(mo)(x) * wave2density(mo)(y) \
+     * jnp.where(jnp.all(x==y), 2e-9, 1/jnp.sqrt(
+      jnp.sum((x - y)**2))) / 2 
+  
   return v
+
+
+def integrand_hartree_stochastic(mo: Callable, key, **kwargs):
+  r"""
+  Return n(x)n(y)/|x-y|
+  Args:
+    mo (Callable): a [3] -> [2, N] function, where N is the number of molecular
+    orbitals. mo only takes one argment, which is the coordinate.
+  Return:
+    a function: [3] x [3] -> [1]
+  """
+  N = 16
+  
+  def v(x, y):
+    return wave2density(mo)(x) * wave2density(mo)(y) \
+     * jnp.where(jnp.all(x==y), 1e-10, 1/jnp.sqrt(
+      jnp.sum((x - y)**2 + 1e-20))) / 2 
+     
+  eps = jax.random.normal(key, [N, 3]) * 1e-8
+  
+  def w(x, y):
+    def _v(z):
+      return v(x, z)
+    output = jnp.mean(jax.vmap(lambda e: v(x, y + e))(eps)) 
+    def second_order(e):
+      e = jnp.expand_dims(e, 1)
+      return jnp.squeeze(e.T @ jax.hessian(_v)(y) @ e) 
+    output -= 1/2 * jnp.mean(jax.vmap(second_order)(eps)) 
+    return output
+  return w
+
+
+def intor_hartree(mo, batch1, batch2, key, **kwargs):
+  # integrand = integrand_hartree_stochastic(mo, key)
+  g1, w1 = batch1
+  keys = jax.random.split(key, g1.shape[0])
+  
+  if batch2:
+    g2, w2 = batch2
+  else:
+    g2, w2 = batch1
+
+  @jax.jit
+  def f(g1, w1, g2, w2):
+    w_mat = jax.vmap(lambda x: jax.vmap(lambda y, key: integrand_hartree_stochastic(mo, key)(x, y))(g2, keys))(g1)
+    # w_mat = jnp.where(w_mat>1e3, 0, w_mat)
+    w1 = jnp.expand_dims(w1, 1)
+    w2 = jnp.expand_dims(w2, 1)
+    return jnp.squeeze(w1.T @ w_mat @ w2)
+  
+  return f(g1, w1, g2, w2)
+
+
+def hartree_correction(mo: Callable, batch, v0=0, **kwargs):
+  g, w = batch
+  
+  def v(r):
+    return v0*wave2density(mo)(r)**2
+  
+  @jax.jit
+  def correct(x):
+    return jnp.sum(jax.vmap(v)(x))
+  
+  return correct(g)
 
 
 def integrand_x_lda(mo: Callable, keep_spin=False):
@@ -121,8 +185,8 @@ def integrand_x_lsda(mo: Callable):
   const = -3 / 4 * (3 / jnp.pi)**(1 / 3)
 
   def v(x):
-    jnp.power(2., 1 / 3) * const * jnp.sum(wave2density(mo, True)(x)**(4 / 3))
-
+    return jnp.power(2., 1 / 3) * const * jnp.sum(wave2density(mo, keep_spin=True)(x)**(4 / 3))
+    
   return v
 
 
@@ -148,6 +212,10 @@ def integrate(integrand: Callable, *coords_and_weights):
   # weighted sum
   for weight in reversed(weights):
     out = jnp.dot(out, weight)
+    
+  # # adjust for Hartree:
+  # batch_size = len(coords[0])
+  # out * (batch_size - (len(coords) == 2))
   return out
 
 
@@ -163,16 +231,16 @@ def e_nuclear(nuclei):
   return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
-def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None, xc='lda'):
+def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None, xc='lda', **kwargs):
   if batch2 is None:
     batch2 = batch1
     
   e_kin = integrate(integrand_kinetic_alt(mo), batch1)
   e_ext = integrate(integrand_external(mo, nuclei), batch1)
-  e_hartree = integrate(integrand_hartree(mo), batch1, batch2)
+  e_hartree = integrate(integrand_hartree(mo, **kwargs), batch1, batch2) 
 
   if xc == 'lda':
-    e_xc = integrate(integrand_x_lda(mo), batch1)
+    e_xc = integrate(integrand_x_lsda(mo), batch1)
   else:
     raise NotImplementedError
 
