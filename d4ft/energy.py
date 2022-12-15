@@ -1,3 +1,16 @@
+# Copyright 2022 Garena Online Private Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 energy integrands and integration.
 """
@@ -5,8 +18,8 @@ energy integrands and integration.
 from typing import Callable
 import jax
 import jax.numpy as jnp
-from jdft.functions import set_diag_zero, distmat, wave2density
-from jdft.ao_int import _energy_precal
+from d4ft.functions import set_diag_zero, distmat, wave2density
+from d4ft.ao_int import _energy_precal
 
 
 def integrand_kinetic(mo: Callable, keep_dim=False):
@@ -60,7 +73,7 @@ def integrand_external(mo: Callable, nuclei, keep_dim=False):
   def v(r):
     return jnp.sum(
       nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-20)
-    ) 
+    )
 
   if keep_dim:
 
@@ -83,12 +96,12 @@ def integrand_hartree(mo: Callable):
   Return:
     a function: [3] x [3] -> [1]
   """
-  
+
   def v(x, y):
     return wave2density(mo)(x) * wave2density(mo)(y) \
-     * jnp.where(jnp.all(x==y), 2e-9, 1/jnp.sqrt(
-      jnp.sum((x - y)**2))) / 2 
-  
+     * jnp.where(jnp.all(x == y), 2e-9, 1/jnp.sqrt(
+      jnp.sum((x - y)**2))) / 2
+
   return v
 
 
@@ -102,23 +115,28 @@ def integrand_hartree_stochastic(mo: Callable, key, **kwargs):
     a function: [3] x [3] -> [1]
   """
   N = 16
-  
+
   def v(x, y):
     return wave2density(mo)(x) * wave2density(mo)(y) \
-     * jnp.where(jnp.all(x==y), 1e-10, 1/jnp.sqrt(
-      jnp.sum((x - y)**2 + 1e-20))) / 2 
-     
+     * jnp.where(jnp.all(x == y), 1e-10, 1/jnp.sqrt(
+      jnp.sum((x - y)**2 + 1e-20))) / 2
+
   eps = jax.random.normal(key, [N, 3]) * 1e-8
-  
+
   def w(x, y):
+
     def _v(z):
       return v(x, z)
-    output = jnp.mean(jax.vmap(lambda e: v(x, y + e))(eps)) 
+
+    output = jnp.mean(jax.vmap(lambda e: v(x, y + e))(eps))
+
     def second_order(e):
       e = jnp.expand_dims(e, 1)
-      return jnp.squeeze(e.T @ jax.hessian(_v)(y) @ e) 
-    output -= 1/2 * jnp.mean(jax.vmap(second_order)(eps)) 
+      return jnp.squeeze(e.T @ jax.hessian(_v)(y) @ e)
+
+    output -= 1 / 2 * jnp.mean(jax.vmap(second_order)(eps))
     return output
+
   return w
 
 
@@ -126,7 +144,7 @@ def intor_hartree(mo, batch1, batch2, key, **kwargs):
   # integrand = integrand_hartree_stochastic(mo, key)
   g1, w1 = batch1
   keys = jax.random.split(key, g1.shape[0])
-  
+
   if batch2:
     g2, w2 = batch2
   else:
@@ -134,25 +152,31 @@ def intor_hartree(mo, batch1, batch2, key, **kwargs):
 
   @jax.jit
   def f(g1, w1, g2, w2):
-    w_mat = jax.vmap(lambda x: jax.vmap(lambda y, key: integrand_hartree_stochastic(mo, key)(x, y))(g2, keys))(g1)
+    w_mat = jax.vmap(
+      lambda x: jax.
+      vmap(lambda y, key: integrand_hartree_stochastic(mo, key)
+           (x, y))(g2, keys)
+    )(
+      g1
+    )
     # w_mat = jnp.where(w_mat>1e3, 0, w_mat)
     w1 = jnp.expand_dims(w1, 1)
     w2 = jnp.expand_dims(w2, 1)
     return jnp.squeeze(w1.T @ w_mat @ w2)
-  
+
   return f(g1, w1, g2, w2)
 
 
 def hartree_correction(mo: Callable, batch, v0=0, **kwargs):
   g, w = batch
-  
+
   def v(r):
-    return v0*wave2density(mo)(r)**2
-  
+    return v0 * wave2density(mo)(r)**2
+
   @jax.jit
   def correct(x):
     return jnp.sum(jax.vmap(v)(x))
-  
+
   return correct(g)
 
 
@@ -185,8 +209,10 @@ def integrand_x_lsda(mo: Callable):
   const = -3 / 4 * (3 / jnp.pi)**(1 / 3)
 
   def v(x):
-    return jnp.power(2., 1 / 3) * const * jnp.sum(wave2density(mo, keep_spin=True)(x)**(4 / 3))
-    
+    return jnp.power(2., 1 / 3) * const * jnp.sum(
+      wave2density(mo, keep_spin=True)(x)**(4 / 3)
+    )
+
   return v
 
 
@@ -212,7 +238,7 @@ def integrate(integrand: Callable, *coords_and_weights):
   # weighted sum
   for weight in reversed(weights):
     out = jnp.dot(out, weight)
-    
+
   # # adjust for Hartree:
   # batch_size = len(coords[0])
   # out * (batch_size - (len(coords) == 2))
@@ -231,13 +257,15 @@ def e_nuclear(nuclei):
   return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
-def energy_gs(mo: Callable, nuclei: dict, batch1, batch2=None, xc='lda', **kwargs):
+def energy_gs(
+  mo: Callable, nuclei: dict, batch1, batch2=None, xc='lda', **kwargs
+):
   if batch2 is None:
     batch2 = batch1
-    
+
   e_kin = integrate(integrand_kinetic_alt(mo), batch1)
   e_ext = integrate(integrand_external(mo, nuclei), batch1)
-  e_hartree = integrate(integrand_hartree(mo, **kwargs), batch1, batch2) 
+  e_hartree = integrate(integrand_hartree(mo, **kwargs), batch1, batch2)
 
   if xc == 'lda':
     e_xc = integrate(integrand_x_lsda(mo), batch1)
@@ -275,9 +303,9 @@ def _energy_gs(
 
 if __name__ == '__main__':
 
-  import jdft
-  from jdft.geometries import c20_geometry
-  mol = jdft.molecule(c20_geometry, spin=0, level=1, basis='6-31g')
+  import d4ft
+  from d4ft.geometries import c20_geometry
+  mol = d4ft.molecule(c20_geometry, spin=0, level=1, basis='6-31g')
 
   params = mol._init_param()
 

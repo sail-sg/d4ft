@@ -6,10 +6,10 @@ import os
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
-import jdft
-from jdft.geometries import c60_geometry
+import d4ft
+from d4ft.geometries import c60_geometry
 
-mol = jdft.molecule(c60_geometry, spin=0, level=1, basis='6-31g')
+mol = d4ft.molecule(c60_geometry, spin=0, level=1, basis='6-31g')
 
 mol.train(
   100,

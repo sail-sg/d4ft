@@ -1,3 +1,17 @@
+# Copyright 2022 Garena Online Private Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -6,9 +20,9 @@ from absl import logging
 import time
 import pandas as pd
 import os
-from jdft.sampler import batch_sampler
-from jdft.energy import energy_gs, integrand_kinetic
-from jdft.functions import wave2density
+from d4ft.sampler import batch_sampler
+from d4ft.energy import energy_gs, integrand_kinetic
+from d4ft.functions import wave2density
 
 logging.set_verbosity(logging.INFO)
 
@@ -173,6 +187,7 @@ def sscf(mol):
 
     def mo_old(r):
       return mol.mo((mo_params, None), r) * mol.nocc
+
     return hamil_hartree(ao, mo_old, batch1, batch2) +\
       hamil_lda(ao, mo_old, batch1)
 
@@ -315,18 +330,18 @@ def sscf(mol):
 
   df = pd.DataFrame(data=info_dict, index=None)
   df.to_excel(
-    "jdft/results/" + args.geometry + "/" + args.geometry + "_" +
+    "d4ft/results/" + args.geometry + "/" + args.geometry + "_" +
     str(args.batch_size) + "_" + str(args.seed) + "_sscf.xlsx",
     index=False
   )
 
 
 if __name__ == '__main__':
-  import jdft.geometries
+  import d4ft.geometries
   from molecule import molecule
   import argparse
 
-  parser = argparse.ArgumentParser(description="JDFT Project")
+  parser = argparse.ArgumentParser(description="D4FT Project")
   parser.add_argument("--batch_size", type=int, default=5000)
   parser.add_argument("--epoch", type=int, default=5)
   parser.add_argument("--seed", type=int, default=0)
@@ -336,7 +351,7 @@ if __name__ == '__main__':
   parser.add_argument("--device", type=str, default="0")
   args = parser.parse_args()
 
-  geometry = getattr(jdft.geometries, args.geometry + "_geometry")
+  geometry = getattr(d4ft.geometries, args.geometry + "_geometry")
   os.environ["CUDA_VISIBLE_DEVICES"] = args.device
 
   mol = molecule(geometry, spin=0, level=1, mode="scf", basis=args.basis_set)

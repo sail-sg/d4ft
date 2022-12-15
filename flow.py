@@ -1,4 +1,3 @@
-
 # Copyright 2021 DeepMind Technologies Limited. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,19 +28,21 @@ import numpy as np
 import optax
 import tensorflow_datasets as tfds
 
-
-flags.DEFINE_integer("flow_num_layers", 8,
-                     "Number of layers to use in the flow.")
-flags.DEFINE_integer("mlp_num_layers", 2,
-                     "Number of layers to use in the MLP conditioner.")
+flags.DEFINE_integer(
+  "flow_num_layers", 8, "Number of layers to use in the flow."
+)
+flags.DEFINE_integer(
+  "mlp_num_layers", 2, "Number of layers to use in the MLP conditioner."
+)
 flags.DEFINE_integer("hidden_size", 500, "Hidden size of the MLP conditioner.")
-flags.DEFINE_integer("num_bins", 4,
-                     "Number of bins to use in the rational-quadratic spline.")
-flags.DEFINE_integer("batch_size", 128,
-                     "Batch size for training and evaluation.")
+flags.DEFINE_integer(
+  "num_bins", 4, "Number of bins to use in the rational-quadratic spline."
+)
+flags.DEFINE_integer(
+  "batch_size", 128, "Batch size for training and evaluation."
+)
 flags.DEFINE_float("learning_rate", 1e-4, "Learning rate for the optimizer.")
-flags.DEFINE_integer("training_steps", 5000,
-                     "Number of training steps to run.")
+flags.DEFINE_integer("training_steps", 5000, "Number of training steps to run.")
 flags.DEFINE_integer("eval_frequency", 100, "How often to evaluate the model.")
 FLAGS = flags.FLAGS
 
@@ -53,9 +54,10 @@ OptState = Any
 MNIST_IMAGE_SHAPE = (28, 28, 1)
 
 
-def make_conditioner(event_shape: Sequence[int],
-                     hidden_sizes: Sequence[int],
-                     num_bijector_params: int) -> hk.Sequential:
+def make_conditioner(
+  event_shape: Sequence[int], hidden_sizes: Sequence[int],
+  num_bijector_params: int
+) -> hk.Sequential:
   """Creates an MLP conditioner for each layer of the flow."""
   return hk.Sequential([
       hk.Flatten(preserve_dims=-len(event_shape)),
@@ -71,10 +73,10 @@ def make_conditioner(event_shape: Sequence[int],
   ])
 
 
-def make_flow_model(event_shape: Sequence[int],
-                    num_layers: int,
-                    hidden_sizes: Sequence[int],
-                    num_bins: int) -> distrax.Transformed:
+def make_flow_model(
+  event_shape: Sequence[int], num_layers: int, hidden_sizes: Sequence[int],
+  num_bins: int
+) -> distrax.Transformed:
   """Creates the flow model."""
   # Alternating binary mask.
   mask = jnp.arange(0, np.prod(event_shape)) % 2
@@ -82,8 +84,7 @@ def make_flow_model(event_shape: Sequence[int],
   mask = mask.astype(bool)
 
   def bijector_fn(params: Array):
-    return distrax.RationalQuadraticSpline(
-        params, range_min=0., range_max=1.)
+    return distrax.RationalQuadraticSpline(params, range_min=0., range_max=1.)
 
   # Number of parameters for the rational-quadratic spline:
   # - `num_bins` bin widths
@@ -95,10 +96,12 @@ def make_flow_model(event_shape: Sequence[int],
   layers = []
   for _ in range(num_layers):
     layer = distrax.MaskedCoupling(
-        mask=mask,
-        bijector=bijector_fn,
-        conditioner=make_conditioner(event_shape, hidden_sizes,
-                                     num_bijector_params))
+      mask=mask,
+      bijector=bijector_fn,
+      conditioner=make_conditioner(
+        event_shape, hidden_sizes, num_bijector_params
+      )
+    )
     layers.append(layer)
     # Flip the mask after each layer.
     mask = jnp.logical_not(mask)
@@ -106,10 +109,9 @@ def make_flow_model(event_shape: Sequence[int],
   # We invert the flow so that the `forward` method is called with `log_prob`.
   flow = distrax.Inverse(distrax.Chain(layers))
   base_distribution = distrax.Independent(
-      distrax.Uniform(
-          low=jnp.zeros(event_shape),
-          high=jnp.ones(event_shape)),
-      reinterpreted_batch_ndims=len(event_shape))
+    distrax.Uniform(low=jnp.zeros(event_shape), high=jnp.ones(event_shape)),
+    reinterpreted_batch_ndims=len(event_shape)
+  )
 
   return distrax.Transformed(base_distribution, flow)
 
@@ -135,10 +137,11 @@ def prepare_data(batch: Batch, prng_key: Optional[PRNGKey] = None) -> Array:
 @hk.transform
 def log_prob(data: Array) -> Array:
   model = make_flow_model(
-      event_shape=data.shape[1:],
-      num_layers=FLAGS.flow_num_layers,
-      hidden_sizes=[FLAGS.hidden_size] * FLAGS.mlp_num_layers,
-      num_bins=FLAGS.num_bins)
+    event_shape=data.shape[1:],
+    num_layers=FLAGS.flow_num_layers,
+    hidden_sizes=[FLAGS.hidden_size] * FLAGS.mlp_num_layers,
+    num_bins=FLAGS.num_bins
+  )
   return model.log_prob(data)
 
 
@@ -160,10 +163,9 @@ def main(_):
   optimizer = optax.adam(FLAGS.learning_rate)
 
   @jax.jit
-  def update(params: hk.Params,
-             prng_key: PRNGKey,
-             opt_state: OptState,
-             batch: Batch) -> Tuple[hk.Params, OptState]:
+  def update(
+    params: hk.Params, prng_key: PRNGKey, opt_state: OptState, batch: Batch
+  ) -> Tuple[hk.Params, OptState]:
     """Single SGD update step."""
     grads = jax.grad(loss_fn)(params, prng_key, batch)
     updates, new_opt_state = optimizer.update(grads, opt_state)
@@ -178,8 +180,9 @@ def main(_):
   valid_ds = load_dataset(tfds.Split.TEST, FLAGS.batch_size)
 
   for step in range(FLAGS.training_steps):
-    params, opt_state = update(params, next(prng_seq), opt_state,
-                               next(train_ds))
+    params, opt_state = update(
+      params, next(prng_seq), opt_state, next(train_ds)
+    )
 
     if step % FLAGS.eval_frequency == 0:
       val_loss = eval_fn(params, next(valid_ds))

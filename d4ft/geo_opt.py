@@ -1,11 +1,25 @@
+# Copyright 2022 Garena Online Private Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from absl import logging
 import time
 import jax
 import jax.numpy as jnp
-from jdft.energy import energy_gs
+from d4ft.energy import energy_gs
 import optax
-from jdft.grids import _gen_grid
-# from jdft.functions import distmat
+from d4ft.grids import _gen_grid
+# from d4ft.functions import distmat
 import copy
 from pyscf import gto
 from pyscf.dft import gen_grid
@@ -196,7 +210,7 @@ def geo_opt(mol, epoch, lr, seed=123, converge_threshold=1e-3, geo_mask=None):
 
 
 if __name__ == "__main__":
-  from jdft.geometries import h2_geometry
+  from d4ft.geometries import h2_geometry
   from molecule import molecule
   print(h2_geometry)
 

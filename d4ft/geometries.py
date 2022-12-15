@@ -1,3 +1,16 @@
+# Copyright 2022 Garena Online Private Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Geometry of the molecules."""
 
 h2_geometry = """
@@ -90,8 +103,7 @@ c20_geometry = """
  C -0.01020 1.97270 -0.00630;
  """
 
-
-c24_geometry = """                                                                         
+c24_geometry = """
  C     1.14300  -2.00480   0.34000;
  C    -0.01940  -2.33110  -0.32930;
  C     1.99990  -1.14140  -0.32750;
@@ -117,7 +129,6 @@ c24_geometry = """
  C    -1.20630   0.70850  -1.40110;
  C    -0.00430   1.41660  -1.42690;
 """
-
 
 c36_geometry = """
  C     1.38000  -1.08960  -1.90050;
@@ -158,8 +169,8 @@ c36_geometry = """
  C    -2.52570  -1.37800  -0.00150;
 """
 
-#C48-C2-199   
-c48_geometry = """                                                               
+# C48-C2-199
+c48_geometry = """
  C     2.57990  -1.91550  -0.02350;
  C     1.63500  -2.60550   0.64430;
  C     3.00280  -0.90300   0.76470;
@@ -209,7 +220,6 @@ c48_geometry = """
  C    -2.42010  -0.47120   1.84500;
  C    -1.43770   0.03470   2.62960;
 """
-
 
 c60_geometry = """
  C     2.16650   0.59060   2.58740;
@@ -273,7 +283,6 @@ c60_geometry = """
  C     2.51840  -0.46230  -2.31710;
  C     0.02180  -0.06450  -3.45850;
 """
-
 
 c72_geometry = """
  C    -3.10780   1.49010  -1.68140;
@@ -895,7 +904,7 @@ c140_geometry = """
  C    -1.20610  -5.07110  -2.91790;
  C    -3.35630  -3.83580  -3.11560;
  """
- 
+
 c160_geometry = """
  C     5.94060   0.59650  -0.41930;
  C     5.93570  -0.73530  -0.16200;

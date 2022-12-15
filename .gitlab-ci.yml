@@ -15,14 +15,14 @@ stages:
 flake8:
   stage: lint
   script:
-    - flake8 jdft --count --show-source --statistics
+    - make flake8
 
 yapf:
   stage: lint
   script:
-    - yapf -r -d jdft
+    - make py-format
 
 test:
   stage: test
   script:
-    - python3 -m pytest -s tests
+    - bazel test --test_output=all //tests/...

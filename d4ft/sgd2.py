@@ -1,13 +1,27 @@
+# Copyright 2022 Garena Online Private Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from absl import logging
 import time
 import jax
 import jax.numpy as jnp
-from jdft.energy import _energy_gs, energy_gs
+from d4ft.energy import _energy_gs, energy_gs
 import optax
 import os
-from jdft.functions import decov
-from jdft.ao_int import _ao_ext_int, _ao_kin_int
-from jdft.sampler import batch_sampler
+from d4ft.functions import decov
+from d4ft.ao_int import _ao_ext_int, _ao_kin_int
+from d4ft.sampler import batch_sampler
 import pandas as pd
 
 
@@ -193,7 +207,7 @@ def sgd(
 
   df = pd.DataFrame(data=info_dict, index=None)
   df.to_excel(
-    "jdft/results/" + args.geometry + "/" + args.geometry + "_" + str(args.lr) +
+    "d4ft/results/" + args.geometry + "/" + args.geometry + "_" + str(args.lr) +
     "_" + str(args.batch_size) + "_" + str(args.seed) + "_gd.xlsx",
     index=False
   )
@@ -202,13 +216,13 @@ def sgd(
 
 
 if __name__ == "__main__":
-  import jdft.geometries
-  from jdft.molecule import molecule
+  import d4ft.geometries
+  from d4ft.molecule import molecule
   import argparse
 
   logging.set_verbosity(logging.INFO)
 
-  parser = argparse.ArgumentParser(description="JDFT Project")
+  parser = argparse.ArgumentParser(description="D4FT Project")
   parser.add_argument("--batch_size", type=int, default=100000)
   parser.add_argument("--epoch", type=int, default=200)
   parser.add_argument("--converge_threshold", type=float, default=1e-5)
@@ -223,7 +237,7 @@ if __name__ == "__main__":
   parser.add_argument("--lr_decay", type=bool, default=False)
   args = parser.parse_args()
 
-  geometry = getattr(jdft.geometries, args.geometry + "_geometry")
+  geometry = getattr(d4ft.geometries, args.geometry + "_geometry")
   os.environ["CUDA_VISIBLE_DEVICES"] = args.device
   mol = molecule(geometry, spin=0, level=1, basis=args.basis_set)
   sgd(
