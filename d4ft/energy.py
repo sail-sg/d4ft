@@ -260,6 +260,9 @@ def e_nuclear(nuclei):
 def energy_gs(
   mo: Callable, nuclei: dict, batch1, batch2=None, xc='lda', **kwargs
 ):
+  """
+  TODO: write the reason for having two separate batch
+  """
   if batch2 is None:
     batch2 = batch1
 
@@ -278,7 +281,7 @@ def energy_gs(
   return e_total, (e_kin, e_ext, e_xc, e_hartree, e_nuc)
 
 
-def _energy_gs(
+def energy_gs_with_precal(
   mo: Callable,
   nuclei: dict,
   params,
@@ -305,7 +308,7 @@ if __name__ == '__main__':
 
   import d4ft
   from d4ft.geometries import c20_geometry
-  mol = d4ft.molecule(c20_geometry, spin=0, level=1, basis='6-31g')
+  mol = d4ft.Molecule(c20_geometry, spin=0, level=1, basis='6-31g')
 
   params = mol._init_param()
 

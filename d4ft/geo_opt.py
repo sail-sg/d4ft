@@ -211,7 +211,7 @@ def geo_opt(mol, epoch, lr, seed=123, converge_threshold=1e-3, geo_mask=None):
 
 if __name__ == "__main__":
   from d4ft.geometries import h2_geometry
-  from molecule import molecule
+  from Molecule import Molecule
   print(h2_geometry)
 
   h2_start = """
@@ -220,7 +220,7 @@ if __name__ == "__main__":
   """
   print(h2_start)
 
-  mol = molecule(h2_start, spin=0, level=3, basis="6-31g", mode='go')
+  mol = Molecule(h2_start, spin=0, level=3, basis="6-31g", mode='go')
 
   # print(mol.nuclei)
   # print(_get_config_from_coords(mol.nuclei))

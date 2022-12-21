@@ -17,7 +17,7 @@ import jax
 import jax.numpy as jnp
 from d4ft.functions import factorial
 # from scipy.special import factorial
-from d4ft.ao_int import _ao_overlap_int
+from d4ft.ao_int import overlap_integral
 
 
 def gaussian_primitive(r, alpha, ijk):
@@ -145,6 +145,9 @@ class PopleFast():
     input:
         (N: the number of atomic orbitals.)
         |r: (3) coordinate.
+
+    Formula for the normalization constant
+    ref: https://en.wikipedia.org/wiki/Gaussian_orbital
     '''
 
     atom_coords = kwargs.get('atom_coords', self.atom_coords)
@@ -153,26 +156,26 @@ class PopleFast():
       element = self.elements[idx]
       coord = atom_coords[idx]
       for i in self._basis[element]:
-        if i[0] == 0:
-          prm_array = jnp.array(i[1:])
+        prm_array = jnp.array(i[1:])
+        exponents = prm_array[:, 0]
+        coeffs = prm_array[:, 1]
+
+        if i[0] == 0:  # s-orbitals
           output.append(
             jnp.sum(
-              prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.sum((r - coord)**2)) *
-              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4)
+              coeffs * jnp.exp(-exponents * jnp.sum((r - coord)**2)) *
+              (2 * exponents / jnp.pi)**(3 / 4)
             )
           )
 
-        elif i[0] == 1:
-          prm_array = jnp.array(i[1:])
+        elif i[0] == 1:  # p-orbitals
           output += [
             (r[j] - coord[j]) * jnp.sum(
-              prm_array[:, 1] *
-              jnp.exp(-prm_array[:, 0] * jnp.sum((r - coord)**2)) *
-              (2 * prm_array[:, 0] / jnp.pi)**(3 / 4) *
-              (4 * prm_array[:, 0])**0.5
+              coeffs * jnp.exp(-exponents * jnp.sum((r - coord)**2)) *
+              (2 * exponents / jnp.pi)**(3 / 4) * (4 * exponents)**0.5
             ) for j in np.arange(3)
           ]
+
     return jnp.array(output)
 
   def overlap(self, **kwargs):
@@ -230,7 +233,7 @@ class Gaussian():
   def overlap(self, **args):
     g = args['grids']
     w = args['weights']
-    return _ao_overlap_int(self.__call__, g, w)
+    return overlap_integral(self.__call__, g, w)
 
   def init(self, *args):
     return None

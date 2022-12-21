@@ -2,14 +2,14 @@
 
 from absl.testing import absltest
 from d4ft.geometries import h2o_geometry, h2_geometry
-from d4ft.molecule import molecule
+from d4ft.molecule import Molecule
 from d4ft.sgd import sgd
 
 
 class MoleculeTest(absltest.TestCase):
 
   def test_water_energy(self):
-    mol = molecule(h2o_geometry, spin=0, level=1, basis='6-31g')
+    mol = Molecule(h2o_geometry, spin=0, level=1, basis='6-31g')
     egs, _ = sgd(
       mol,
       epoch=100,
@@ -21,7 +21,7 @@ class MoleculeTest(absltest.TestCase):
     self.assertTrue(egs < -75. and egs > -80)
 
   def test_h2_energy(self):
-    mol = molecule(h2_geometry, spin=0, level=1, basis='6-31g')
+    mol = Molecule(h2_geometry, spin=0, level=1, basis='6-31g')
     egs, _ = sgd(
       mol,
       20,
@@ -35,7 +35,7 @@ class MoleculeTest(absltest.TestCase):
     self.assertTrue(egs < -1 and egs > -1.1)
 
   def test_oxygen_energy(self):
-    mol = molecule('O 0 0 0', spin=0, level=1, basis='6-31g')
+    mol = Molecule('O 0 0 0', spin=0, level=1, basis='6-31g')
     egs, _ = sgd(
       mol,
       20,

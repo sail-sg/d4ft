@@ -115,7 +115,7 @@ def integrate_s(integrand: Callable, batch):
   return f(g, w)
 
 
-def scf(iter, mol, seed=123, momentum=0.5):
+def scf(mol, epoch, seed=123, momentum=0.5):
   batch = (mol.grids, mol.weights)
   params = mol._init_param(seed)
   mo_params, _ = params
@@ -145,27 +145,16 @@ def scf(iter, mol, seed=123, momentum=0.5):
   logging.info(" Starting...SCF loop")
   fock = jnp.eye(mol.nao)
 
-  for i in range(iter):
+  for i in range(epoch):
     mo_params, fock, Es = update(mo_params, fock)
 
     e_total, e_splits = Es
     e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
 
-    logging.info(f" Iter: {i+1}/{iter}")
+    logging.info(f" Iter: {i+1}/{epoch}")
     logging.info(f" Ground State: {e_total}")
     logging.info(f" Kinetic: {e_kin}")
     logging.info(f" External: {e_ext}")
     logging.info(f" Exchange-Correlation: {e_xc}")
     logging.info(f" Hartree: {e_hartree}")
     logging.info(f" Nucleus Repulsion: {e_nuc}")
-
-
-if __name__ == '__main__':
-  from d4ft.geometries import benzene_geometry
-  from d4ft.molecule import molecule
-
-  logging.set_verbosity(logging.INFO)
-
-  mol = molecule(benzene_geometry, spin=0, level=1, mode='scf', basis="6-31g")
-
-  scf(80, mol, seed=123, momentum=0.05)

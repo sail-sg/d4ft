@@ -338,7 +338,7 @@ def sscf(mol):
 
 if __name__ == '__main__':
   import d4ft.geometries
-  from molecule import molecule
+  from Molecule import Molecule
   import argparse
 
   parser = argparse.ArgumentParser(description="D4FT Project")
@@ -354,6 +354,6 @@ if __name__ == '__main__':
   geometry = getattr(d4ft.geometries, args.geometry + "_geometry")
   os.environ["CUDA_VISIBLE_DEVICES"] = args.device
 
-  mol = molecule(geometry, spin=0, level=1, mode="scf", basis=args.basis_set)
+  mol = Molecule(geometry, spin=0, level=1, mode="scf", basis=args.basis_set)
 
   sscf(mol)

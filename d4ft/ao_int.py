@@ -17,80 +17,77 @@ import jax.numpy as jnp
 from typing import Callable
 
 
-def _ao_kin_int(ao: Callable, grids, weights):
+def _int_matrix_quadrature(f: Callable, g: Callable, grids, weights):
   r"""
-    \int phi(x) \nobla phi(x)^T dx
+  Computes the integral matrix <f_i|g_j> with quadrature, where f_i and g_j
+  are functions of the electron position.
+
+  - Since the integral is computed with quadrature, i.e.
+
+  .. math::
+  <f_i|g_j>= \sum_k w_k \dot (f_i(r_k)g_j(r_k))
+
+  the integral matrix can be computed as the outer product of the vector
+  F(r)=(f_1(r), ..., f_N(r)) and G(r)=(g_1(r), ..., g_N(r)), i.e.
+
+  .. math::
+  (<f_i|g_j>)= \sum_k w_k \dot (F(r_k)G(r_k)^T)
+
+  - The integral is computed with a randomly sampled batch of quadrature
+  points, as described in the D4FT paper.
+
     Args:
-      ao: R^3 -> R^N
+      f: R^3 -> R^N
+      g: R^3 -> R^N
       grids: [N, 3]
       weights: [N, ]
     Return:
-      Array: [N, N]
+      integral matrix: [N, N]
   """
 
-  def fun(r):  # R^3 -> R^N
+  # compute the integral matrix for one quadrature point
+  def integral_matrix(r, w):
+    return jnp.outer(f(r), g(r)) * w
+
+  # compute the sum over the sampled batch of quadrature point
+  # as ammortized integral
+  @jax.jit
+  def reduce_outer_sum(x, w):
+    return jnp.sum(jax.vmap(integral_matrix)(x, w), axis=0)
+
+  return reduce_outer_sum(grids, weights)
+
+
+def kinetic_integral(ao: Callable, grids, weights):
+  r"""
+  Computes the kinetic integral <phi_i| -1/2\nabla |phi_j>
+  """
+
+  def laplacian(r):  # R^3 -> R^N
     hessian_diag = jnp.diagonal(jax.hessian(ao)(r), 0, 1, 2)  # [N, 3]
     return -jnp.sum(hessian_diag, axis=1) / 2  # [N]
 
-  def outer_f(r, w):
-    return jnp.outer(ao(r), fun(r)) * w
-
-  @jax.jit
-  def reduce_outer_sum(x, w):
-    return jnp.sum(jax.vmap(outer_f)(x, w), axis=0)
-
-  return reduce_outer_sum(grids, weights)
+  return _int_matrix_quadrature(ao, laplacian, grids, weights)
 
 
-def _ao_overlap_int(ao: Callable, grids, weights):
+def overlap_integral(ao: Callable, grids, weights):
   r"""
-    \int phi(x) \nobla phi(x)^T dx
-    Args:
-      ao: R^3 -> R^N
-      grids: [N, 3]
-      weights: [N, ]
-    Return:
-      Array: [N, N]
+  Computes the overlap integral <phi_i|phi_j>
+  """
+  return _int_matrix_quadrature(ao, ao, grids, weights)
+
+
+def external_integral(ao: Callable, nuclei: dict, grids, weights):
+  r"""
+  Computes the external potential integral <phi_i| Z/|r-R| |phi_j>
   """
 
-  def outer_f(r, w):
-    return jnp.outer(ao(r), ao(r)) * w
-
-  @jax.jit
-  def reduce_outer_sum(x, w):
-    return jnp.sum(jax.vmap(outer_f)(x, w), axis=0)
-
-  return reduce_outer_sum(grids, weights)
-
-
-def _ao_ext_int(ao: Callable, nuclei: dict, grids, weights):
-  r"""
-    \int e_R phi^i(x) phi(x)^T / |x-R| dx
-    Args:
-      ao: R^3 -> R^N
-      nuclei: a dict
-      grids: [N, 3]
-      weights: [N, ]
-
-    Return:
-      Array: [N, N]
-  """
-  nuclei_loc = nuclei['loc']
-  nuclei_charge = nuclei['charge']
-
-  def fun(r):
-    return ao(r) * jnp.sum(
-      nuclei_charge / jnp.linalg.norm(r - nuclei_loc, axis=1)
+  def nucleus_repulsion(r):
+    return -ao(r) * jnp.sum(
+      nuclei["charge"] / jnp.linalg.norm(r - nuclei["loc"], axis=1)
     )
 
-  def outer_f(r, w):
-    return jnp.outer(fun(r), ao(r)) * w
-
-  @jax.jit
-  def reduce_outer_sum(x, w):
-    return jnp.sum(jax.vmap(outer_f)(x, w), axis=0)
-
-  return -reduce_outer_sum(grids, weights)
+  return _int_matrix_quadrature(ao, nucleus_repulsion, grids, weights)
 
 
 def _energy_precal(params, _ao_kin_mat, nocc):
@@ -104,9 +101,3 @@ def _energy_precal(params, _ao_kin_mat, nocc):
     return jnp.sum(jnp.diagonal(orthogonal.T @ _ao_kin_mat @ orthogonal))
 
   return jnp.sum(jax.vmap(f)(mo_params, nocc))
-
-
-# def _ao_overlap_int(ao, grids, weights):
-#   r"""
-
-#   """

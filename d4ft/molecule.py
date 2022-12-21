@@ -22,7 +22,7 @@ from pyscf import gto
 from pyscf.dft import gen_grid
 
 
-class molecule():
+class Molecule:
   """Class to represent a molecule."""
 
   def __init__(
@@ -34,7 +34,7 @@ class molecule():
     level=1,
     seed=123,
     eps=1e-10,
-    mode=None,
+    algo=None,
     **kwargs
   ):
     """Initialize a molecule."""
@@ -96,10 +96,10 @@ class molecule():
       self.ao = Gaussian(self.pyscf_mol)
 
     # build mo
-    if mode == 'scf':
+    if algo == 'scf':
       self.mo = MO(self.nao, self.ao)
 
-    elif mode == 'pyscf':
+    elif algo == 'pyscf':
       self.mo = MO_pyscf(self.nao, self.ao)
 
     else:

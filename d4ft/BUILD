@@ -96,6 +96,7 @@ py_library(
     deps = [
         ":energy",
         ":sampler",
+        ":molecule",
     ],
 )
 

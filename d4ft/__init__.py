@@ -21,11 +21,18 @@ from . import (
   mo,
 )
 
-from .molecule import molecule
+from .molecule import Molecule
 from .sgd import sgd
 from .scf import scf
 
 __all__ = [
-  'functions', 'energy', 'molecule', 'sampler', 'geometries', 'ao', 'mo', 'sgd',
-  'scf', 'molecule'
+  'functions',
+  'energy',
+  'Molecule',
+  'sampler',
+  'geometries',
+  'ao',
+  'mo',
+  'sgd',
+  'scf',
 ]

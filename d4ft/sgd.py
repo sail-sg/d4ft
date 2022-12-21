@@ -12,34 +12,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from absl import logging
 import time
+
 import jax
 import jax.numpy as jnp
-from d4ft.energy import _energy_gs, energy_gs
 import optax
+from absl import logging
+
+from d4ft.ao_int import external_integral, kinetic_integral
+from d4ft.energy import energy_gs, energy_gs_with_precal
 from d4ft.functions import decov
-from d4ft.ao_int import _ao_ext_int, _ao_kin_int
+from d4ft.molecule import Molecule
 from d4ft.sampler import batch_sampler
 
 
 def sgd(
-  mol,
-  epoch,
-  lr,
-  seed=123,
-  converge_threshold=1e-3,
-  batch_size=1000,
-  optimizer='sgd',
-  pre_cal=False
+  mol: Molecule,
+  epoch: int,
+  lr: float,
+  seed: int = 123,
+  converge_threshold: float = 1e-3,
+  batch_size: int = 1000,
+  optimizer: str = "sgd",
+  pre_cal: bool = False,
+  lr_decay: bool = False,
 ):
   """Run the main training loop."""
   params = mol._init_param(seed)
 
+  if batch_size > mol.grids.shape[0]:
+    batch_size = mol.grids.shape[0]
+
+  optimizer_kwargs = {"learning_rate": lr}
+  if lr_decay:
+    total_steps = mol.grids.shape[0] / batch_size * epoch
+    scheduler = optax.piecewise_constant_schedule(
+      init_value=lr,
+      boundaries_and_scales={
+        int(total_steps * 0.5): 0.5,
+        int(total_steps * 0.75): 0.5
+      }
+    )
+    optimizer_kwargs["learning_rate"] = scheduler
+
   if optimizer == 'sgd':
-    optimizer = optax.sgd(lr)
+    optimizer = optax.sgd(**optimizer_kwargs)
   elif optimizer == 'adam':
-    optimizer = optax.adam(lr)
+    optimizer = optax.adam(**optimizer_kwargs)
   else:
     raise NotImplementedError
 
@@ -62,7 +81,7 @@ def sgd(
     @jax.jit
     def _ao_kin_mat_fun(batch):
       g, w = batch
-      _ao_kin_mat = _ao_kin_int(mol.ao, g, w)
+      _ao_kin_mat = kinetic_integral(mol.ao, g, w)
       _ao_kin_mat = overlap_decov @ _ao_kin_mat @ overlap_decov.T
 
       return _ao_kin_mat
@@ -70,7 +89,7 @@ def sgd(
     @jax.jit
     def _ao_ext_mat_fun(batch):
       g, w = batch
-      _ao_ext_mat = _ao_ext_int(mol.ao, mol.nuclei, g, w)
+      _ao_ext_mat = external_integral(mol.ao, mol.nuclei, g, w)
       _ao_ext_mat = overlap_decov @ _ao_ext_mat @ overlap_decov.T
 
       return _ao_ext_mat
@@ -78,7 +97,6 @@ def sgd(
     _ao_kin_mat = jnp.zeros([mol.nao, mol.nao])
     _ao_ext_mat = jnp.zeros([mol.nao, mol.nao])
 
-    # for batch in dataset1.as_numpy_iterator():
     for batch in dataset1:
 
       _ao_kin_mat += _ao_kin_mat_fun(batch)
@@ -97,7 +115,7 @@ def sgd(
         return mol.mo(params, r) * mol.nocc
 
       if pre_cal:
-        return _energy_gs(
+        return energy_gs_with_precal(
           mo, mol.nuclei, params, _ao_kin_mat, _ao_ext_mat, mol.nocc, batch1,
           batch2
         )
@@ -119,7 +137,6 @@ def sgd(
   logging.info(f"Batch size: {batch_size}")
   logging.info(f"Total grid points: {len(mol.grids)}")
 
-  # batch = (mol.grids, mol.weights)
   for i in range(epoch):
     iter_time = 0
     Es_batch = []
@@ -167,20 +184,3 @@ def sgd(
   logging.info(f" Nucleus Repulsion: {e_nuc}")
 
   return e_total, params
-
-
-if __name__ == "__main__":
-  from d4ft.geometries import h2_geometry
-  from d4ft.molecule import molecule
-
-  logging.set_verbosity(logging.INFO)
-
-  mol = molecule(h2_geometry, spin=0, level=1, basis="6-31g")
-  sgd(
-    mol,
-    epoch=200,
-    lr=1e-2,
-    batch_size=51200,
-    converge_threshold=1e-5,
-    pre_cal=True
-  )
