@@ -95,8 +95,8 @@ py_library(
     srcs = ["sgd.py"],
     deps = [
         ":energy",
-        ":sampler",
         ":molecule",
+        ":sampler",
     ],
 )
 
