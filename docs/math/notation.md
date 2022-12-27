@@ -60,7 +60,9 @@ $$
 
 #### Expectation of a physical quantity
 
-In quantum mechanics, each physical quantity is associated with an **operator** $\hat A$ (physicians call it *observable*), which is a linear map from $\mathcal{H}$ to $\mathcal{H}$, *i.e.* $\hat A: \mathcal{H} \to \mathcal{H}$. 
+In quantum mechanics, each physical quantity is associated with a self-adjoint(Hermitian) 
+**operator** $\hat A$ (physicians call it *observable*), which is a linear map from $\mathcal{H}
+$ to $\mathcal{H}$, *i.e.* $\hat A: \mathcal{H} \to \mathcal{H}$. 
 
 For example, we associate the position operator $\hat x$ with the position of a particle, and the momentum operator $\hat p$ with the momentum of a particle, the Hamiltonian operator $\hat H$ with the energy of a particle, etc.
 
@@ -76,3 +78,5 @@ $$
 =  \int_{\mathbb{R}^3} \boldsymbol{\Psi}^*(\boldsymbol r) \left( \hat A\boldsymbol{\Psi}( \boldsymbol r) \right) d\boldsymbol{r}.
 \end{align}
 $$
+
+If $| \boldsymbol{\Psi} \rangle$ happens to be an eigenstate of $\hat A$, then the expectation value of $\hat A$ is simply the eigenvalue of $\hat A$ in that state.
