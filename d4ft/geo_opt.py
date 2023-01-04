@@ -16,7 +16,7 @@ from absl import logging
 import time
 import jax
 import jax.numpy as jnp
-from d4ft.energy import energy_gs
+from d4ft.energy import calc_energy
 import optax
 from d4ft.grids import _gen_grid
 # from d4ft.functions import distmat
@@ -92,7 +92,7 @@ def geo_opt(mol, epoch, lr, seed=123, converge_threshold=1e-3, geo_mask=None):
       nuclei_new = {'loc': atom_coords, 'charge': nuclei['charge']}
       # nuclei_new = nuclei
 
-      e_total, e_splits = energy_gs(mo, nuclei_new, batch, batch)
+      e_total, e_splits = calc_energy(mo, nuclei_new, batch, batch)
       return e_total, (e_splits, nuclei_new)
 
     (e_total, aux), grad = jax.value_and_grad(

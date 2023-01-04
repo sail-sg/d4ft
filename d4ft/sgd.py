@@ -19,18 +19,17 @@ import jax.numpy as jnp
 import optax
 from absl import logging
 
-from d4ft.ao_int import external_integral, kinetic_integral
-from d4ft.energy import energy_gs, energy_gs_with_precal
-from d4ft.functions import decov
+from d4ft.energy import calc_energy, precal_ao_matrix
+from d4ft.integral.quadrature.utils import make_quadrature_points_batches
+from d4ft.logger import RunLogger
 from d4ft.molecule import Molecule
-from d4ft.sampler import batch_sampler
 
 
 def sgd(
   mol: Molecule,
   epoch: int,
   lr: float,
-  seed: int = 123,
+  seed: int = 137,
   converge_threshold: float = 1e-3,
   batch_size: int = 1000,
   optimizer: str = "sgd",
@@ -64,123 +63,69 @@ def sgd(
 
   opt_state = optimizer.init(params)
 
-  if batch_size > mol.grids.shape[0]:
-    batch_size = mol.grids.shape[0]
-
-  @jax.jit
-  def sampler(seed):
-    return batch_sampler(mol.grids, mol.weights, batch_size, seed=seed)
-
-  dataset1 = sampler(seed)
-
+  e_kwargs = {}
   if pre_cal:
     logging.info('Preparing for integration...')
     start = time.time()
-    overlap_decov = decov(mol.ao.overlap())
-
-    @jax.jit
-    def _ao_kin_mat_fun(batch):
-      g, w = batch
-      _ao_kin_mat = kinetic_integral(mol.ao, g, w)
-      _ao_kin_mat = overlap_decov @ _ao_kin_mat @ overlap_decov.T
-
-      return _ao_kin_mat
-
-    @jax.jit
-    def _ao_ext_mat_fun(batch):
-      g, w = batch
-      _ao_ext_mat = external_integral(mol.ao, mol.nuclei, g, w)
-      _ao_ext_mat = overlap_decov @ _ao_ext_mat @ overlap_decov.T
-
-      return _ao_ext_mat
-
-    _ao_kin_mat = jnp.zeros([mol.nao, mol.nao])
-    _ao_ext_mat = jnp.zeros([mol.nao, mol.nao])
-
-    for batch in dataset1:
-
-      _ao_kin_mat += _ao_kin_mat_fun(batch)
-      _ao_ext_mat += _ao_ext_mat_fun(batch)
-
-    _ao_kin_mat /= len(list(dataset1))
-    _ao_ext_mat /= len(list(dataset1))
+    ao_kin_mat, ao_ext_mat = precal_ao_matrix(mol, batch_size, seed)
     logging.info(f"Pre-calculation finished. Time: {(time.time()-start):.3f}")
+    e_kwargs = dict(
+      ao_kin_mat=ao_kin_mat,
+      ao_ext_mat=ao_ext_mat,
+      nocc=mol.nocc,
+    )
 
   @jax.jit
   def update(params, opt_state, batch1, batch2):
 
     def loss(params):
+      return calc_energy(
+        orbitals=lambda r: mol.mo(params, r) * mol.nocc,
+        nuclei=mol.nuclei,
+        batch1=batch1,
+        batch2=batch2,
+        mo_params=params,
+        pre_cal=pre_cal,
+        **e_kwargs
+      )
 
-      def mo(r):
-        return mol.mo(params, r) * mol.nocc
-
-      if pre_cal:
-        return energy_gs_with_precal(
-          mo, mol.nuclei, params, _ao_kin_mat, _ao_ext_mat, mol.nocc, batch1,
-          batch2
-        )
-      else:
-        return energy_gs(mo, mol.nuclei, batch1, batch2)
-
-    (e_total, e_splits), grad = jax.value_and_grad(loss, has_aux=True)(params)
+    (e_total, energies), grad = jax.value_and_grad(loss, has_aux=True)(params)
     updates, opt_state = optimizer.update(grad, opt_state)
     params = optax.apply_updates(params, updates)
-    return params, opt_state, (e_total, *e_splits)
+    return params, opt_state, energies
 
   logging.info(f"Starting... Random Seed: {seed}, Batch size: {batch_size}")
-
-  prev_loss = 0.
-  start_time = time.time()
-  e_train = []
-  converged = False
-
   logging.info(f"Batch size: {batch_size}")
   logging.info(f"Total grid points: {len(mol.grids)}")
 
-  for i in range(epoch):
-    iter_time = 0
-    Es_batch = []
-
-    batchs1 = sampler(seed + i)
-    batchs2 = sampler(seed + i + 1)
-
-    for batch1, batch2 in zip(batchs1, batchs2):
-      _time = time.time()
-      params, opt_state, Es = update(params, opt_state, batch1, batch2)
-      iter_time += time.time() - _time
-      Es_batch.append(Es)
-
-    # retrieve all energy terms
-    e_total, e_kin, e_ext, e_xc, e_hartree, e_nuc = jnp.mean(
-      jnp.array(Es_batch), axis=0
-    )
-    # track total energy for convergence check
-    e_train.append(e_total)
-
-    if (i + 1) % 1 == 0:
-      logging.info(
-        f"Iter: {i+1}/{epoch}. \
-          Ground State Energy: {e_total:.3f}. \
-          Time: {iter_time:.3f}"
-      )
-
-    if jnp.abs(prev_loss - e_total) < converge_threshold:
-      converged = True
-      break
-    else:
-      prev_loss = e_total
-
-  logging.info(
-    f"Converged: {converged}. \n"
-    f"Total epochs run: {i+1}. \n"
-    f"Training Time: {(time.time() - start_time):.3f}s. \n"
+  batches = make_quadrature_points_batches(
+    mol.grids, mol.weights, batch_size, epochs=epoch, num_copies=2, seed=seed
   )
-  logging.info("Energy:")
-  logging.info(f" Ground State: {e_total}")
-  logging.info(f" Kinetic: {e_kin}")
-  logging.info(f" External: {e_ext}")
-  logging.info(f" Exchange-Correlation: {e_xc}")
-  logging.info(f" Hartree: {e_hartree}")
-  logging.info(f" Nucleus Repulsion: {e_nuc}")
 
-  return e_total, params
+  num_batches = mol.grids.shape[0] // batch_size
+
+  prev_e_total = 0.
+  converged = False
+
+  logger = RunLogger()
+  for i, (batch1, batch2) in enumerate(batches):
+    # SGD step
+    params, opt_state, energies = update(params, opt_state, batch1, batch2)
+    logger.log_step(energies, i)
+
+    # log at the end of each epoch
+    if i % num_batches == 0:
+      segment_df = logger.get_segment_summary()
+      e_total = segment_df.e_total.mean()
+
+      # check convergence
+      if jnp.abs(prev_e_total - e_total) < converge_threshold:
+        converged = True
+        break
+      else:
+        prev_e_total = e_total
+
+  logging.info(f"Converged: {converged}")
+  logger.log_summary()
+
+  return e_total, params, logger

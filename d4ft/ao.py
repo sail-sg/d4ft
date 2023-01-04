@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import numpy as np
 import jax
 import jax.numpy as jnp
+import numpy as np
+
+from d4ft.integral.quadrature import overlap_integral
+
 from d4ft.functions import factorial
-# from scipy.special import factorial
-from d4ft.ao_int import overlap_integral
 
 
 def gaussian_primitive(r, alpha, ijk):
@@ -233,7 +234,7 @@ class Gaussian():
   def overlap(self, **args):
     g = args['grids']
     w = args['weights']
-    return overlap_integral(self.__call__, g, w)
+    return overlap_integral(self.__call__, (g, w))
 
   def init(self, *args):
     return None

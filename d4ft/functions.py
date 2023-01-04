@@ -19,8 +19,6 @@ from jax import vmap
 import jax.numpy as jnp
 import numpy as np
 
-# from scipy.special import factorial2 as factorial2
-
 
 def wave2density(mo: Callable, nocc=1., keep_spin=False):
   """
@@ -106,12 +104,6 @@ def decov(cov):
   return jnp.matmul(v, ut)
 
 
-# def decov(cov):
-#   l = jnp.linalg.cholesky(cov)
-#   l = jnp.linalg.inv(l)
-#   return l
-
-
 def set_diag_zero(x):
   """Set diagonal items to zero."""
   return x.at[jnp.diag_indices(x.shape[0])].set(0)
@@ -119,6 +111,8 @@ def set_diag_zero(x):
 
 def minibatch_vmap(f, in_axes=0, batch_size=10):
   """
+  TODO: speed test this
+
     automatic batched vmap operation.
   """
   batch_f = jax.vmap(f, in_axes=in_axes)

@@ -95,6 +95,7 @@ class MO_qr(object):
     output:
       |molecular orbitals:(2, N)
     """
+    # TODO: ao_param here is not used
     mo_params, ao_params = params
     mo_params = jnp.expand_dims(mo_params, 0)
     mo_params = jnp.repeat(mo_params, 2, 0)

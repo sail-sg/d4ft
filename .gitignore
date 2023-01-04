@@ -3,5 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info
 
+results
+
 # docs
 docs/_build/

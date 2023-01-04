@@ -16,17 +16,13 @@ load("@rules_python//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
-py_library(
-    name = "ao_int",
-    srcs = ["ao_int.py"],
-)
 
 py_library(
     name = "ao",
     srcs = ["ao.py"],
     deps = [
-        ":ao_int",
         ":functions",
+        "//d4ft/integral/quadrature",
     ],
 )
 
@@ -82,13 +78,10 @@ py_library(
     deps = [
         ":energy",
         ":functions",
+        ":logger",
     ],
 )
 
-py_library(
-    name = "sgd2",
-    srcs = ["sgd2.py"],
-)
 
 py_library(
     name = "sgd",
@@ -96,13 +89,8 @@ py_library(
     deps = [
         ":energy",
         ":molecule",
-        ":sampler",
+        ":logger",
     ],
-)
-
-py_library(
-    name = "sscf",
-    srcs = ["sscf.py"],
 )
 
 py_library(
@@ -116,8 +104,17 @@ py_library(
 )
 
 py_library(
+    name = "logger",
+    srcs = ["logger.py"],
+)
+
+py_library(
     name = "energy",
     srcs = ["energy.py"],
+    deps= [
+        "//d4ft/integral/obara_saika",
+        "//d4ft/integral/quadrature",
+    ]
 )
 
 py_library(
@@ -126,7 +123,6 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         ":ao",
-        ":ao_int",
         ":functions",
         ":geo_opt",
         ":geometries",
@@ -137,8 +133,6 @@ py_library(
         ":sampler",
         ":scf",
         ":sgd",
-        ":sgd2",
-        ":sscf",
         ":visualization",
         ":vpf",
     ],

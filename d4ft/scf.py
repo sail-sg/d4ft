@@ -12,149 +12,122 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 import jax
 import jax.numpy as jnp
-from d4ft.energy import energy_gs, wave2density, integrand_kinetic
-from typing import Callable
 from absl import logging
 
-
-def hamil_kinetic(ao: Callable, batch):
-  r"""
-  \int \phi_i \nabla^2 \phi_j dx
-  Args:
-    ao (Callable):
-    batch: a tuple of (grids, weights)
-  Return:
-    [2, N, N] Array.
-  """
-  return integrate_s(integrand_kinetic(ao, True), batch)
+from d4ft.energy import calc_energy, calc_fock, precal_scf
+from d4ft.integral.quadrature.utils import make_quadrature_points_batches
+from d4ft.logger import RunLogger
+from d4ft.molecule import Molecule
 
 
-def hamil_external(ao: Callable, nuclei, batch):
-  r"""
-  \int \phi_i \nabla^2 \phi_j dx
-  Args:
-    mo (Callable): a [3] -> [2, N] function
-    batch: a tuple (grids, weights)
-  Return:
-    [2, N, N] Array
-  """
-  nuclei_loc = nuclei['loc']
-  nuclei_charge = nuclei['charge']
-
-  def v(r):
-    return -jnp.sum(
-      nuclei_charge / jnp.sqrt(jnp.sum((r - nuclei_loc)**2, axis=1) + 1e-16)
-    )
-
-  def m(r):
-    return jax.vmap(jnp.outer)(ao(r), ao(r))
-
-  return integrate_s(lambda r: v(r) * m(r), batch)
-
-
-def hamil_hartree(ao: Callable, mo_old, batch):
-  density = wave2density(mo_old)
-
-  def g(r):
-    r"""
-      g(r) = \int n(r')/|r-r'| dr'
-    """
-
-    def v(x):
-      return density(x) / jnp.clip(
-        jnp.linalg.norm(x - r), a_min=1e-8
-      ) * jnp.any(x != r)
-
-    return integrate_s(v, batch)
-
-  def m(r):
-    return jax.vmap(jnp.outer)(ao(r), ao(r))
-
-  return integrate_s(lambda r: g(r) * m(r), batch)
-
-
-def hamil_lda(ao: Callable, mo_old, batch):
-  """
-  v_xc = -(3/pi n(r))^(1/3)
-  Return:
-    [2, N, N] array
-  """
-  density = wave2density(mo_old)
-
-  def g(n):
-    return -(3 / jnp.pi * n)**(1 / 3)
-
-  def m(r):
-    return jax.vmap(jnp.outer)(ao(r), ao(r))
-
-  return integrate_s(lambda r: g(density(r)) * m(r), batch)
-
-
-def get_fock(ao: Callable, mo_old: Callable, nuclei, batch):
-  return hamil_kinetic(ao, batch) + \
-      hamil_external(ao, nuclei, batch) + \
-      hamil_hartree(ao, mo_old, batch) + \
-      hamil_lda(ao, mo_old, batch)
-
-
-def integrate_s(integrand: Callable, batch):
-  '''
-  Integrate a [3] -> [2, N, ...] function.
-  '''
-  g, w = batch
-
-  def v(r, w):
-    return integrand(r) * w
-
-  @jax.jit
-  def f(g, w):
-    return jnp.sum(jax.vmap(v)(g, w), axis=0)
-
-  return f(g, w)
-
-
-def scf(mol, epoch, seed=123, momentum=0.5):
-  batch = (mol.grids, mol.weights)
+def scf(
+  mol: Molecule,
+  epoch: int,
+  seed=123,
+  momentum=0.5,
+  converge_threshold: float = 1e-3,
+  stochastic: bool = True,
+  pre_cal: bool = False,
+  batch_size: int = 10000,
+):
   params = mol._init_param(seed)
   mo_params, _ = params
-  _diag_one_ = jnp.ones([2, mol.mo.nmo])
-  _diag_one_ = jax.vmap(jnp.diag)(_diag_one_)
+  diag_one = jnp.ones([2, mol.mo.nmo])
+  diag_one = jax.vmap(jnp.diag)(diag_one)
+
+  if pre_cal:
+    logging.info('Preparing for integration...')
+    start = time.time()
+    precal_h = precal_scf(mol, batch_size, seed)
+    logging.info(f"Pre-calculation finished. Time: {(time.time()-start):.3f}")
+  else:
+    precal_h = None
 
   @jax.jit
   def update(mo_params, fock):
-
-    def ao(r):
-      return mol.mo((_diag_one_, None), r)
-
-    def mo_old(r):
-      return mol.mo((mo_params, None), r) * mol.nocc
-
-    fock = get_fock(ao, mo_old, mol.nuclei, batch)
-    fock = momentum * fock + (1 - momentum) * fock
     _, mo_params = jnp.linalg.eigh(fock)
     mo_params = jnp.transpose(mo_params, (0, 2, 1))
 
     def mo(r):
       return mol.mo((mo_params, None), r) * mol.nocc
 
-    return mo_params, fock, energy_gs(mo, mol.nuclei, batch, batch)
+    return mo_params, fock
+
+  @jax.jit
+  def calc_fock_jit(mo_params, batch1, batch2):
+    return calc_fock(
+      ao=lambda r: mol.mo((diag_one, None), r),
+      mo_old=lambda r: mol.mo((mo_params, None), r) * mol.nocc,
+      nuclei=mol.nuclei,
+      batch1=batch1,
+      batch2=batch2,
+      precal_h=precal_h,
+    )
+
+  @jax.jit
+  def calc_energy_jit(mo_params, batch1, batch2):
+    new_mo = lambda r: mol.mo((mo_params, None), r) * mol.nocc
+    return calc_energy(new_mo, mol.nuclei, batch1, batch2)
 
   # the main loop.
   logging.info(" Starting...SCF loop")
   fock = jnp.eye(mol.nao)
 
-  for i in range(epoch):
-    mo_params, fock, Es = update(mo_params, fock)
+  prev_e_total = 0.
+  converged = False
 
-    e_total, e_splits = Es
-    e_kin, e_ext, e_xc, e_hartree, e_nuc = e_splits
+  if stochastic:
+    batches = make_quadrature_points_batches(
+      mol.grids,
+      mol.weights,
+      batch_size,
+      epochs=epoch * 2,  # separate batch for energy
+      num_copies=2,
+      seed=seed
+    )
+    num_batches = mol.grids.shape[0] // batch_size
+  else:  # go through all quadrature points at once
+    batch = (mol.grids, mol.weights)
+    batches = ((batch, batch) for _ in range(epoch * 2))
+    num_batches = 1
 
-    logging.info(f" Iter: {i+1}/{epoch}")
-    logging.info(f" Ground State: {e_total}")
-    logging.info(f" Kinetic: {e_kin}")
-    logging.info(f" External: {e_ext}")
-    logging.info(f" Exchange-Correlation: {e_xc}")
-    logging.info(f" Hartree: {e_hartree}")
-    logging.info(f" Nucleus Repulsion: {e_nuc}")
+  logger = RunLogger()
+  t = 0
+  for _ in range(epoch):
+    # update the fock matrix
+    new_focks = []
+    for _ in range(num_batches):
+      batch1, batch2 = next(batches)
+      new_fock = calc_fock_jit(mo_params, batch1, batch2)
+      new_focks.append(new_fock)
+    new_fock = jnp.mean(jnp.array(new_focks), axis=0)
+    fock = (1 - momentum) * new_fock + momentum * fock
+
+    # update mo
+    mo_params, fock = update(mo_params, fock)
+
+    # evalute energies
+    for _ in range(num_batches):
+      batch1, batch2 = next(batches)
+      e_total, energies = calc_energy_jit(mo_params, batch1, batch2)
+      logger.log_step(energies, t)
+      t += 1
+
+    segment_df = logger.get_segment_summary()
+    e_total = segment_df.e_total.mean()
+
+    # check convergence
+    if jnp.abs(prev_e_total - e_total) < converge_threshold:
+      converged = True
+      break
+    else:
+      prev_e_total = e_total
+
+  logging.info(f"Converged: {converged}")
+  logger.log_summary()
+
+  return e_total, params, logger
