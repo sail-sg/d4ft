@@ -8,8 +8,9 @@ dm-haiku>=0.0.9
 chex==0.1.5
 pandas>=1.5.2
 mpmath>=1.2.1
+tensorflow>=2.11.0
+pubchempy==1.0.4
+tqdm
 matplotlib
 pandas
 viztracer
-tensorflow>=2.11.0
-tqdm
