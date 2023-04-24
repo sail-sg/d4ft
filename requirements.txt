@@ -5,6 +5,11 @@ optax>=0.1.4
 matplotlib>=3.6.2
 pyscf>=2.1.1
 dm-haiku>=0.0.9
-chex>=0.1.5
+chex==0.1.5
 pandas>=1.5.2
 mpmath>=1.2.1
+matplotlib
+pandas
+viztracer
+tensorflow>=2.11.0
+tqdm

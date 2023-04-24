@@ -15,10 +15,10 @@
 
 import jax
 import jax.numpy as jnp
-from jax import vmap
-import numpy as np
-import matplotlib.pyplot as plt
 import jax.random as jrdm
+import matplotlib.pyplot as plt
+import numpy as np
+from jax import vmap
 
 
 def batch_sampler(grids, weights, batch_size, seed=1):

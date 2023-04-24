@@ -13,14 +13,31 @@
 # limitations under the License.
 """Kinetic integral using obara saika."""
 
+from typing import Optional
+
 import jax.numpy as jnp
 from jax import lax
+
 from . import utils
-from .utils import s_overlap
 
 
-def kinetic_integral(a, b, static_args=None):
+def kinetic_integral(
+  a: utils.GTO,
+  b: utils.GTO,
+  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  use_horizontal: bool = False
+):
   r"""kinetic integral using obara saika.
+
+  TODO: add horizontal recursion
+
+  Recursion formula for KIN (eqn. A12):
+      [a,b]  = pa[i]*[a-1,b  ]
+  + 1/(2*zeta) Na[i]*[a-2,b  ]
+  + 1/(2*zeta) Nb[i]*[a-1,b-1]
+  + 2*xi { (a,b) - 1/(2*za)(a-2,b)}
+
+  where the overlap integral is denoted as (a,b).
 
   Args:
     a: A tuple of (na, center, exponent),
@@ -36,27 +53,14 @@ def kinetic_integral(a, b, static_args=None):
         to be computed from batched `na, nb`.
 
   Returns:
-    integral: The two center nuclear attraction integral,
-        with `R` denoting `nuclear_center`, `\int a(r1)(-nabla^2)b(r1) dr1`.
+    integral: The two center kinetic integral,
   """
-  na, ra, za = a
-  nb, rb, zb = b
-  assert ra.shape == (3,), "do not pass batch data for this function, use vmap."
-  if static_args is None:
-    static_args = utils.angular_static_args(na, nb)
-  s = static_args
-  zeta = za + zb
-  xi = za * zb / zeta
-  rp = (za * ra + zb * rb) / zeta
-  ab = ra - rb
-  pa = rp - ra
-  pb = rp - rb
-
-  prefactor = s_overlap(ra, rb, za, zb)
-  T_0_0 = xi * (3 - 2 * xi * jnp.dot(ab, ab))
-  O_0_0 = 1.
+  (na, ra, za), (nb, rb, zb) = a, b
+  zeta, _, pa, pb, ab, xi = utils.compute_common_terms(a, b)
+  s = static_args or utils.angular_static_args(na, nb)
 
   def vertical_0_b(i, T_0_0, O_0_0, max_b):
+    """compute (0|T|0:max_b[i]), up to max_b[i]."""
 
     def compute_0_b(carry, bm1):
       T_0_bm2, T_0_bm1, O_0_bm2, O_0_bm1 = carry
@@ -72,8 +76,10 @@ def kinetic_integral(a, b, static_args=None):
     return T_0, O_0
 
   def vertical_a(i, T_0, O_0, max_a):
+    """compute (0:max_a[i]|T|b), up to max_a[i]."""
 
     def compute_a(carry, am1):
+      """Ref eqn.A12"""
       T_am2, T_am1, O_am2, O_am1 = carry
       O_a = pa[i] * O_am1 + 1 / 2 / zeta * am1 * O_am2
       O_a = O_a.at[1:].add(
@@ -90,7 +96,11 @@ def kinetic_integral(a, b, static_args=None):
 
     init = (jnp.zeros_like(T_0), T_0, jnp.zeros_like(O_0), O_0)
     _, (T, O) = lax.scan(compute_a, init, jnp.arange(max_a[i] + 1))
-    return T[-1, -1], O[-1, -1]
+    return T[na[i], nb[i]], O[na[i], nb[i]]
+
+  prefactor = utils.s_overlap(ra, rb, za, zb)
+  T_0_0 = xi * (3 - 2 * xi * jnp.dot(ab, ab))
+  O_0_0 = 1.
 
   for i in range(3):
     T_0, O_0 = vertical_0_b(i, T_0_0, O_0_0, s.max_b)

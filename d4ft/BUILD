@@ -16,6 +16,10 @@ load("@rules_python//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
+py_library(
+    name = "tracer",
+    srcs = ["tracer.py"],
+)
 
 py_library(
     name = "ao",
@@ -92,6 +96,17 @@ py_library(
         ":logger",
     ],
 )
+
+py_library(
+    name = "pyscf_solver",
+    srcs = ["pyscf_solver.py"],
+    deps = [
+        ":energy",
+        ":molecule",
+        ":logger",
+    ],
+)
+
 
 py_library(
     name = "visualization",

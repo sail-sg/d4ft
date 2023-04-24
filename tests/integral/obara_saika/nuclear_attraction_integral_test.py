@@ -16,20 +16,24 @@ class _TestNuclearAttractionIntegral(absltest.TestCase):
     self.C = jnp.array([1., 1., 1.])
 
   def test_vv(self):
-    print(nuclear_attraction_integral(
-      self.C,
-      self.a,
-      self.b,
-      vh=False,
-    ))
+    print(
+      nuclear_attraction_integral(
+        self.C,
+        self.a,
+        self.b,
+        use_horizontal=False,
+      )
+    )
 
   def test_vh(self):
-    print(nuclear_attraction_integral(
-      self.C,
-      self.a,
-      self.b,
-      vh=True,
-    ))
+    print(
+      nuclear_attraction_integral(
+        self.C,
+        self.a,
+        self.b,
+        use_horizontal=True,
+      )
+    )
 
 
 if __name__ == "__main__":

@@ -13,17 +13,48 @@
 # limitations under the License.
 """Nuclear attraction integral using obara saika."""
 
+from typing import Optional
+
 import jax
 import jax.numpy as jnp
 from jax import lax
+
 from . import utils
-from .utils import F, comb
+
+USE_CONV = False
 
 
 def nuclear_attraction_integral(
-  nuclear_center, a, b, static_args=None, vh=False
+  nuclear_center,
+  a: utils.GTO,
+  b: utils.GTO,
+  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  use_horizontal: bool = False
 ):
   r"""Nuclear attraction integral using obara saika.
+
+  Recursion formula for NUC (eqn. A19):
+      [a,b]^m = pa[i]*[a-1,b  ]^m - pc[i]*[a-1,b  ]^m+1
+  + 1/(2*zeta) Na[i]*{[a-2,b  ]^m -       [a-2,b  ]^m+1}
+  + 1/(2*zeta) Nb[i]*{[a-1,b-1]^m -       [a-1,b-1]^m+1 }
+
+  The computation strategy is as follows:
+  0. compute [0,0]^m for m\in[0,M], where M is the maximum angular
+  momentum of x,y,z axis over the batch of GTOs. Store the results into
+  the tensor A_0_0 of shape (M,).
+  1. vertical recursion 0_b: start from [0,0]^m, compute [0,b]^m
+  for all m\in[0,M], b\in[0,B], where B is the maximum angular momentum for
+  GTOs in b. Due to symmetry this is the same as computing [a,0]^m.
+  Since b=0, the recursion formula becomes
+      [a,0]^m = pa[i]*[a-1,0  ]^m - pc[i]*[a-1,0  ]^m+1
+  + 1/(2*zeta) Na[i]*{[a-2,0  ]^m -       [a-2,0  ]^m+1}
+  Now use the symmetry we get the [0,b]^m recursion rule
+      [0,b]^m = pb[i]*[0  ,b-1]^m - pc[i]*[0  ,b-1]^m+1
+  + 1/(2*zeta) Nb[i]*{[0  ,b-2]^m -       [0  ,b-2]^m+1}
+  2a. vertical recursion a: start from [0,b]^m, compute [a,b]^m
+  for all m\in[0,M], b\in[0,B], a\in[0,A]. Uses the full recursion
+  formula A19.
+  2b. horizontal recursion:
 
   Args:
     nuclear_center: (3,) array of nuclear center coordinates
@@ -43,25 +74,16 @@ def nuclear_attraction_integral(
     integral: The two center nuclear attraction integral,
         with `R` denoting `nuclear_center`, `\int a(r1)(1/|r1-R|)b(r1) dr1`.
   """
-  na, ra, za = a
-  nb, rb, zb = b
-  assert ra.shape == (3,), "do not pass batch data for this function, use vmap."
-  if static_args is None:
-    static_args = utils.angular_static_args(na, nb)
-  s = static_args
-  zeta = za + zb
-  xi = za * zb / zeta
-  rp = (za * ra + zb * rb) / zeta
-  ab = ra - rb
+  (na, _, _), (nb, _, _) = a, b
+  zeta, rp, pa, pb, ab, xi = utils.compute_common_terms(a, b)
+  s = static_args or utils.angular_static_args(na, nb)
+
   C = nuclear_center
   pc = rp - C
-  pa = rp - ra
-  pb = rp - rb
-  U = zeta * jnp.dot(pc, pc)
-  prefactor = 2 * (jnp.pi / zeta) * jnp.exp(-xi * jnp.dot(ab, ab))
+  U = zeta * jnp.dot(pc, pc)  # Eqn.A21
+
   Ms = [s.max_xyz + 1, s.max_yz + 1, s.max_z + 1]
   M = Ms[0]
-  A_0_0 = jax.vmap(F, in_axes=(0, None))(jnp.arange(M, dtype=float), U)
 
   def vertical_0_b(i, A_0_0, max_b):
     """Vertical recursion.
@@ -69,80 +91,113 @@ def nuclear_attraction_integral(
     """
 
     def compute_0_b(carry, bm1):
+      """
+      carry: (A_0_bm2, A_0_bm1), where A_0_bm2=[0,b-2]^m,
+        I_0_cm1=[0,b-1]^m are tensor of shape (M,)
+      bm1: the current index of b to be computed
+      """
       x = carry
-      A_0_bm1 = x[1]
-      k = jnp.array([  # [2, 2]
-        [
-          bm1 / 2 / zeta,  # (m, b-2)
-          -bm1 / 2 / zeta,  # (m+1, b-2)
-        ],
-        [
-          pb[i],  # (m, b-1)
-          -pc[i],  # (m+1, b-1)
-        ],
-      ])
-      A_0_b = lax.conv_general_dilated(
-        x[None],
-        k[None],
-        [1],
-        padding=[(0, 1)],
-        dimension_numbers=('NCH', 'OIH', 'NCH'),
-      )[0, 0]
+      A_0_bm2, A_0_bm1 = x
+
+      if not USE_CONV:  # DIRECT IMPL
+        A_mp1 = -pc[i] * A_0_bm1 - (bm1 / 2 / zeta) * A_0_bm2
+        A_0_b = pb[i] * A_0_bm1 + (bm1 / 2 / zeta) * A_0_bm2
+        A_0_b = A_0_b.at[:-1].add(A_mp1[1:])
+
+      else:  # CONV BASED IMPL
+        k = jnp.array([  # [2, 2]
+          [
+            bm1 / 2 / zeta,  # (m, b-2)
+            -bm1 / 2 / zeta,  # (m+1, b-2)
+          ],
+          [
+            pb[i],  # (m, b-1)
+            -pc[i],  # (m+1, b-1)
+          ],
+        ])
+        A_0_b = lax.conv_general_dilated(
+          x[None],
+          k[None],
+          [1],
+          padding=[(0, 1)],
+          dimension_numbers=('NCH', 'OIH', 'NCH'),
+        )[0, 0]
+
       return jnp.stack([A_0_bm1, A_0_b], axis=0), A_0_bm1
 
     init = jnp.stack([jnp.zeros_like(A_0_0), A_0_0], axis=0)
-    _, A_0 = lax.scan(compute_0_b, init, jnp.arange(0, max_b[i] + 1))
+    _, A_0 = utils.py_scan(compute_0_b, init, jnp.arange(0, max_b[i] + 1))
     return A_0
 
   def vertical_a(i, A_0, max_a):
 
     def compute_a(carry, am1):
+      """
+      carry: (A_am2, A_am1), where A_am2=[a-2,b]^m,
+        A_am1=[a-1,b]^m are tensor of shape (B, M)
+      am1: the current index of a to be computed
+      """
       x = carry
       A_am2, A_am1 = x
-      k = jnp.array([  # [2, 1, 2]
-        [[
-          am1 / 2 / zeta,  # (m, b, a-2)
-          -am1 / 2 / zeta,  # (m+1, b, a-2)
-        ]],
-        [[
-          pa[i],  # (m, b, a-1)
-          -pc[i],  # (m+1, b, a-1)
-        ]],
-      ])
-      A_a = lax.conv_general_dilated(
-        x[None],
-        k[None],
-        [1, 1],
-        padding=[(0, 0), (0, 1)],
-        dimension_numbers=('NCHW', 'OIHW', 'NCHW'),
-      )[0, 0]
-      A_am1_m_mp1 = lax.conv_general_dilated(
-        x[1][None, None],  # [Batch, 1, nb, M]
-        jnp.array([[[[1., -1.]]]]),
-        [1, 1],
-        padding=[(1, 0), (0, 1)],
-        dimension_numbers=('NCHW', 'OIHW', 'NCHW'),
-      )[0, 0]
-      A_a = A_a + (
-        jnp.arange(0, A_a.shape[0], dtype=float)[:, None] * A_am1_m_mp1[:-1] /
-        2 / zeta
-      )
+
+      if not USE_CONV:  # DIRECT IMPL
+        A_mp1 = -pc[i] * A_am1 - (am1 / 2 / zeta) * A_am2
+        A_a = pa[i] * A_am1 + (am1 / 2 / zeta) * A_am2
+        A_a = A_a.at[:, :-1].add(A_mp1[:, 1:])
+        A_am1_m_mp1 = A_am1.at[:, :-1].add(-A_am1[:, 1:])
+        b_prefac = jnp.arange(1, A_a.shape[0], dtype=float)[:, None] / 2 / zeta
+        A_a = A_a.at[1:].add(b_prefac * A_am1_m_mp1[:-1])
+
+      else:  # CONV BASED IMPL
+        k = jnp.array([  # [2, 1, 2]
+          [[
+            am1 / 2 / zeta,  # (m, b, a-2)
+            -am1 / 2 / zeta,  # (m+1, b, a-2)
+          ]],
+          [[
+            pa[i],  # (m, b, a-1)
+            -pc[i],  # (m+1, b, a-1)
+          ]],
+        ])
+        A_a = lax.conv_general_dilated(
+          x[None],
+          k[None],
+          [1, 1],
+          padding=[(0, 0), (0, 1)],
+          dimension_numbers=('NCHW', 'OIHW', 'NCHW'),
+        )[0, 0]
+        A_am1_m_mp1 = lax.conv_general_dilated(
+          x[1][None, None],  # [Batch, 1, nb, M]
+          jnp.array([[[[1., -1.]]]]),
+          [1, 1],
+          padding=[(1, 0), (0, 1)],
+          dimension_numbers=('NCHW', 'OIHW', 'NCHW'),
+        )[0, 0]
+
+        A_a = A_a + (
+          jnp.arange(0, A_a.shape[0], dtype=float)[:, None] * A_am1_m_mp1[:-1] /
+          2 / zeta
+        )
+
       return jnp.stack([A_am1, A_a], axis=0), A_am1
 
     init = jnp.stack([jnp.zeros_like(A_0), A_0], axis=0)
-    _, A = lax.scan(compute_a, init, jnp.arange(0, max_a[i] + 1))
+    _, A = utils.py_scan(compute_a, init, jnp.arange(0, max_a[i] + 1))
     return A
 
   def horizontal(i, A_0, min_b):
     j = jnp.arange(min_b[i], A_0.shape[0])
     w = lax.select(
       jnp.logical_and(j >= nb[i], j <= na[i] + nb[i]),
-      on_true=comb[na[i], j - nb[i]] * (-ab[i])**(na[i] - j + nb[i]),
+      on_true=utils.comb[na[i], j - nb[i]] * (-ab[i])**(na[i] - j + nb[i]),
       on_false=jnp.zeros_like(j, dtype=float),
     )
     return jnp.einsum("a,am->m", w, A_0[min_b[i]:, :])
 
-  if vh:
+  prefactor = 2 * (jnp.pi / zeta) * jnp.exp(-xi * jnp.dot(ab, ab))  # Eqn.A20
+  A_0_0 = jax.vmap(utils.Boys, in_axes=(0, None))(jnp.arange(M, dtype=int), U)
+
+  if use_horizontal:
     for i in range(3):
       A_0_0 = A_0_0[:Ms[i]]
       A_0 = vertical_0_b(i, A_0_0, s.max_ab)

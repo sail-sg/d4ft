@@ -15,9 +15,16 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
+    name = "boys",
+    srcs = ["boys.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
     name = "utils",
     srcs = ["utils.py"],
     visibility = ["//visibility:public"],
+    deps = ["//d4ft:functions", ":boys"],
 )
 
 py_library(

@@ -15,10 +15,9 @@
 
 from typing import Callable
 
-import jax
 import jax.numpy as jnp
 
-from .utils import quadrature_integral, wave2density, get_integrand
+from .utils import get_integrand, quadrature_integral, wave2density
 
 
 def coulomb(x, y):
@@ -54,7 +53,7 @@ def integrand_hartree(orbitals: Callable, **kwargs):
 
 def electron_repulsion_integral_scf(
   orbitals: Callable, orbitals_old: Callable, batch1, batch2
-) -> jax.Array:
+) -> jnp.array:
   r"""Returns g(x)=\int n_old(y)/|x-y| dy
 
   The hartree term in the SCF Hamiltonian is
@@ -72,5 +71,5 @@ def electron_repulsion_integral_scf(
 
 def electron_repulsion_integral(
   orbitals: Callable, batch1, batch2
-) -> jax.Array:
+) -> jnp.array:
   return quadrature_integral(integrand_hartree(orbitals), batch1, batch2)

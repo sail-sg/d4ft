@@ -15,20 +15,19 @@
 
 from typing import Callable
 
-import jax
 import jax.numpy as jnp
 
-from .utils import quadrature_integral, get_integrand
+from .utils import get_integrand, quadrature_integral
 
 
 def integrand_nuclear_attraction(
   orbitals: Callable,
-  nuclei_loc: jax.Array,
+  nuclei_loc: jnp.array,
   nuclei_charge: float,
   keepdims=False,
 ) -> Callable:
   r"""
-  The nuclear_attraction intergrand: - 1 / (r - R) * \psi^2.
+  The nuclear_attraction intergrand: - Z / (r - R) * \psi^2.
 
   Args:
     orbitals: a [3] -> [2, N] function, where the input is the 3D
@@ -55,7 +54,7 @@ def nuclear_attraction_integral(
   nuclei_charge,
   batch,
   keepdims=False,
-) -> jax.Array:
+) -> jnp.array:
   return quadrature_integral(
     integrand_nuclear_attraction(
       orbitals,

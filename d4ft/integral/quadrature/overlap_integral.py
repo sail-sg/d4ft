@@ -15,7 +15,6 @@
 
 from typing import Callable
 
-import jax
 import jax.numpy as jnp
 
 from .utils import quadrature_integral
@@ -27,5 +26,5 @@ def integrand_overlap(orbitals: Callable, keepdims: bool = True) -> Callable:
   return lambda r: -0.5 * jnp.sum(orbitals(r) * orbitals(r))
 
 
-def overlap_integral(orbitals: Callable, batch, keepdims=False) -> jax.Array:
+def overlap_integral(orbitals: Callable, batch, keepdims=False) -> jnp.array:
   return quadrature_integral(integrand_overlap(orbitals, keepdims), batch)

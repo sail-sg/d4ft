@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
 import jax
 import jax.numpy as jnp
 import optax
 from absl import logging
 
-from d4ft.energy import calc_energy, precal_ao_matrix
+from d4ft.energy import calc_energy, get_intor, prescreen
 from d4ft.integral.quadrature.utils import make_quadrature_points_batches
 from d4ft.logger import RunLogger
 from d4ft.molecule import Molecule
@@ -35,6 +33,7 @@ def sgd(
   optimizer: str = "sgd",
   pre_cal: bool = False,
   lr_decay: bool = False,
+  os_scheme: str = "none",
 ):
   """Run the main training loop."""
   params = mol._init_param(seed)
@@ -63,55 +62,92 @@ def sgd(
 
   opt_state = optimizer.init(params)
 
-  e_kwargs = {}
-  if pre_cal:
-    logging.info('Preparing for integration...')
-    start = time.time()
-    ao_kin_mat, ao_ext_mat = precal_ao_matrix(mol, batch_size, seed)
-    logging.info(f"Pre-calculation finished. Time: {(time.time()-start):.3f}")
-    e_kwargs = dict(
-      ao_kin_mat=ao_kin_mat,
-      ao_ext_mat=ao_ext_mat,
-      nocc=mol.nocc,
-    )
+  # prescreen
+  intor_kwargs = dict()
+  use_os = os_scheme != "none"
+  if use_os and not pre_cal:
+    idx_count = prescreen(mol)
+
+  intors = get_intor(
+    mol,
+    batch_size,
+    seed,
+    pre_cal,
+    mol.xc,
+    os_scheme,
+    **intor_kwargs,
+  )
 
   @jax.jit
-  def update(params, opt_state, batch1, batch2):
-
-    def loss(params):
-      return calc_energy(
-        orbitals=lambda r: mol.mo(params, r) * mol.nocc,
-        nuclei=mol.nuclei,
-        batch1=batch1,
-        batch2=batch2,
-        mo_params=params,
-        pre_cal=pre_cal,
-        **e_kwargs
-      )
-
-    (e_total, energies), grad = jax.value_and_grad(loss, has_aux=True)(params)
+  def update(params, opt_state, batch1, batch2, idx_count):
+    loss = lambda params: calc_energy(
+      intors, mol.nuclei, params, batch1, batch2, idx_count
+    )
+    (_, energies), grad = jax.value_and_grad(loss, has_aux=True)(params)
     updates, opt_state = optimizer.update(grad, opt_state)
     params = optax.apply_updates(params, updates)
     return params, opt_state, energies
 
-  logging.info(f"Starting... Random Seed: {seed}, Batch size: {batch_size}")
-  logging.info(f"Batch size: {batch_size}")
-  logging.info(f"Total grid points: {len(mol.grids)}")
-
   batches = make_quadrature_points_batches(
     mol.grids, mol.weights, batch_size, epochs=epoch, num_copies=2, seed=seed
   )
-
   num_batches = mol.grids.shape[0] // batch_size
+
+  logging.info(f"Starting... Random Seed: {seed}, Batch size: {batch_size}")
+  logging.info(f"Batch size: {batch_size}, Number of batches: {num_batches}")
+  logging.info(f"Total grid points: {len(mol.grids)}")
+
+  stochastic_os = os_scheme in ["uniform", "is"]
+
+  # if stochastic_os:
+  #   batch_size_os = 2000
+
+  #   sampled_idx = make_4c_batches_sampled(
+  #     schwartz_bound,
+  #     num_batches,
+  #     batch_size_os,
+  #     epoch,
+  #     seed,
+  #     imp_sampling=(os_scheme == "is"),
+  #   )
+
+  #   sampled_idx = make_4c_batches(len(idx_count), batch_size_os, epoch, seed)
+
+  #   batches = zip(batches, sampled_idx)
 
   prev_e_total = 0.
   converged = False
 
+  # use quadrature batch
   logger = RunLogger()
-  for i, (batch1, batch2) in enumerate(batches):
+
+  for i, batch in enumerate(batches):
+    # TODO: sample unique abcd
+    if stochastic_os:
+      (batch1, batch2), sampled_idx = batch
+      idx_count_i = idx_count[sampled_idx]
+    else:
+      batch1, batch2 = batch
+      idx_count_i = None
+      if use_os and not pre_cal:
+        idx_count_i = idx_count
+
     # SGD step
-    params, opt_state, energies = update(params, opt_state, batch1, batch2)
+    # idx_count_i = prescreen(mol) # compute each step
+    params, opt_state, energies = update(
+      params, opt_state, batch1, batch2, idx_count_i
+    )
     logger.log_step(energies, i)
+
+    if stochastic_os:
+      logger.log_ewm("e_hartree", i)
+
+    # if i % 10 == 0:
+    #   logging.info(f"EVAL")
+    #   params, opt_state, energies = update(
+    #     params, opt_state, batch1, batch2, idx_count
+    #   )
+    #   logger.log_step(energies, i)
 
     # log at the end of each epoch
     if i % num_batches == 0:

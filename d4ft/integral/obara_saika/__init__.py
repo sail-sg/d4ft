@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""obara saika integral."""
+"""Obara Saika integral.
+
+Ref. doi.org/10.1063/1.450106
+"""
 
 from .overlap_integral import overlap_integral
 from .kinetic_integral import kinetic_integral

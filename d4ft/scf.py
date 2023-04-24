@@ -18,7 +18,7 @@ import jax
 import jax.numpy as jnp
 from absl import logging
 
-from d4ft.energy import calc_energy, calc_fock, precal_scf
+from d4ft.energy import calc_energy, calc_fock, get_intor, precal_scf
 from d4ft.integral.quadrature.utils import make_quadrature_points_batches
 from d4ft.logger import RunLogger
 from d4ft.molecule import Molecule
@@ -33,11 +33,13 @@ def scf(
   stochastic: bool = True,
   pre_cal: bool = False,
   batch_size: int = 10000,
+  os_scheme: str = "none",
 ):
   params = mol._init_param(seed)
   mo_params, _ = params
-  diag_one = jnp.ones([2, mol.mo.nmo])
-  diag_one = jax.vmap(jnp.diag)(diag_one)
+  diag_one = jnp.eye(mol.mo.nmo)
+  if not mol.restricted_mo:
+    diag_one = jnp.repeat(diag_one[None], 2, 0)
 
   if pre_cal:
     logging.info('Preparing for integration...')
@@ -50,28 +52,29 @@ def scf(
   @jax.jit
   def update(mo_params, fock):
     _, mo_params = jnp.linalg.eigh(fock)
-    mo_params = jnp.transpose(mo_params, (0, 2, 1))
-
-    def mo(r):
-      return mol.mo((mo_params, None), r) * mol.nocc
-
+    transpose_axis = (1, 0) if mol.restricted_mo else (0, 2, 1)
+    mo_params = jnp.transpose(mo_params, transpose_axis)
     return mo_params, fock
 
   @jax.jit
   def calc_fock_jit(mo_params, batch1, batch2):
-    return calc_fock(
+    fock = calc_fock(
       ao=lambda r: mol.mo((diag_one, None), r),
-      mo_old=lambda r: mol.mo((mo_params, None), r) * mol.nocc,
+      mo_old=(lambda r: mol.mo((mo_params, None), r) * mol.nocc),
       nuclei=mol.nuclei,
       batch1=batch1,
       batch2=batch2,
       precal_h=precal_h,
     )
+    return fock
+
+  intors = get_intor(mol, batch_size, seed, pre_cal, mol.xc, os_scheme)
 
   @jax.jit
   def calc_energy_jit(mo_params, batch1, batch2):
-    new_mo = lambda r: mol.mo((mo_params, None), r) * mol.nocc
-    return calc_energy(new_mo, mol.nuclei, batch1, batch2)
+    return calc_energy(
+      intors, mol.nuclei, (mo_params, None), batch1, batch2, None
+    )
 
   # the main loop.
   logging.info(" Starting...SCF loop")
@@ -105,6 +108,9 @@ def scf(
       new_fock = calc_fock_jit(mo_params, batch1, batch2)
       new_focks.append(new_fock)
     new_fock = jnp.mean(jnp.array(new_focks), axis=0)
+    if mol.restricted_mo:
+      # NOTE: for restricted case, up and down spin fock is the same
+      new_fock = new_fock[0]
     fock = (1 - momentum) * new_fock + momentum * fock
 
     # update mo

@@ -2,15 +2,16 @@
 import jax
 
 jax.config.update("jax_enable_x64", True)
-from absl.testing import absltest
 import numpy as np
-from d4ft.integral.obara_saika.overlap_integral import overlap_integral
+from absl.testing import absltest
+from d4ft.integral.obara_saika.electron_repulsion_integral import \
+    electron_repulsion_integral
 from d4ft.integral.obara_saika.kinetic_integral import kinetic_integral
-from d4ft.integral.obara_saika.nuclear_attraction_integral \
-  import nuclear_attraction_integral
-from d4ft.integral.obara_saika.electron_repulsion_integral \
-  import electron_repulsion_integral
-from obsa.obara_saika import get_overlap, get_kinetic, get_nuclear, get_coulomb
+from d4ft.integral.obara_saika.nuclear_attraction_integral import \
+    nuclear_attraction_integral
+from d4ft.integral.obara_saika.overlap_integral import overlap_integral
+from d4ft.integral.obara_saika.utils import Boys, BoysIgamma
+from obsa.obara_saika import get_coulomb, get_kinetic, get_nuclear, get_overlap
 
 
 class _TestNumericalCorrectness(absltest.TestCase):
@@ -42,14 +43,14 @@ class _TestNumericalCorrectness(absltest.TestCase):
     for ra, rb, _, _, za, zb, _, _, na, nb, _, _, _ in zip(*self.data):
       a, b = (na, ra, za), (nb, rb, zb)
       o1 = get_overlap(za, zb, ra, rb, na.tolist() + nb.tolist())
-      o2 = overlap_integral(a, b, vh=False)
+      o2 = overlap_integral(a, b, use_horizontal=False)
       np.testing.assert_allclose(o1, o2)
 
   def test_overlap_vh(self):
     for ra, rb, _, _, za, zb, _, _, na, nb, _, _, _ in zip(*self.data):
       a, b = (na, ra, za), (nb, rb, zb)
       o1 = get_overlap(za, zb, ra, rb, na.tolist() + nb.tolist())
-      o2 = overlap_integral(a, b, vh=True)
+      o2 = overlap_integral(a, b, use_horizontal=True)
       np.testing.assert_allclose(o1, o2)
 
   def test_kinetic(self):
@@ -73,8 +74,50 @@ class _TestNumericalCorrectness(absltest.TestCase):
         za, zb, zc, zd, ra, rb, rc, rd,
         na.tolist() + nb.tolist() + nc.tolist() + nd.tolist()
       )
-      e2 = electron_repulsion_integral(a, b, c, d)
+      # NOTE: d4ft version already accounts for the 1/2 prefactor
+      e2 = 2 * electron_repulsion_integral(a, b, c, d)
       np.testing.assert_allclose(float(e1), float(e2))
+
+  def test_boys(self):
+    batch = 10
+
+    key = jax.random.PRNGKey(137)
+
+    M = 5
+    T = np.abs(jax.random.normal(key, (batch,)))
+
+    boys_igamma_fn = jax.vmap(
+      jax.vmap(BoysIgamma, in_axes=(0, None)), in_axes=(None, 0)
+    )
+    boys_igamma_grad = jax.vmap(
+      jax.vmap(jax.grad(BoysIgamma, argnums=1), in_axes=(0, None)),
+      in_axes=(None, 0)
+    )
+    boys_fast_fn = jax.vmap(
+      jax.vmap(Boys, in_axes=(0, None)), in_axes=(None, 0)
+    )
+    boys_fast_grad = jax.vmap(
+      jax.vmap(jax.grad(Boys, argnums=1), in_axes=(0, None)), in_axes=(None, 0)
+    )
+
+    np.testing.assert_allclose(
+      boys_igamma_fn(np.arange(M), T), boys_fast_fn(np.arange(M), T)
+    )
+
+    np.testing.assert_allclose(
+      boys_igamma_grad(np.arange(M), T), boys_fast_grad(np.arange(M), T)
+    )
+
+    M = 30
+    T = np.abs(jax.random.normal(key, (batch,)))
+
+    np.testing.assert_allclose(
+      boys_igamma_fn(np.arange(M), T), boys_fast_fn(np.arange(M), T)
+    )
+
+    np.testing.assert_allclose(
+      boys_igamma_grad(np.arange(M), T), boys_fast_grad(np.arange(M), T)
+    )
 
 
 if __name__ == "__main__":

@@ -38,8 +38,7 @@ def integrand_kinetic(orbitals: Callable, keepdims: bool = False) -> Callable:
   If keepdims is True, will return a [3] -> [2, N, N] function.
   """
 
-  # TODO: for ao theres no extra spin axis
-  def laplacian(r: jax.Array) -> jax.Array:
+  def laplacian(r: jnp.array) -> jnp.array:
     hess_phi_r = jax.hessian(orbitals)(r)
     num_batch_dims = len(hess_phi_r.shape) - 2
 
@@ -79,7 +78,7 @@ def integrand_kinetic_jac(
 
 def kinetic_integral(
   orbitals: Callable, batch, keepdims=False, use_jac=True
-) -> jax.Array:
+) -> jnp.array:
   return quadrature_integral(
     integrand_kinetic_jac(orbitals, keepdims)
     if use_jac else integrand_kinetic(orbitals, keepdims),

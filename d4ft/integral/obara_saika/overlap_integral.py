@@ -13,17 +13,24 @@
 # limitations under the License.
 """Overlap integral using obara saika."""
 
+from typing import Optional
+
 import jax.numpy as jnp
 from jax import lax
+
 from . import utils
-from .utils import s_overlap, comb
 
 
-def overlap_integral(a, b, static_args=None, vh=False):
+def overlap_integral(
+  a: utils.GTO,
+  b: utils.GTO,
+  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  use_horizontal: bool = False
+):
   r"""Overlap integral using obara saika.
 
   Args:
-    a: A tuple of (na, center, exponent),
+    a: A tuple of (na, center, exponent), where na stands for angular
        `na.dtype == int`, `na.shape == (3)`.
        `center.dtype == float`, `center.shape == (3)`.
        `exponent.dtype == float`, `exponent.shape == ()`.
@@ -34,27 +41,20 @@ def overlap_integral(a, b, static_args=None, vh=False):
         More often, we will `vmap` this function to compute integrals
         for all the GTOs in the batch, in this case, the `static_args` needs
         to be computed from batched `na, nb`.
-    vh: If True, compute with vertical + horizontal recursion.
+    use_horizontal: If True, compute with vertical + horizontal recursion.
         Otherwise, compute with vertical vertical recursion.
 
   Returns:
     integral: The two center overlap integral.
   """
   (na, ra, za), (nb, rb, zb) = a, b
-  assert ra.shape == (3,), "do not pass batch data for this function, use vmap."
-  if static_args is None:
-    static_args = utils.angular_static_args(na, nb)
-  s = static_args
-  zeta = za + zb
-  rp = (za * ra + zb * rb) / zeta
-  pa = rp - ra
-  pb = rp - rb
-  ab = ra - rb
+  zeta, _, pa, pb, ab, _ = utils.compute_common_terms(a, b)
+  s = static_args or utils.angular_static_args(na, nb)
 
-  prefactor = s_overlap(ra, rb, za, zb)
+  prefactor = utils.s_overlap(ra, rb, za, zb)
 
   def vertical_0_b(i, O_0_0, max_b):
-    """compute (0|0:max_b), up to max_b."""
+    """compute (0||0:max_b[i]), up to max_b[i]."""
 
     def compute_0_b(carry, bm1):
       O_0_bm2, O_0_bm1 = carry
@@ -66,9 +66,10 @@ def overlap_integral(a, b, static_args=None, vh=False):
     return O_0
 
   def vertical_a(i, O_0, max_a):
-    """compute (0:max_a|b), up to max_a."""
+    """compute (0:max_a[i]||b), up to max_a[i]."""
 
     def compute_a(carry, am1):
+      """Ref eqn.A2"""
       O_am2, O_am1 = carry
       O_a = pa[i] * O_am1 + 1 / 2 / zeta * am1 * O_am2
       O_a = O_a.at[1:].add(
@@ -84,13 +85,13 @@ def overlap_integral(a, b, static_args=None, vh=False):
     j = jnp.arange(min_b[i], O_0.shape[0])
     w = lax.select(
       jnp.logical_and(j >= nb[i], j <= na[i] + nb[i]),
-      on_true=comb[na[i], j - nb[i]] * (-ab[i])**(na[i] - j + nb[i]),
+      on_true=utils.comb[na[i], j - nb[i]] * (-ab[i])**(na[i] - j + nb[i]),
       on_false=jnp.zeros_like(j, dtype=float)
     )
     return jnp.dot(w, O_0[min_b[i]:])
 
   O_0_0 = jnp.array(1.)
-  if vh:
+  if use_horizontal:
     for i in range(3):
       O_0 = vertical_0_b(i, O_0_0, s.max_ab)
       O_0_0 = horizontal(i, O_0, s.min_b)

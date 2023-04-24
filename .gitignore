@@ -7,3 +7,8 @@ results
 
 # docs
 docs/_build/
+/.dir-locals.el
+*bazel-*
+*tmp*
+*viztracer*
+*profiler*

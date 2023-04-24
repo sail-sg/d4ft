@@ -19,8 +19,8 @@ import jax.numpy as jnp
 
 
 def make_quadrature_points_batches(
-  grids: jax.Array,
-  weights: jax.Array,
+  grids: jnp.array,
+  weights: jnp.array,
   batch_size: int,
   epochs: int,
   num_copies: int,
@@ -56,10 +56,10 @@ def make_quadrature_points_batches(
 
 
 def shuffle_quadrature_points(
-  grids: jax.Array,
-  weights: jax.Array,
+  grids: jnp.array,
+  weights: jnp.array,
   batch_size: int,
-  key: jax.Array,
+  key: jnp.array,
 ):
   """Shuffle all
 
@@ -92,7 +92,7 @@ def shuffle_quadrature_points(
   return list(zip(batched_g, batched_w))
 
 
-def quadrature_integral(integrand: Callable, *coords_and_weights) -> jax.Array:
+def quadrature_integral(integrand: Callable, *coords_and_weights) -> jnp.array:
   """Integrate a multivariate function with quadrature.
 
   - The integral can be computed with a randomly sampled batch of
@@ -147,14 +147,14 @@ def get_integrand(f: Callable, g: Callable, keepdims: bool = False) -> Callable:
   (<f_i|g_j>)_{ij} = \\sum_k w_k \\dot (F(r_k)G(r_k)^T)
   """
 
-  def integrand(r: jax.Array) -> jax.Array:
+  def integrand(r: jnp.array) -> jnp.array:
     F, G = f(r), g(r)
     if keepdims:
       if len(F.shape) == 1:
         return jnp.outer(F, G)
       else:  # map over spin axis
         return jax.vmap(jnp.outer)(F, G)
-    return jnp.sum(f(r) * g(r))
+    return jnp.sum(F * G)
 
   return integrand
 

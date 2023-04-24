@@ -13,11 +13,16 @@
 # limitations under the License.
 """Useful functions."""
 
-from typing import Callable
+from functools import partial
+from itertools import chain, combinations
+from math import gcd
+from typing import Callable, List
+
+from absl import logging
 import jax
-from jax import vmap
 import jax.numpy as jnp
 import numpy as np
+from jax import vmap
 
 
 def wave2density(mo: Callable, nocc=1., keep_spin=False):
@@ -49,50 +54,11 @@ def factorial(x):
   return jnp.exp(jax.lax.lgamma(x + 1))
 
 
-def r2(x, y):
-  """Square of euclidean distance."""
-  return jnp.sum((x - y)**2)
-
-
 def distmat(x, y=None):
   """Distance matrix."""
   if y is None:
     y = x
   return vmap(lambda x1: vmap(lambda y1: euclidean_distance(x1, y1))(y))(x)
-
-
-def gaussian_intergral(alpha, n):
-  r"""Compute the integral of the gaussian basis.
-
-  Not the confuse with gaussian cdf.
-  ref: https://mathworld.wolfram.com/GaussianIntegral.html
-  return  \int x^n exp(-alpha x^2) dx
-  """
-  # if n==0:
-  #     return jnp.sqrt(jnp.pi/alpha)
-  # elif n==1:
-  #     return 0
-  # elif n==2:
-  #     return 1/2/alpha * jnp.sqrt(jnp.pi/alpha)
-  # elif n==3:
-  #     return 0
-  # elif n==4:
-  #     return 3/4/alpha**2 * jnp.sqrt(jnp.pi/alpha)
-  # elif n==5:
-  #     return 0
-  # elif n==6:
-  #     return 15/8/alpha**3 * jnp.sqrt(jnp.pi/alpha)
-  # elif n==7:
-  #     return 0
-  # else:
-  #     raise NotImplementedError()
-
-  return (
-    (n == 0) * jnp.sqrt(jnp.pi / alpha) +
-    (n == 2) * 1 / 2 / alpha * jnp.sqrt(jnp.pi / alpha) +
-    (n == 4) * 3 / 4 / alpha**2 * jnp.sqrt(jnp.pi / alpha) +
-    (n == 6) * 15 / 8 / alpha**3 * jnp.sqrt(jnp.pi / alpha)
-  )
 
 
 def decov(cov):
@@ -109,41 +75,153 @@ def set_diag_zero(x):
   return x.at[jnp.diag_indices(x.shape[0])].set(0)
 
 
-def minibatch_vmap(f, in_axes=0, batch_size=10):
+def factorization(n):
+
+  factors = []
+
+  def get_factor(n):
+    x_fixed = 2
+    cycle_size = 2
+    x = 2
+    factor = 1
+
+    while factor == 1:
+      for _ in range(cycle_size):
+        if factor > 1:
+          break
+        x = (x * x + 1) % n
+        factor = gcd(x - x_fixed, n)
+
+      cycle_size *= 2
+      x_fixed = x
+
+    return factor
+
+  while n > 1:
+    next = get_factor(n)
+    factors.append(next)
+    n //= next
+
+  return factors
+
+
+def powerset(iterable):
+  s = list(iterable)
+  return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+
+
+def get_exact_batch(factors: List[int], batch_size_upperbound: int):
+  """
+  Args:
+    batch_size: the target upperbound. If number of ijlk index is lower than
+      this, then use full batch, otherwise find the closest divider of dataset
+      size lower than this upperbound.
+  """
+  batch_sizes = list(map(np.prod, powerset(factors)))
+  dists = list(map(lambda b: np.abs(b - batch_size_upperbound), batch_sizes))
+  return int(batch_sizes[np.argmin(dists)])
+
+
+def minibatch_vmap(
+  f: Callable,
+  full_batch_size: int,
+  in_axes=0,
+  batch_size: int = 1000,
+  exact_division: bool = False,
+  reduce: bool = False,
+  thresh: int = 10000,  # TODO: tune this
+):
   """
   TODO: speed test this
 
     automatic batched vmap operation.
+
+  reduce only support sum now
   """
+
+  logging.info(f"full_batch_size: {full_batch_size}")
+
   batch_f = jax.vmap(f, in_axes=in_axes)
+  if full_batch_size <= batch_size or full_batch_size <= thresh:
+    if not reduce:
+      return batch_f
+    else:
+
+      def reduced_batch_f(*args):
+        return jnp.sum(batch_f(*args))
+
+      return reduced_batch_f
 
   def _minibatch_vmap_f(*args):
-    nonlocal in_axes
+    nonlocal in_axes, batch_size
     if not isinstance(in_axes, (tuple, list)):
       in_axes = (in_axes,) * len(args)
     for i, ax in enumerate(in_axes):
       if ax is not None:
-        num = args[i].shape[ax]
-    num_shards = int(np.ceil(num / batch_size))
+        if args[i][0].shape == ():
+          num = len(args[i])
+        elif isinstance(args[i], tuple):  # use the first element
+          num = args[i][0].shape[ax]
+        else:
+          num = args[i].shape[ax]
+    if exact_division:
+      factors = sorted(factorization(num))
+      exact_batch_size = get_exact_batch(factors, batch_size)
+      if exact_batch_size == 1:  # num is prime
+        num_shards = int(np.floor(num / batch_size))
+      else:
+        batch_size = exact_batch_size
+        num_shards = num // batch_size
+    else:
+      num_shards = int(np.floor(num / batch_size))
     size = num_shards * batch_size
+    remainder = num % batch_size
     indices = jnp.arange(0, size, batch_size)
 
-    def _process_batch(start_index):
-      batch_args = (
-        jax.lax.dynamic_slice_in_dim(
-          a,
+    logging.info(
+      f"batch_size: {batch_size}, num_shards: {num_shards}, "
+      f"remainder: {remainder}"
+    )
+
+    def _process_batch(start_index, batch_size):
+
+      def slice_arg_i(arg, ax):
+        return jax.lax.dynamic_slice_in_dim(
+          arg,
           start_index=start_index,
           slice_size=batch_size,
           axis=ax,
-        ) if ax is not None else a for a, ax in zip(args, in_axes)
-      )
-      return batch_f(*batch_args)
+        )
 
-    out = jax.lax.map(_process_batch, indices)
-    if isinstance(out, jnp.ndarray):
-      out = jnp.reshape(out, (-1, *out.shape[2:]))[:num]
-    elif isinstance(out, (tuple, list)):
-      out = tuple(jnp.reshape(o, (-1, *o.shape[2:]))[:num] for o in out)
+      def slice_arg(arg, ax):
+        """handles tuple input"""
+        if isinstance(arg, tuple):
+          return [slice_arg_i(arg_i, ax) for arg_i in arg]
+        else:
+          return slice_arg_i(arg, ax)
+
+      batch_args = (
+        slice_arg(arg, ax) if ax is not None else arg
+        for arg, ax in zip(args, in_axes)
+      )
+      out = batch_f(*batch_args)
+
+      if not reduce:
+        return out
+      else:
+        return jnp.sum(out)
+
+    out = jax.lax.map(partial(_process_batch, batch_size=batch_size), indices)
+    out_remainder = _process_batch(size, remainder)
+    if not reduce:
+      if isinstance(out, jnp.ndarray):
+        out = jnp.reshape(out, (-1, *out.shape[2:]))[:num]
+      elif isinstance(out, (tuple, list)):
+        out = tuple(jnp.reshape(o, (-1, *o.shape[2:]))[:num] for o in out)
+      out = jnp.concatenate([out, out_remainder])
+    else:
+      out = jnp.sum(out)
+      out += out_remainder
     return out
 
   return _minibatch_vmap_f

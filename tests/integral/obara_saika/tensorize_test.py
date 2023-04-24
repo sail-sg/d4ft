@@ -6,7 +6,7 @@ from absl import logging
 import numpy as np
 import jax.numpy as jnp
 from d4ft.integral.obara_saika.utils import (
-  tensorize, contraction, angular_static_args
+  tensorize, contraction, angular_static_args, contraction_4c_prescreen
 )
 from d4ft.integral.obara_saika.electron_repulsion_integral \
   import electron_repulsion_integral
@@ -83,6 +83,13 @@ class _TestTensorize(absltest.TestCase):
     out = eri_fn(mo, mo, mo, mo)
     out = jax.jit(eri_fn)(mo, mo, mo, mo)
     logging.info(f"ERI: {out}")
+
+  def test_eri_prescreen(self):
+    mo = self.mo
+    eri_fn = contraction_4c_prescreen(electron_repulsion_integral, 4, self.s4)
+    out = eri_fn(mo)
+    out = jax.jit(eri_fn)(mo)
+    logging.info(f"ERI: {out}, {out.shape}")
 
   def test_contraction_nuclear_attraction(self):
     mo = self.mo

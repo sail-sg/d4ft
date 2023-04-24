@@ -24,6 +24,7 @@ from . import (
 from .molecule import Molecule
 from .sgd import sgd
 from .scf import scf
+from .pyscf_solver import pyscf_solver
 
 __all__ = [
   'functions',
@@ -35,4 +36,5 @@ __all__ = [
   'mo',
   'sgd',
   'scf',
+  'pyscf_solver',
 ]

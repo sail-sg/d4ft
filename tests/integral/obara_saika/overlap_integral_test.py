@@ -17,10 +17,10 @@ class _TestOverlapIntegral(absltest.TestCase):
     self.b = (np.array([1, 1, 1]), jnp.array([0., 1., 0.]), jnp.array(1.5))
 
   def test_vv(self):
-    logging.info(overlap_integral(self.a, self.b, vh=False))
+    logging.info(overlap_integral(self.a, self.b, use_horizontal=False))
 
   def test_vh(self):
-    logging.info(overlap_integral(self.a, self.b, vh=True))
+    logging.info(overlap_integral(self.a, self.b, use_horizontal=True))
 
 
 if __name__ == "__main__":

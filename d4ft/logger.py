@@ -55,3 +55,9 @@ class RunLogger:
       f"Training Time: {(time.time() - self.start_time):.3f}s. \n"
     )
     self.get_segment_summary()
+
+  def log_ewm(self, key: str, t: int, span: int = 50):
+    if t < span:
+      return
+    ewm_df = self.data_df.e_hartree.ewm(span=span).mean()
+    logging.info(f"{key}_ewm: {ewm_df.iloc[-1]:.3f}")
