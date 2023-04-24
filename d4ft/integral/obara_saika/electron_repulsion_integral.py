@@ -1,4 +1,4 @@
-# Copyright 2022 Garena Online Private Limited
+# Copyright 2023 Garena Online Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,11 +19,13 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from . import utils
+from d4ft.integral.gto.cgto import PrimitiveGaussian
+from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
+from d4ft.types import AngularStats
 
-USE_CONV = False
+USE_CONV = False  # slow
 PREALLOCATE = True
-PREALLOCATE_ALL = False
+PREALLOCATE_ALL = False  # mem explode
 PYSCAN = True
 
 if PYSCAN:
@@ -33,11 +35,11 @@ else:
 
 
 def electron_repulsion_integral(
-  a: utils.GTO,
-  b: utils.GTO,
-  c: utils.GTO,
-  d: utils.GTO,
-  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  a: PrimitiveGaussian,
+  b: PrimitiveGaussian,
+  c: PrimitiveGaussian,
+  d: PrimitiveGaussian,
+  static_args: Optional[AngularStats] = None,
 ):
   r"""Electron repulsion integral using obara saika
   In this computation, we like to compute the tensor I where
@@ -103,24 +105,24 @@ def electron_repulsion_integral(
   """
   (na, ra, za), (nb, rb, zb), (nc, rc, zc), (nd, rd, zd) = a, b, c, d
 
-  zeta, rp, pa, _, ab, _ = utils.compute_common_terms(a, b)
+  zeta, rp, pa, _, ab, _ = terms.compute_common_terms(a, b)
   # eqn.31, eqn.35
-  eta, rq, _, _, cd, _ = utils.compute_common_terms(c, d)
+  eta, rq, _, _, cd, _ = terms.compute_common_terms(c, d)
 
   pq = rp - rq
   qc = rq - rc
   pa = rp - ra
 
-  s = static_args or utils.angular_static_args(na, nb, nc, nd)
+  s = static_args or angular_stats.angular_static_args(na, nb, nc, nd)
 
   Ms = [s.max_xyz + 1, s.max_yz + 1, s.max_z + 1]
   M = Ms[0]
 
-  rho = utils.rho(zeta, eta)
-  T = utils.T(rho, pq)
+  rho = terms.rho(zeta, eta)
+  T = terms.T(rho, pq)
 
-  k_ab = utils.K(za, zb, ra, rb)
-  k_cd = utils.K(zc, zd, rc, rd)
+  k_ab = terms.K(za, zb, ra, rb)
+  k_cd = terms.K(zc, zd, rc, rd)
 
   def vertical_0_0_c_0(i, I_0_0):
     """Vertical recursion on c with a=0, b=0 and d=0.
@@ -195,7 +197,7 @@ def electron_repulsion_integral(
       I_0 = I_0.at[0, :len(I_0_0)].set(I_0_0)
       wq_i = rho * pq[i] / eta
       for cm1 in range(0, s.max_cd[i] + 1):
-        cm2 = cm1 - 1  # HACK: for the first iter, this wraps to the back
+        cm2 = cm1 - 1  # for the first iter, this wraps to the back
         c = cm1 + 1
         I_mp1 = wq_i * I_0[cm1] + (-cm1 / 2 / eta * rho / eta) * I_0[cm2]
         I_0_c = qc[i] * I_0[cm1] + (cm1 / 2 / eta) * I_0[cm2]
@@ -293,7 +295,7 @@ def electron_repulsion_integral(
       I = I.at[0].set(I_0)
       wp_i = -rho * pq[i] / zeta
       for am1 in range(0, s.max_ab[i] + 1):
-        am2 = am1 - 1  # HACK: for the first iter, this wraps to the back
+        am2 = am1 - 1  # for the first iter, this wraps to the back
         a = am1 + 1
         I_mp1 = wp_i * I[am1] + (-am1 / 2 / zeta * rho / zeta) * I[am2]
         I_a = pa[i] * I[am1] + (am1 / 2 / zeta) * I[am2]
@@ -344,7 +346,7 @@ def electron_repulsion_integral(
     return jnp.einsum("a,c,acm->m", wa, wc, I[s.min_a[i]:, s.min_c[i]:])
 
   prefactor = (zeta + eta)**(-1 / 2) * k_ab * k_cd  # Eqn.44
-  I_0_0 = jax.vmap(utils.Boys, in_axes=(0, None))(jnp.arange(M), T)
+  I_0_0 = jax.vmap(boys.Boys, in_axes=(0, None))(jnp.arange(M), T)
 
   if not PREALLOCATE_ALL:
     for i in range(3):
@@ -364,7 +366,7 @@ def electron_repulsion_integral(
 
       # vertical (00|c0)^[m]
       for cm1 in range(0, s.max_cd[i] + 1):
-        cm2 = cm1 - 1  # HACK: for the first iter, this wraps to the back
+        cm2 = cm1 - 1  # for the first iter, this wraps to the back
         c = cm1 + 1
         I_mp1 = wq_i * I[0, cm1] + (-cm1 / 2 / eta * rho / eta) * I[0, cm2]
         I_0_c = qc[i] * I[0, cm1] + (cm1 / 2 / eta) * I[0, cm2]
@@ -377,7 +379,7 @@ def electron_repulsion_integral(
 
       # vertical (a0|c0)^[m]
       for am1 in range(0, s.max_ab[i] + 1):
-        am2 = am1 - 1  # HACK: for the first iter, this wraps to the back
+        am2 = am1 - 1  # for the first iter, this wraps to the back
         a = am1 + 1
         I_mp1 = wp_i * I[am1] + (-am1 / 2 / zeta * rho / zeta) * I[am2]
         I_a = pa[i] * I[am1] + (am1 / 2 / zeta) * I[am2]

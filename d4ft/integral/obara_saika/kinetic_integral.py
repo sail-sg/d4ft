@@ -1,4 +1,4 @@
-# Copyright 2022 Garena Online Private Limited
+# Copyright 2023 Garena Online Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,13 +18,15 @@ from typing import Optional
 import jax.numpy as jnp
 from jax import lax
 
-from . import utils
+from d4ft.integral.gto.cgto import PrimitiveGaussian
+from d4ft.integral.obara_saika import angular_stats, terms
+from d4ft.types import AngularStats
 
 
 def kinetic_integral(
-  a: utils.GTO,
-  b: utils.GTO,
-  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  a: PrimitiveGaussian,
+  b: PrimitiveGaussian,
+  static_args: Optional[AngularStats] = None,
   use_horizontal: bool = False
 ):
   r"""kinetic integral using obara saika.
@@ -56,8 +58,8 @@ def kinetic_integral(
     integral: The two center kinetic integral,
   """
   (na, ra, za), (nb, rb, zb) = a, b
-  zeta, _, pa, pb, ab, xi = utils.compute_common_terms(a, b)
-  s = static_args or utils.angular_static_args(na, nb)
+  zeta, _, pa, pb, ab, xi = terms.compute_common_terms(a, b)
+  s = static_args or angular_stats.angular_static_args(na, nb)
 
   def vertical_0_b(i, T_0_0, O_0_0, max_b):
     """compute (0|T|0:max_b[i]), up to max_b[i]."""
@@ -98,7 +100,7 @@ def kinetic_integral(
     _, (T, O) = lax.scan(compute_a, init, jnp.arange(max_a[i] + 1))
     return T[na[i], nb[i]], O[na[i], nb[i]]
 
-  prefactor = utils.s_overlap(ra, rb, za, zb)
+  prefactor = terms.s_overlap(ra, rb, za, zb)
   T_0_0 = xi * (3 - 2 * xi * jnp.dot(ab, ab))
   O_0_0 = 1.
 

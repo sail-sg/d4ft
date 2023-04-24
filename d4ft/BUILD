@@ -1,4 +1,4 @@
-# Copyright 2022 Garena Online Private Limited
+# Copyright 2023 Garena Online Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,119 +17,57 @@ load("@rules_python//python:defs.bzl", "py_library")
 package(default_visibility = ["//visibility:public"])
 
 py_library(
-    name = "tracer",
-    srcs = ["tracer.py"],
+    name = "constants",
+    srcs = ["constants.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
 )
 
 py_library(
-    name = "ao",
-    srcs = ["ao.py"],
+    name = "types",
+    srcs = ["types.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
+py_library(
+    name = "xc",
+    srcs = ["xc.py"],
+    visibility = ["//visibility:public"],
     deps = [
-        ":functions",
-        "//d4ft/integral/quadrature",
+        ":types",
+        "//d4ft/integral/gto:cgto",
+        "//d4ft/integral/quadrature:utils",
+        "//d4ft/system:mol",
     ],
 )
 
 py_library(
-    name = "functions",
-    srcs = ["functions.py"],
+    name = "config",
+    srcs = ["config.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
 )
 
 py_library(
-    name = "geometries",
-    srcs = ["geometries.py"],
+    name = "optimize",
+    srcs = ["optimize.py"],
+    visibility = ["//visibility:public"],
+    deps = [":config"],
 )
 
 py_library(
-    name = "geo_opt",
-    srcs = ["geo_opt.py"],
-    deps = [":grids"],
-)
-
-py_library(
-    name = "grids",
-    srcs = ["grids.py"],
-)
-
-py_library(
-    name = "loading",
-    srcs = ["loading.py"],
-)
-
-py_library(
-    name = "molecule",
-    srcs = ["molecule.py"],
-    deps = [
-        ":ao",
-        ":mo",
-    ],
-)
-
-py_library(
-    name = "mo",
-    srcs = ["mo.py"],
-    deps = [":functions"],
-)
-
-py_library(
-    name = "sampler",
-    srcs = ["sampler.py"],
-)
-
-py_library(
-    name = "scf",
-    srcs = ["scf.py"],
-    deps = [
-        ":energy",
-        ":functions",
-        ":logger",
-    ],
-)
-
-
-py_library(
-    name = "sgd",
-    srcs = ["sgd.py"],
-    deps = [
-        ":energy",
-        ":molecule",
-        ":logger",
-    ],
-)
-
-py_library(
-    name = "pyscf_solver",
-    srcs = ["pyscf_solver.py"],
-    deps = [
-        ":energy",
-        ":molecule",
-        ":logger",
-    ],
-)
-
-
-py_library(
-    name = "visualization",
-    srcs = ["visualization.py"],
-)
-
-py_library(
-    name = "vpf",
-    srcs = ["vpf.py"],
+    name = "utils",
+    srcs = ["utils.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
 )
 
 py_library(
     name = "logger",
     srcs = ["logger.py"],
-)
-
-py_library(
-    name = "energy",
-    srcs = ["energy.py"],
-    deps= [
-        "//d4ft/integral/obara_saika",
-        "//d4ft/integral/quadrature",
-    ]
+    visibility = ["//visibility:public"],
+    deps = [],
 )
 
 py_library(
@@ -137,18 +75,13 @@ py_library(
     srcs = ["__init__.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":ao",
-        ":functions",
-        ":geo_opt",
-        ":geometries",
-        ":grids",
-        ":loading",
-        ":mo",
-        ":molecule",
-        ":sampler",
-        ":scf",
-        ":sgd",
-        ":visualization",
-        ":vpf",
+        ":config",
+        ":constants",
+        ":logger",
+        ":optimize",
+        ":pyscf_wrapper",
+        ":types",
+        ":utils",
+        ":xc",
     ],
 )

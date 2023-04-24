@@ -1,17 +1,32 @@
 #!/usr/bin/env python3
+# Copyright 2023 Garena Online Private Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import jax
 
 jax.config.update("jax_enable_x64", True)
 import numpy as np
 from absl.testing import absltest
+from obsa.obara_saika import get_coulomb, get_kinetic, get_nuclear, get_overlap
+
+from d4ft.integral.obara_saika.boys import Boys, BoysIgamma
 from d4ft.integral.obara_saika.electron_repulsion_integral import \
     electron_repulsion_integral
 from d4ft.integral.obara_saika.kinetic_integral import kinetic_integral
 from d4ft.integral.obara_saika.nuclear_attraction_integral import \
     nuclear_attraction_integral
 from d4ft.integral.obara_saika.overlap_integral import overlap_integral
-from d4ft.integral.obara_saika.utils import Boys, BoysIgamma
-from obsa.obara_saika import get_coulomb, get_kinetic, get_nuclear, get_overlap
 
 
 class _TestNumericalCorrectness(absltest.TestCase):
@@ -74,7 +89,7 @@ class _TestNumericalCorrectness(absltest.TestCase):
         za, zb, zc, zd, ra, rb, rc, rd,
         na.tolist() + nb.tolist() + nc.tolist() + nd.tolist()
       )
-      # NOTE: d4ft version already accounts for the 1/2 prefactor
+      # *2 as d4ft version already accounts for the 1/2 prefactor
       e2 = 2 * electron_repulsion_integral(a, b, c, d)
       np.testing.assert_allclose(float(e1), float(e2))
 
