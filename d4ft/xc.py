@@ -1,4 +1,4 @@
-"""calculate the xc functional with numerical integration"""
+"""Calculate the xc functional with numerical integration"""
 from typing import Callable
 
 import jax

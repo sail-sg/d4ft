@@ -1,10 +1,34 @@
 from typing import Callable, Dict, List, NamedTuple, Union
 
-import jax.numpy as jnp
-import jraph
+import jax
 import numpy as np
+from jaxtyping import Float, Int
 
-Array = Union[jnp.ndarray, np.ndarray]
+Array = Union[jax.Array, np.ndarray]
+
+
+class AngularStats(NamedTuple):
+  min_a: Int[np.ndarray, "3"]
+  min_b: Int[np.ndarray, "3"]
+  min_c: Int[np.ndarray, "3"]
+  min_d: Int[np.ndarray, "3"]
+  max_a: Int[np.ndarray, "3"]
+  max_b: Int[np.ndarray, "3"]
+  max_c: Int[np.ndarray, "3"]
+  max_d: Int[np.ndarray, "3"]
+  max_ab: Int[np.ndarray, "3"]
+  max_cd: Int[np.ndarray, "3"]
+  max_xyz: int
+  max_yz: int
+  max_z: int
+
+
+class GTO(NamedTuple):
+  """Gaussian-Type Orbitals parameters"""
+  angular: Int[Array, "*batch 3"]
+  center: Float[Array, "*batch 3"]
+  exponent: Float[Array, "*batch"]
+  coeff: Float[Array, "*batch"]
 
 
 class Metrics(NamedTuple):
@@ -31,9 +55,6 @@ class Grads(NamedTuple):
   ext_grad: Array
   eri_grad: Array
   xc_grad: Array
-
-
-Data = jraph.GraphsTuple
 
 
 class Transition(NamedTuple):

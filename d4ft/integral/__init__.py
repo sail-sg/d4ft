@@ -11,21 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Real space quadrature integral."""
+"""Integraion Engines.
 
-from . import utils
-from .electron_repulsion_integral import (
-  electron_repulsion_integral, electron_repulsion_integral_scf
-)
-from .kinetic_integral import kinetic_integral
-from .nuclear_attraction_integral import nuclear_attraction_integral
-from .overlap_integral import overlap_integral
+Each integration method under this package provides
+at least the three 3 types of integrals:
+- kin: kinetic
+- ext: nuclear attraction
+- eri: electronic repulsion
+"""
 
 __all__ = [
-  "utils",
-  "overlap_integral",
-  "kinetic_integral",
-  "nuclear_attraction_integral",
-  "electron_repulsion_integral",
-  "electron_repulsion_integral_scf",
+  "basis",
+  "obara_saika",
+  "quadrature",
 ]

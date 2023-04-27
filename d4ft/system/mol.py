@@ -2,12 +2,12 @@
 
 from typing import List, Literal, Optional
 
+import d4ft.system.cccdbd
+import d4ft.system.fake_fullerene
 import pubchempy
 import pyscf
 import requests
-
-import d4ft.cccdbd
-import d4ft.fake_fullerene
+from d4ft.system.cccdbd import query_geometry_from_cccbdb
 
 periodic_table: List[str] = [
   '?', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al',
@@ -51,7 +51,10 @@ def get_pubchem_geometry(name: str) -> str:
 
 
 def get_cccdbd_geometry(name: str) -> str:
-  return getattr(d4ft.cccdbd, f"{name}_geometry")
+  geometry = getattr(d4ft.system.cccdbd, f"{name}_geometry", None)
+  if geometry is None:  # no offline data available
+    geometry = query_geometry_from_cccbdb(name)
+  return geometry
 
 
 def get_fullerene_geometry(name: str) -> Optional[str]:
@@ -64,7 +67,9 @@ def get_fullerene_geometry(name: str) -> Optional[str]:
   carbons = names[0]
   isomer = "-".join(names[1:])
   if isomer == "fake":
-    return getattr(d4ft.fake_fullerene, f"{carbons.lower()}_geometry", None)
+    return getattr(
+      d4ft.system.fake_fullerene, f"{carbons.lower()}_geometry", None
+    )
   else:
     res = requests.get(
       f"https://nanotube.msu.edu/fullerene/{carbons}/{name}.xyz"
@@ -85,7 +90,6 @@ def get_pyscf_mol(
   """Construct a pyscf mole object from molecule name and basis name"""
   # check if it is fullerene
   geometry = get_fullerene_geometry(name)
-  breakpoint()
 
   if geometry is None:
     if source == "cccdbd":
@@ -97,3 +101,10 @@ def get_pyscf_mol(
   spin = get_spin(atoms)
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin)
   return mol
+
+
+# TEST
+# mol = get_pyscf_mol("h2", "sto-3g")
+# gto_param_fn, ao_to_gto = get_gto_param_fn(mol)
+# gparams = gto_param_fn.init(1)
+# gtos = gto_param_fn.apply(gparams)

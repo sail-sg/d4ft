@@ -13,4 +13,5 @@ pubchempy==1.0.4
 tqdm
 matplotlib
 pandas
-viztracer
+einops
+jaxtyping

@@ -4,37 +4,9 @@ import numpy as np
 import pyscf
 
 from d4ft.config import DFTConfig
-from d4ft.orbitals import get_occupation_mask, qr_factor_param
+from d4ft.mo_coeff_fn import get_mo_coeff_fn
 from d4ft.types import Hamiltonian
 from d4ft.xc import get_xc_intor
-
-
-def get_2c_combs(n_orbs: int):
-  """2-fold symmetry (a|b)"""
-  ab_idx = np.vstack(np.triu_indices(n_orbs)).T
-  offdiag_ab = ab_idx[:, 0] != ab_idx[:, 1]
-  counts_ab = offdiag_ab + np.ones(len(ab_idx))
-  return ab_idx, counts_ab
-
-
-def get_4c_combs(n_orbs: int):
-  """8-fold symmetry (ab|cd)"""
-  ab_idx, counts_ab = get_2c_combs(n_orbs)
-
-  # block idx of (ab|cd)
-  ab_block_idx = np.vstack(np.triu_indices(len(ab_idx))).T
-  offdiag_ab_block = ab_block_idx[:, 0] != ab_block_idx[:, 1]
-  counts_ab_block = offdiag_ab_block + np.ones(len(ab_block_idx))
-  in_block_counts = (
-    counts_ab[ab_block_idx[:, 0]] * counts_ab[ab_block_idx[:, 1]]
-  )
-  between_block_counts = counts_ab_block
-
-  counts_abcd = in_block_counts * between_block_counts
-  counts_abcd = counts_abcd.astype(np.int32)
-
-  abcd_idx = np.hstack([ab_idx[ab_block_idx[:, 0]], ab_idx[ab_block_idx[:, 1]]])
-  return abcd_idx, counts_abcd
 
 
 def calc_hamiltonian(mol: pyscf.gto.mole.Mole, cfg: DFTConfig) -> Hamiltonian:
@@ -46,8 +18,8 @@ def calc_hamiltonian(mol: pyscf.gto.mole.Mole, cfg: DFTConfig) -> Hamiltonian:
   eri = 0.5 * mol.intor('int2e')
 
   n_mos = len(ovlp)
-  mo_ab_idx, mo_counts_ab = get_2c_combs(n_mos)
-  mo_abcd_idx, mo_counts_abcd = get_4c_combs(n_mos)
+  mo_ab_idx, mo_counts_ab = get_2c_idx(n_mos)
+  mo_abcd_idx, mo_counts_abcd = get_4c_idx(n_mos)
 
   # reduce symmetry
   kin = kin[mo_ab_idx[:, 0], mo_ab_idx[:, 1]]
@@ -55,18 +27,7 @@ def calc_hamiltonian(mol: pyscf.gto.mole.Mole, cfg: DFTConfig) -> Hamiltonian:
   eri = eri[mo_abcd_idx[:, 0], mo_abcd_idx[:, 1], mo_abcd_idx[:, 2],
             mo_abcd_idx[:, 3]]
 
-  nocc = get_occupation_mask(mol, mol.spin)
-
-  def mo_coeff_fn(params):
-    """get GTO representation of MO"""
-    mo_coeff = qr_factor_param(params, ovlp)
-    if cfg.rks:  # restrictied mo
-      mo_coeff_spin = jnp.repeat(mo_coeff[None], 2, 0)  # add spin axis
-    else:
-      mo_coeff_spin = mo_coeff
-    mo_coeff_spin *= nocc[:, :, None]  # apply spin mask
-    mo_coeff_spin = mo_coeff_spin.reshape(-1, n_mos)  # flatten
-    return mo_coeff_spin
+  mo_coeff_fn = get_mo_coeff_fn(mol, rks)
 
   xc_intor = get_xc_intor(mol, cfg.xc_type, cfg.quad_level)
 
@@ -94,39 +55,6 @@ def calc_hamiltonian(mol: pyscf.gto.mole.Mole, cfg: DFTConfig) -> Hamiltonian:
   )
 
   return hamiltonian
-
-
-def euclidean_distance(x, y):
-  """Euclidean distance."""
-  return jnp.sqrt(jnp.sum((x - y)**2 + 1e-18))
-
-
-def distmat(x, y=None):
-  """Distance matrix."""
-  if y is None:
-    y = x
-  return jax.vmap(
-    lambda x1: jax.vmap(lambda y1: euclidean_distance(x1, y1))(y)
-  )(
-    x
-  )
-
-
-def set_diag_zero(x):
-  """Set diagonal items to zero."""
-  return x.at[jnp.diag_indices(x.shape[0])].set(0)
-
-
-def e_nuclear(nuclei):
-  """
-    Potential energy between atomic nuclears.
-  """
-  nuclei_loc = nuclei['loc']
-  nuclei_charge = nuclei['charge']
-  dist_nuc = distmat(nuclei_loc)
-  charge_outer = jnp.outer(nuclei_charge, nuclei_charge)
-  charge_outer = set_diag_zero(charge_outer)
-  return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
 
 
 def get_energy_fns(hamiltonian: Hamiltonian):

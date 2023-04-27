@@ -16,15 +16,15 @@
 from typing import Optional
 
 import jax.numpy as jnp
+from d4ft.integral.obara_saika import angular_stats, terms
+from d4ft.types import GTO, AngularStats
 from jax import lax
-
-from . import utils
 
 
 def kinetic_integral(
-  a: utils.GTO,
-  b: utils.GTO,
-  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  a: GTO,
+  b: GTO,
+  static_args: Optional[AngularStats] = None,
   use_horizontal: bool = False
 ):
   r"""kinetic integral using obara saika.
@@ -56,8 +56,8 @@ def kinetic_integral(
     integral: The two center kinetic integral,
   """
   (na, ra, za), (nb, rb, zb) = a, b
-  zeta, _, pa, pb, ab, xi = utils.compute_common_terms(a, b)
-  s = static_args or utils.angular_static_args(na, nb)
+  zeta, _, pa, pb, ab, xi = terms.compute_common_terms(a, b)
+  s = static_args or angular_stats.angular_static_args(na, nb)
 
   def vertical_0_b(i, T_0_0, O_0_0, max_b):
     """compute (0|T|0:max_b[i]), up to max_b[i]."""
@@ -98,12 +98,10 @@ def kinetic_integral(
     _, (T, O) = lax.scan(compute_a, init, jnp.arange(max_a[i] + 1))
     return T[na[i], nb[i]], O[na[i], nb[i]]
 
-  prefactor = utils.s_overlap(ra, rb, za, zb)
+  prefactor = terms.s_overlap(ra, rb, za, zb)
   T_0_0 = xi * (3 - 2 * xi * jnp.dot(ab, ab))
   O_0_0 = 1.
 
   for i in range(3):
     T_0, O_0 = vertical_0_b(i, T_0_0, O_0_0, s.max_b)
     T_0_0, O_0_0 = vertical_a(i, T_0, O_0, s.max_a)
-
-  return prefactor * T_0_0

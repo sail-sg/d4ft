@@ -17,9 +17,9 @@ from typing import Optional
 
 import jax
 import jax.numpy as jnp
+from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
+from d4ft.types import GTO, AngularStats
 from jax import lax
-
-from . import utils
 
 USE_CONV = False
 PREALLOCATE = True
@@ -33,11 +33,11 @@ else:
 
 
 def electron_repulsion_integral(
-  a: utils.GTO,
-  b: utils.GTO,
-  c: utils.GTO,
-  d: utils.GTO,
-  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  a: GTO,
+  b: GTO,
+  c: GTO,
+  d: GTO,
+  static_args: Optional[AngularStats] = None,
 ):
   r"""Electron repulsion integral using obara saika
   In this computation, we like to compute the tensor I where
@@ -103,24 +103,24 @@ def electron_repulsion_integral(
   """
   (na, ra, za), (nb, rb, zb), (nc, rc, zc), (nd, rd, zd) = a, b, c, d
 
-  zeta, rp, pa, _, ab, _ = utils.compute_common_terms(a, b)
+  zeta, rp, pa, _, ab, _ = terms.compute_common_terms(a, b)
   # eqn.31, eqn.35
-  eta, rq, _, _, cd, _ = utils.compute_common_terms(c, d)
+  eta, rq, _, _, cd, _ = terms.compute_common_terms(c, d)
 
   pq = rp - rq
   qc = rq - rc
   pa = rp - ra
 
-  s = static_args or utils.angular_static_args(na, nb, nc, nd)
+  s = static_args or angular_stats.angular_static_args(na, nb, nc, nd)
 
   Ms = [s.max_xyz + 1, s.max_yz + 1, s.max_z + 1]
   M = Ms[0]
 
-  rho = utils.rho(zeta, eta)
-  T = utils.T(rho, pq)
+  rho = terms.rho(zeta, eta)
+  T = terms.T(rho, pq)
 
-  k_ab = utils.K(za, zb, ra, rb)
-  k_cd = utils.K(zc, zd, rc, rd)
+  k_ab = terms.K(za, zb, ra, rb)
+  k_cd = terms.K(zc, zd, rc, rd)
 
   def vertical_0_0_c_0(i, I_0_0):
     """Vertical recursion on c with a=0, b=0 and d=0.
@@ -344,7 +344,7 @@ def electron_repulsion_integral(
     return jnp.einsum("a,c,acm->m", wa, wc, I[s.min_a[i]:, s.min_c[i]:])
 
   prefactor = (zeta + eta)**(-1 / 2) * k_ab * k_cd  # Eqn.44
-  I_0_0 = jax.vmap(utils.Boys, in_axes=(0, None))(jnp.arange(M), T)
+  I_0_0 = jax.vmap(boys.Boys, in_axes=(0, None))(jnp.arange(M), T)
 
   if not PREALLOCATE_ALL:
     for i in range(3):

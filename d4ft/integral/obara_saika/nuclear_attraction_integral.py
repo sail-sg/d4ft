@@ -17,18 +17,18 @@ from typing import Optional
 
 import jax
 import jax.numpy as jnp
+from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
+from d4ft.types import GTO, AngularStats
 from jax import lax
-
-from . import utils
 
 USE_CONV = False
 
 
 def nuclear_attraction_integral(
   nuclear_center,
-  a: utils.GTO,
-  b: utils.GTO,
-  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  a: GTO,
+  b: GTO,
+  static_args: Optional[AngularStats] = None,
   use_horizontal: bool = False
 ):
   r"""Nuclear attraction integral using obara saika.
@@ -75,8 +75,8 @@ def nuclear_attraction_integral(
         with `R` denoting `nuclear_center`, `\int a(r1)(1/|r1-R|)b(r1) dr1`.
   """
   (na, _, _), (nb, _, _) = a, b
-  zeta, rp, pa, pb, ab, xi = utils.compute_common_terms(a, b)
-  s = static_args or utils.angular_static_args(na, nb)
+  zeta, rp, pa, pb, ab, xi = terms.compute_common_terms(a, b)
+  s = static_args or angular_stats.angular_static_args(na, nb)
 
   C = nuclear_center
   pc = rp - C
@@ -195,7 +195,7 @@ def nuclear_attraction_integral(
     return jnp.einsum("a,am->m", w, A_0[min_b[i]:, :])
 
   prefactor = 2 * (jnp.pi / zeta) * jnp.exp(-xi * jnp.dot(ab, ab))  # Eqn.A20
-  A_0_0 = jax.vmap(utils.Boys, in_axes=(0, None))(jnp.arange(M, dtype=int), U)
+  A_0_0 = jax.vmap(boys.Boys, in_axes=(0, None))(jnp.arange(M, dtype=int), U)
 
   if use_horizontal:
     for i in range(3):
