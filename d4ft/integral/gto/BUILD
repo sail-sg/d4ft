@@ -35,7 +35,7 @@ py_library(
     name = "sto_utils",
     srcs = ["sto_utils.py"],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = ["//d4ft:types"],
 )
 
 py_library(

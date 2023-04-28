@@ -18,6 +18,8 @@ from typing import Callable
 
 import jax
 import jax.numpy as jnp
+
+from d4ft.integral.gto import sto_utils, symmetry
 from d4ft.integral.gto.gto_utils import GTO, GTOParam
 from d4ft.types import IdxCount2C, IdxCount4C
 
@@ -63,7 +65,6 @@ def tensorize_2c_sto(f: Callable, static_args, sto: bool = True):
   return tensorize
 
 
-# TODO: connect this with idx range function
 def tensorize_4c_sto(f: Callable, static_args, sto: bool = True):
   """4c centers tensorization with provided index set.
   where the tensor is contracted to sto basis.
@@ -85,6 +86,56 @@ def tensorize_4c_sto(f: Callable, static_args, sto: bool = True):
     sto_seg_id,
     n_segs: int,
   ):
+    Ns = gtos.N
+    abcd_idx = idx_counts[:, :4]
+    gtos_abcd, coeffs_abcd = zip(
+      *[
+        gtos.map_params(lambda gto_param, i=i: gto_param[abcd_idx[:, i]])
+        for i in range(4)
+      ]
+    )
+    t_abcd = vmap_f(*gtos_abcd)
+    if not sto:
+      return t_abcd
+    counts_abcd_i = idx_counts[:, 4]
+    N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i
+    abcd = jnp.einsum("k,k,k,k,k,k->k", t_abcd, N_abcd, *coeffs_abcd)
+    sto_abcd = jax.ops.segment_sum(abcd, sto_seg_id, n_segs)
+    return sto_abcd
+
+  return tensorize
+
+
+def tensorize_4c_sto_range(f: Callable, static_args, sto: bool = True):
+  """NOTE: this brings marginal speed up"""
+
+  def f_curry(*args: GTOParam):
+    return f(*args, static_args=static_args)
+
+  vmap_f = jax.vmap(f_curry, in_axes=(0, 0, 0, 0))
+
+  @partial(
+    jax.jit,
+    static_argnames=[
+      "n_2c_idx", "start_idx", "end_idx", "batch_size", "n_segs"
+    ]
+  )
+  def tensorize(
+    gtos: GTO,
+    ab_idx_counts: IdxCount2C,
+    n_2c_idx: int,
+    start_idx: int,
+    end_idx: int,
+    batch_size: int,
+    n_segs: int,
+  ):
+    idx_counts = symmetry.get_4c_sym_idx_range(
+      ab_idx_counts, n_2c_idx, start_idx, end_idx, batch_size
+    )
+    sto_seg_id = sto_utils.get_sto_segment_id_sym(
+      idx_counts, gtos.sto_to_gto, four_center=True
+    )
+
     Ns = gtos.N
     abcd_idx = idx_counts[:, :4]
     gtos_abcd, coeffs_abcd = zip(

@@ -7,6 +7,7 @@ from pyscf.lib import logger
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
 
+# TODO: fix this
 def pyscf_solver(
   mol: pyscf.gto.mole.Mole,
   verbose: int = 2,

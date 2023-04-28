@@ -11,9 +11,9 @@ from absl import logging
 from d4ft.config import DFTConfig, OptimizerConfig
 from d4ft.hamiltonian import Hamiltonian, calc_hamiltonian
 from d4ft.logger import RunLogger
-from d4ft.utils import compose
 from d4ft.optimize import get_optimizer
 from d4ft.types import Array, Energies, Grads, Trajectory, Transition
+from d4ft.utils import compose
 
 
 def sgd_solver(

@@ -20,16 +20,18 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 from absl import logging
+from tqdm import tqdm
+
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto import sto_utils, symmetry, tensorization
 from d4ft.integral.gto.gto_utils import GTO
 from d4ft.types import ETensorsIncore
-from tqdm import tqdm
 
 
 def incore_int(
   gtos: GTO,
-  batch_size: int = 2**25,
+  # batch_size: int = 2**25,
+  batch_size: int = 2**23,
   prescreen_thresh: float = 1e-8,
   use_horizontal: bool = False,
 ) -> ETensorsIncore:
@@ -76,6 +78,7 @@ def incore_int(
 
   gto_4c_fn = tensorization.tensorize_4c_sto(eri_fn, s4, sto=False)
   sto_4c_fn = tensorization.tensorize_4c_sto(eri_fn, s4)
+  # sto_4c_fn = tensorization.tensorize_4c_sto_range(eri_fn, s4)
 
   eri_abab = gto_4c_fn(gtos, abab_idx_count, None, None)
   logging.info(f"block diag (ab|ab) computed, size: {eri_abab.shape}")
@@ -106,6 +109,10 @@ def incore_int(
     eri_abcd_i = sto_4c_fn(
       gtos, abcd_idx_counts, sto_4c_seg_id_i, n_sto_segs_4c
     )
+    # eri_abcd_i = sto_4c_fn(
+    #   gtos, ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size,
+    #   n_sto_segs_4c
+    # )
     eri_abcd_sto += eri_abcd_i
 
   return kin_ab, ext_ab, eri_abcd_sto

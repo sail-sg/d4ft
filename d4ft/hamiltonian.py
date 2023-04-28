@@ -2,15 +2,16 @@ import jax.numpy as jnp
 import pyscf
 from jaxtyping import Array, Float
 
-import d4ft.integral.obara_saika as obsa
+from d4ft.integral.obara_saika.driver import incore_int
 from d4ft.config import DFTConfig
 from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.gto_utils import get_gto_param_fn
 from d4ft.mo_coeff_fn import get_mo_coeff_fn
 from d4ft.nuclear import e_nuclear
-from d4ft.types import Hamiltonian, MoCoeff
+from d4ft.types import (
+  ETensorsIncore, Hamiltonian, IdxCount2C, IdxCount4C, MoCoeff
+)
 from d4ft.xc import get_xc_intor
-from d4ft.types import IdxCount2C, IdxCount4C, ETensorsIncore
 
 
 def libcint_incore(
@@ -46,7 +47,7 @@ def calc_hamiltonian(mol: pyscf.gto.mole.Mole, cfg: DFTConfig) -> Hamiltonian:
 
   if cfg.incore:
     if cfg.intor == "obsa":
-      kin, ext, eri = obsa.driver.incore_int(gtos)
+      kin, ext, eri = incore_int(gtos)
     elif cfg.intor == "libcint":
       kin, ext, eri = libcint_incore(mol, mo_ab_idx_counts, mo_abcd_idx_counts)
 

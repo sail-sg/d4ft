@@ -16,6 +16,7 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
+from d4ft.types import IdxCount
 from jaxtyping import Array, Int
 
 
@@ -49,7 +50,7 @@ def get_sto_segment_id(sto_to_gto: tuple) -> Int[Array, "n_gtos"]:
 
 @partial(jax.jit, static_argnames=["sto_to_gto", "four_center"])
 def get_sto_segment_id_sym(
-  gto_idx_counts: Int[Array, "batch three_or_five"],
+  gto_idx_counts: IdxCount,
   sto_to_gto: tuple,
   four_center: bool = False
 ) -> Int[Array, "batch"]:

@@ -12,6 +12,7 @@ IdxCount2C = Int[Array, "batch 3"]
 IdxCount4C = Int[Array, "batch 5"]
 """4c GTO index concatenated with the repetition count
  of that idx, e.g. (0,0,1,0|4)."""
+IdxCount = Union[IdxCount2C, IdxCount4C]
 
 MoCoeff = Float[Array, "2 nmo nao"]
 """MO coefficient matrix"""

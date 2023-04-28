@@ -1,6 +1,6 @@
 from __future__ import annotations  # forward declaration of GTO
 
-from typing import Callable, NamedTuple, Union, Tuple
+from typing import Callable, NamedTuple, Tuple, Union
 
 import haiku as hk
 import jax

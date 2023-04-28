@@ -41,6 +41,7 @@ py_library(
         ":types",
         ":xc",
         "//d4ft/integral/gto:symmetry",
+        "//d4ft/integral/obara_saika:driver",
     ],
 )
 

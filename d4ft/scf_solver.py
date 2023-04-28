@@ -23,6 +23,7 @@
 # from d4ft.logger import RunLogger
 # from d4ft.molecule import Molecule
 
+# TODO: rebuilt this
 # def scf(
 #   mol: Molecule,
 #   epoch: int,
