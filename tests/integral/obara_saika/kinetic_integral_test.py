@@ -1,11 +1,12 @@
 import jax
 
 jax.config.update("jax_enable_x64", True)
-from absl.testing import absltest
 import jax.numpy as jnp
 import numpy as np
-from d4ft.integral.obara_saika.kinetic_integral import kinetic_integral
 from absl import logging
+from absl.testing import absltest
+
+from d4ft.integral.obara_saika.kinetic_integral import kinetic_integral
 
 
 class _TestKineticIntegral(absltest.TestCase):

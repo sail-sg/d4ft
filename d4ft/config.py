@@ -1,4 +1,4 @@
-from typing import Iterable, Literal, Union
+from typing import Literal
 
 from ml_collections import ConfigDict
 from pydantic.dataclasses import dataclass

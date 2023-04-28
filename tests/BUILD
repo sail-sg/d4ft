@@ -1,25 +1,10 @@
 load("@rules_python//python:defs.bzl", "py_test")
 
 py_test(
-    name = "ao_test",
-    srcs = ["ao_test.py"],
-    deps = ["//d4ft:ao"],
-)
-
-py_test(
-    name = "molecule_test",
-    srcs = ["molecule_test.py"],
+    name = "solver_test",
+    srcs = ["solver_test.py"],
     deps = [
-        "//d4ft:geometries",
-        "//d4ft:molecule",
-        "//d4ft:sgd",
-    ],
-)
-
-py_test(
-    name = "grids_test",
-    srcs = ["grids_test.py"],
-    deps = [
-        "//d4ft:grids",
+        "//d4ft:sgd_solver",
+        "//d4ft/system:mol",
     ],
 )

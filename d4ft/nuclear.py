@@ -13,36 +13,19 @@
 # limitations under the License.
 """Compute nuclear repulsion energy."""
 
-import jax
 import jax.numpy as jnp
+from jaxtyping import Array, Float, Int
 
 
-def euclidean_distance(x, y):
-  """Euclidean distance."""
-  return jnp.sqrt(jnp.sum((x - y)**2 + 1e-18))
-
-
-def distmat(x, y=None):
-  """Distance matrix."""
-  if y is None:
-    y = x
-  return jax.vmap(
-    lambda x1: jax.vmap(lambda y1: euclidean_distance(x1, y1))(y)
-  )(
-    x
-  )
-
-
-def set_diag_zero(x):
+def set_diag_zero(x: Array) -> Array:
   """Set diagonal items to zero."""
   return x.at[jnp.diag_indices(x.shape[0])].set(0)
 
 
-def e_nuclear(nuclei):
+def e_nuclear(center: Float[Array, "n_atoms 3"],
+              charge: Int[Array, "n_atoms"]) -> Float[Array, ""]:
   """Potential energy between atomic nuclears."""
-  nuclei_loc = nuclei['loc']
-  nuclei_charge = nuclei['charge']
-  dist_nuc = distmat(nuclei_loc)
-  charge_outer = jnp.outer(nuclei_charge, nuclei_charge)
+  dist_nuc = jnp.linalg.norm(center - center[:, None], axis=-1)
+  charge_outer = jnp.outer(charge, charge)
   charge_outer = set_diag_zero(charge_outer)
-  return jnp.sum(charge_outer / (dist_nuc + 1e-15)) / 2
+  return 0.5 * jnp.sum(charge_outer / (dist_nuc + 1e-15))

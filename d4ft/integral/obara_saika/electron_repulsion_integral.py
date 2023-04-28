@@ -17,9 +17,11 @@ from typing import Optional
 
 import jax
 import jax.numpy as jnp
-from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
-from d4ft.types import GTO, AngularStats
 from jax import lax
+
+from d4ft.integral.gto.gto_utils import GTO
+from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
+from d4ft.types import AngularStats
 
 USE_CONV = False
 PREALLOCATE = True

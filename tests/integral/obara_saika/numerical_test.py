@@ -4,14 +4,15 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import numpy as np
 from absl.testing import absltest
+from obsa.obara_saika import get_coulomb, get_kinetic, get_nuclear, get_overlap
+
+from d4ft.integral.obara_saika.boys import Boys, BoysIgamma
 from d4ft.integral.obara_saika.electron_repulsion_integral import \
     electron_repulsion_integral
 from d4ft.integral.obara_saika.kinetic_integral import kinetic_integral
 from d4ft.integral.obara_saika.nuclear_attraction_integral import \
     nuclear_attraction_integral
 from d4ft.integral.obara_saika.overlap_integral import overlap_integral
-from d4ft.integral.obara_saika.utils import Boys, BoysIgamma
-from obsa.obara_saika import get_coulomb, get_kinetic, get_nuclear, get_overlap
 
 
 class _TestNumericalCorrectness(absltest.TestCase):

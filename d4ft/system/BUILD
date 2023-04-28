@@ -11,21 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""real space quadrature integral."""
 
-from . import utils
-from .electron_repulsion_integral import (
-  electron_repulsion_integral, electron_repulsion_integral_scf
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "mol",
+    srcs = ["mol.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":cccdbd",
+        ":fake_fullerene",
+    ],
 )
-from .kinetic_integral import kinetic_integral
-from .nuclear_attraction_integral import nuclear_attraction_integral
-from .overlap_integral import overlap_integral
 
-__all__ = [
-  "utils",
-  "overlap_integral",
-  "kinetic_integral",
-  "nuclear_attraction_integral",
-  "electron_repulsion_integral",
-  "electron_repulsion_integral_scf",
-]
+py_library(
+    name = "cccdbd",
+    srcs = ["cccdbd.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
+py_library(
+    name = "fake_fullerene",
+    srcs = ["fake_fullerene.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)

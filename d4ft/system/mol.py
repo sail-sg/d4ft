@@ -2,11 +2,12 @@
 
 from typing import List, Literal, Optional
 
-import d4ft.system.cccdbd
-import d4ft.system.fake_fullerene
 import pubchempy
 import pyscf
 import requests
+
+import d4ft.system.cccdbd
+import d4ft.system.fake_fullerene
 from d4ft.system.cccdbd import query_geometry_from_cccbdb
 
 periodic_table: List[str] = [

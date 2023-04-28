@@ -15,44 +15,106 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
+    name = "driver",
+    srcs = ["driver.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":angular_stats",
+        ":electron_repulsion_integral",
+        ":kinetic_integral",
+        ":nuclear_attraction_integral",
+        "//d4ft/integral/gto:gto_utils",
+        "//d4ft/integral/gto:sto_utils",
+        "//d4ft/integral/gto:symmetry",
+        "//d4ft/integral/gto:tensorization",
+    ],
+)
+
+py_library(
+    name = "boys_table",
+    srcs = ["boys_table.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
     name = "boys",
     srcs = ["boys.py"],
     visibility = ["//visibility:public"],
+    deps = [":boys_table"],
+)
+
+py_library(
+    name = "terms",
+    srcs = ["terms.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
 )
 
 py_library(
     name = "utils",
     srcs = ["utils.py"],
     visibility = ["//visibility:public"],
-    deps = ["//d4ft:functions", ":boys"],
+    deps = [],
+)
+
+py_library(
+    name = "angular_stats",
+    srcs = ["angular_stats.py"],
+    visibility = ["//visibility:public"],
+    deps = ["//d4ft:types"],
 )
 
 py_library(
     name = "overlap_integral",
     srcs = ["overlap_integral.py"],
     visibility = ["//visibility:public"],
-    deps = [":utils"],
+    deps = [
+        ":angular_stats",
+        ":terms",
+        ":utils",
+        "//d4ft:types",
+        "//d4ft/integral/gto:gto_utils",
+    ],
 )
 
 py_library(
     name = "kinetic_integral",
     srcs = ["kinetic_integral.py"],
     visibility = ["//visibility:public"],
-    deps = [":utils"],
+    deps = [
+        ":angular_stats",
+        ":terms",
+        "//d4ft:types",
+        "//d4ft/integral/gto:gto_utils",
+    ],
 )
 
 py_library(
     name = "nuclear_attraction_integral",
     srcs = ["nuclear_attraction_integral.py"],
     visibility = ["//visibility:public"],
-    deps = [":utils"],
+    deps = [
+        ":angular_stats",
+        ":boys",
+        ":terms",
+        ":utils",
+        "//d4ft:types",
+        "//d4ft/integral/gto:gto_utils",
+    ],
 )
 
 py_library(
     name = "electron_repulsion_integral",
     srcs = ["electron_repulsion_integral.py"],
     visibility = ["//visibility:public"],
-    deps = [":utils"],
+    deps = [
+        ":angular_stats",
+        ":boys",
+        ":terms",
+        ":utils",
+        "//d4ft:types",
+        "//d4ft/integral/gto:gto_utils",
+    ],
 )
 
 py_library(
@@ -60,10 +122,14 @@ py_library(
     srcs = ["__init__.py"],
     visibility = ["//visibility:public"],
     deps = [
+        ":angular_stats",
+        ":boys",
+        ":boys_table",
         ":electron_repulsion_integral",
         ":kinetic_integral",
         ":nuclear_attraction_integral",
         ":overlap_integral",
+        ":terms",
         ":utils",
     ],
 )

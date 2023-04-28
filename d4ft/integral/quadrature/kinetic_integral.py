@@ -18,7 +18,7 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 
-from .utils import quadrature_integral, get_integrand
+from .utils import get_integrand, quadrature_integral
 
 
 def integrand_kinetic(orbitals: Callable, keepdims: bool = False) -> Callable:

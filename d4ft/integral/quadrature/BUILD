@@ -15,6 +15,12 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
+    name = "grids",
+    srcs = ["grids.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
     name = "utils",
     srcs = ["utils.py"],
     visibility = ["//visibility:public"],

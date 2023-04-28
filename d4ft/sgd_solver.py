@@ -11,6 +11,7 @@ from absl import logging
 from d4ft.config import DFTConfig, OptimizerConfig
 from d4ft.hamiltonian import Hamiltonian, calc_hamiltonian, get_energy_fns
 from d4ft.logger import RunLogger
+from d4ft.utils import compose
 from d4ft.optimize import get_optimizer
 from d4ft.types import Array, Energies, Grads, Trajectory, Transition
 
@@ -18,7 +19,7 @@ from d4ft.types import Array, Energies, Grads, Trajectory, Transition
 def sgd_solver(
   dft_cfg: DFTConfig, optim_cfg: OptimizerConfig, mol: pyscf.gto.mole.Mole,
   key: Array
-) -> Tuple[Trajectory, Hamiltonian]:
+) -> Tuple[float, Trajectory, Hamiltonian]:
   # init Stiefel manifold params
   nmo = mol.nao
   shape = ([nmo, nmo] if dft_cfg.rks else [2, nmo, nmo])
@@ -36,7 +37,7 @@ def sgd_solver(
   def update(params, opt_state):
     """update parameter, and accumulate gradients"""
     val_and_grads = [
-      jax.value_and_grad(lambda p: e_fn(hamiltonian.mo_coeff_fn(p)))(params)
+      jax.value_and_grad(compose(e_fn, hamiltonian.mo_coeff_fn))(params)
       for e_fn in e_fns
     ]  # (nao, nao)
 
@@ -87,4 +88,4 @@ def sgd_solver(
 
   logging.info(f"Converged: {converged}")
 
-  return traj, hamiltonian
+  return e_total, traj, hamiltonian

@@ -4,10 +4,11 @@ import jax
 
 jax.config.update("jax_enable_x64", True)
 import numpy as np
+from absl.testing import absltest, parameterized
 from pyscf import gto
 from pyscf.dft.gen_grid import Grids
-from d4ft.grids import DifferentiableGrids
-from absl.testing import absltest, parameterized
+
+from d4ft.integral.quadrature.grids import DifferentiableGrids
 
 
 class _GridsTest(parameterized.TestCase):

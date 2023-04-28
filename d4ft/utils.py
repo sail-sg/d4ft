@@ -6,6 +6,10 @@ import black
 from ml_collections import ConfigDict
 
 
+def compose(f, g):
+  return lambda *a, **kw: f(g(*a, **kw))
+
+
 def save_cfg(cfg: ConfigDict, save_path: Union[str, Path]):
   with Path(save_path).open("w") as f:
     json.dump(

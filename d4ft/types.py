@@ -1,10 +1,17 @@
-from typing import Callable, Dict, List, NamedTuple, Union
+from typing import Callable, List, NamedTuple, Union
 
 import jax
 import numpy as np
 from jaxtyping import Float, Int
 
 Array = Union[jax.Array, np.ndarray]
+
+IdxCount2C = Int[Array, "batch 3"]
+"""2c GTO index concatenated with the repetition count
+ of that idx, e.g. (0,1|2)."""
+IdxCount4C = Int[Array, "batch 5"]
+"""4c GTO index concatenated with the repetition count
+ of that idx, e.g. (0,0,1,0|4)."""
 
 
 class AngularStats(NamedTuple):
@@ -21,14 +28,6 @@ class AngularStats(NamedTuple):
   max_xyz: int
   max_yz: int
   max_z: int
-
-
-class GTO(NamedTuple):
-  """Gaussian-Type Orbitals parameters"""
-  angular: Int[Array, "*batch 3"]
-  center: Float[Array, "*batch 3"]
-  exponent: Float[Array, "*batch"]
-  coeff: Float[Array, "*batch"]
 
 
 class Metrics(NamedTuple):
@@ -76,22 +75,12 @@ class Hamiltonian(NamedTuple):
   """nuclear attraction tensor in symmetry reduced form (unique_ab_idx,)"""
   eri: Array
   """electron repulsion tensor in symmetry reduced form (unique_abcd_idx,)"""
-  mo_ab_idx: Array
-  """(unique_ab_idx,)"""
-  mo_counts_ab: Array
-  """counts of (unique_ab_idx,)"""
-  mo_abcd_idx: Array
-  """(unique_abcd_idx,)"""
-  mo_counts_abcd: Array
-  """counts of (unique_abcd_idx,)"""
+  mo_ab_idx_counts: IdxCount2C
+  mo_abcd_idx_counts: IdxCount4C
   xc_intor: Callable
   """xc functional"""
-  nocc: Array
-  """occupation mask"""
   mo_coeff_fn: Callable
   """callable"""
-  nuclei: Dict
-  """nuclei"""
-  e_nuc: float
+  e_nuc: Float[Array, ""]
   """nuclear repulsion energy. since we are not doing geometry optimization,
   this term is fixed"""

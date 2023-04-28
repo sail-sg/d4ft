@@ -1,20 +1,14 @@
 import os
 
-import jax
-import numpy as np
+import pyscf
 from pyscf import scf
 from pyscf.lib import logger
-
-from d4ft.energy import calc_energy, get_intor
-from d4ft.integral.obara_saika.utils import mol_to_obsa_gto
-from d4ft.logger import RunLogger
-from d4ft.molecule import Molecule
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
 
 def pyscf_solver(
-  mol: Molecule,
+  mol: pyscf.gto.mole.Mole,
   verbose: int = 2,
   max_cycle: int = 2,
   os_scheme: str = "none",
@@ -34,10 +28,10 @@ def pyscf_solver(
 
   atom_mf.analyze(verbose=logger.INFO)
 
-  if mol.restricted_mo:
-    mo_params = atom_mf.mo_coeff.T
-  else:
-    mo_params = np.transpose(atom_mf.mo_coeff, (0, 2, 1))
+  # if mol.restricted_mo:
+  #   mo_params = atom_mf.mo_coeff.T
+  # else:
+  #   mo_params = np.transpose(atom_mf.mo_coeff, (0, 2, 1))
 
   # params = (mo_params, None)
 

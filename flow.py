@@ -16,10 +16,6 @@
 
 from typing import Any, Iterator, Mapping, Optional, Sequence, Tuple
 
-from absl import app
-from absl import flags
-from absl import logging
-
 import distrax
 import haiku as hk
 import jax
@@ -27,6 +23,7 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 import tensorflow_datasets as tfds
+from absl import app, flags, logging
 
 flags.DEFINE_integer(
   "flow_num_layers", 8, "Number of layers to use in the flow."

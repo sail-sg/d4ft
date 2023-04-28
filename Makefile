@@ -53,10 +53,10 @@ auditwheel-install:
 # python linter
 
 flake8: flake8-install
-	flake8 $(PYTHON_FILES) --count --show-source --statistics --exclude d4ft/integral/obara_saika/boys.py
+	flake8 $(PYTHON_FILES) --count --show-source --statistics --exclude d4ft/integral/obara_saika/boys_table.py
 
 py-format: py-format-install
-	yapf -r -d $(PYTHON_FILES) --exclude d4ft/integral/obara_saika/boys.py
+	yapf -r -d $(PYTHON_FILES) --exclude d4ft/integral/obara_saika/boys_table.py
 
 # c++ linter
 

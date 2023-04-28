@@ -1,11 +1,12 @@
 import jax
 
 jax.config.update("jax_enable_x64", True)
-from absl.testing import absltest
-import numpy as np
 import jax.numpy as jnp
-from d4ft.integral.obara_saika.nuclear_attraction_integral \
-  import nuclear_attraction_integral
+import numpy as np
+from absl.testing import absltest
+
+from d4ft.integral.obara_saika.nuclear_attraction_integral import \
+    nuclear_attraction_integral
 
 
 class _TestNuclearAttractionIntegral(absltest.TestCase):

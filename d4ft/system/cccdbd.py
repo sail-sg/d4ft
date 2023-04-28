@@ -50,11 +50,13 @@ def headers(referer):
     'Upgrade-Insecure-Requests':
       '1',
     'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+      (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
     'Content-Type':
       'application/x-www-form-urlencoded',
     'Accept':
-      'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'text/html,application/xhtml+xml,application/xml;q=0.9,\
+      image/webp,*/*;q=0.8',
     'Referer':
       referer,
     'Accept-Encoding':
@@ -98,7 +100,8 @@ def query_geometry_from_cccbdb(
   # NOTE: -1 to remove counter after atom symbol
   geometry = "".join(
     [
-      f"{d[i].strip()[:-1]}  {d[i+1].strip()} {d[i+2].strip()} {d[i+3].strip()}\n"
+      f"{d[i].strip()[:-1]}  "
+      f"{d[i+1].strip()} {d[i+2].strip()} {d[i+3].strip()}\n"
       for i in range(0, len(d), 4)
     ]
   )

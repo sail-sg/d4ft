@@ -16,9 +16,11 @@
 from typing import Optional
 
 import jax.numpy as jnp
-from d4ft.integral.obara_saika import angular_stats, terms
-from d4ft.types import GTO, AngularStats
 from jax import lax
+
+from d4ft.integral.gto.gto_utils import GTO
+from d4ft.integral.obara_saika import angular_stats, terms
+from d4ft.types import AngularStats
 
 
 def kinetic_integral(
@@ -105,3 +107,5 @@ def kinetic_integral(
   for i in range(3):
     T_0, O_0 = vertical_0_b(i, T_0_0, O_0_0, s.max_b)
     T_0_0, O_0_0 = vertical_a(i, T_0, O_0, s.max_a)
+
+  return prefactor * T_0_0

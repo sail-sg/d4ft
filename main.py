@@ -2,8 +2,9 @@
 import jax
 from absl import app, flags
 from ml_collections.config_flags import config_flags
-from d4ft.system.mol import get_pyscf_mol
+
 from d4ft.sgd_solver import sgd_solver
+from d4ft.system.mol import get_pyscf_mol
 
 FLAGS = flags.FLAGS
 

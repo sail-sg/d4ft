@@ -15,55 +15,42 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
-    name = "boys",
-    srcs = ["boys.py"],
+    name = "contraction",
+    srcs = ["contraction.py"],
     visibility = ["//visibility:public"],
+    deps = [":gto_utils"],
 )
 
 py_library(
-    name = "utils",
-    srcs = ["utils.py"],
-    visibility = ["//visibility:public"],
-    deps = ["//d4ft:functions", ":boys"],
-)
-
-py_library(
-    name = "overlap_integral",
-    srcs = ["overlap_integral.py"],
-    visibility = ["//visibility:public"],
-    deps = [":utils"],
-)
-
-py_library(
-    name = "kinetic_integral",
-    srcs = ["kinetic_integral.py"],
-    visibility = ["//visibility:public"],
-    deps = [":utils"],
-)
-
-py_library(
-    name = "nuclear_attraction_integral",
-    srcs = ["nuclear_attraction_integral.py"],
-    visibility = ["//visibility:public"],
-    deps = [":utils"],
-)
-
-py_library(
-    name = "electron_repulsion_integral",
-    srcs = ["electron_repulsion_integral.py"],
-    visibility = ["//visibility:public"],
-    deps = [":utils"],
-)
-
-py_library(
-    name = "obara_saika",
-    srcs = ["__init__.py"],
+    name = "gto_utils",
+    srcs = ["gto_utils.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":electron_repulsion_integral",
-        ":kinetic_integral",
-        ":nuclear_attraction_integral",
-        ":overlap_integral",
-        ":utils",
+        ":sto_utils",
+        "//d4ft:constants",
+    ],
+)
+
+py_library(
+    name = "sto_utils",
+    srcs = ["sto_utils.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
+py_library(
+    name = "symmetry",
+    srcs = ["symmetry.py"],
+    visibility = ["//visibility:public"],
+    deps = ["//d4ft:types"],
+)
+
+py_library(
+    name = "tensorization",
+    srcs = ["tensorization.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":gto_utils",
+        "//d4ft:types",
     ],
 )

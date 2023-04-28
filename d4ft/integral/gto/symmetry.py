@@ -24,6 +24,8 @@ import numpy as np
 from jax import lax
 from jaxtyping import Array, Float
 
+from d4ft.types import IdxCount2C, IdxCount4C
+
 
 def unique_ij(n):
   """Number of unique ij indices under the 2-fold symmetry.
@@ -44,7 +46,7 @@ def unique_ijkl(n):
 
 
 # TODO: jit this
-def get_triu_ij_from_idx_np(N, idx):
+def get_triu_ij_from_idx(N, idx):
   a = 1
   b = -1 * (2 * N + 1)
   c = 2 * idx
@@ -68,8 +70,10 @@ def select_elements(array, mask, max_size):
 
 
 @partial(jax.jit, static_argnames=['n', 'start_idx', 'end_idx', 'n_idx_select'])
-def triu_idx_range(n: int, start_idx: int, end_idx: int,
-                   n_idx_select: int) -> Float[Array, "batch 2"]:
+def triu_idx_range(
+  n: int, start_idx: Tuple[int, int], end_idx: Tuple[int, int],
+  n_idx_select: int
+) -> Float[Array, "batch 2"]:
   """Generate upper triangular index range from start to end.
 
   Args:
@@ -95,18 +99,37 @@ def triu_idx_range(n: int, start_idx: int, end_idx: int,
 
 
 @partial(jax.jit, static_argnames=['n_gtos'])
-def get_2c_sym_idx(n_gtos: int) -> Tuple[Float[Array, "batch 3"]]:
-  """2-fold symmetry (a|b)
-
-  Returns:
-    ab_idx_count: 2c GTO index concatenated with
-      the repetition count of that idx, e.g. (0,1|2)
-  """
+def get_2c_sym_idx(n_gtos: int) -> IdxCount2C:
+  """2-fold symmetry (a|b)"""
   ab_idx = jnp.vstack(jnp.triu_indices(n_gtos)).T
   offdiag_ab = ab_idx[:, 0] != ab_idx[:, 1]
   counts_ab = offdiag_ab + jnp.ones(len(ab_idx))
-  ab_idx_count = jnp.hstack([ab_idx, counts_ab[..., None]])
+  ab_idx_count = jnp.hstack([ab_idx, counts_ab[..., None]]).astype(int)
   return ab_idx_count
+
+
+@partial(jax.jit, static_argnames=['n_gtos'])
+def get_4c_sym_idx(n_gtos: int) -> IdxCount4C:
+  ab_idx_counts = get_2c_sym_idx(n_gtos)
+  ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
+
+  # block idx of (ab|cd)
+  ab_block_idx = jnp.vstack(jnp.triu_indices(len(ab_idx))).T
+  offdiag_ab_block = ab_block_idx[:, 0] != ab_block_idx[:, 1]
+  counts_ab_block = offdiag_ab_block + jnp.ones(len(ab_block_idx))
+  in_block_counts = (
+    counts_ab[ab_block_idx[:, 0]] * counts_ab[ab_block_idx[:, 1]]
+  )
+  between_block_counts = counts_ab_block
+
+  counts_abcd = in_block_counts * between_block_counts
+  counts_abcd = counts_abcd.astype(jnp.int32)
+
+  abcd_idx = jnp.hstack(
+    [ab_idx[ab_block_idx[:, 0]], ab_idx[ab_block_idx[:, 1]]]
+  )
+  abcd_idx_counts = jnp.hstack([abcd_idx, counts_abcd[..., None]]).astype(int)
+  return abcd_idx_counts
 
 
 # TODO: benchmark passing ab_idx vs computed on the fly
@@ -115,19 +138,14 @@ def get_2c_sym_idx(n_gtos: int) -> Tuple[Float[Array, "batch 3"]]:
   jax.jit, static_argnames=["n_2c_idx", "start_idx", "end_idx", "batch_size"]
 )
 def get_4c_sym_idx_range(
-  ab_idx_count: Tuple[Float[Array, "batch 3"]],
+  ab_idx_counts: IdxCount2C,
   n_2c_idx: int,
   start_idx: int,
   end_idx: int,
   batch_size: int,
-) -> Tuple[Float[Array, "batch 5"]]:
-  """Get the 4c idx from range (start_idx, end_idx).
-
-  Returns:
-    abcd_idx_count: 4c GTO index concatenated with
-      the repetition count of that idx, e.g. (0,0,1,0|4)
-  """
-  ab_idx, counts_ab = ab_idx_count[:, :2], ab_idx_count[:, 2]
+) -> IdxCount4C:
+  """Get the 4c idx from range (start_idx, end_idx)."""
+  ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
 
   # block idx of (ab|cd)
   ab_block_idx = triu_idx_range(n_2c_idx, start_idx, end_idx, batch_size)
@@ -145,5 +163,5 @@ def get_4c_sym_idx_range(
   abcd_idx = jnp.hstack(
     [ab_idx[ab_block_idx[:, 0]], ab_idx[ab_block_idx[:, 1]]]
   )
-  abcd_idx_count = jnp.hstack([abcd_idx, counts_abcd[..., None]])
+  abcd_idx_count = jnp.hstack([abcd_idx, counts_abcd[..., None]]).astype(int)
   return abcd_idx_count

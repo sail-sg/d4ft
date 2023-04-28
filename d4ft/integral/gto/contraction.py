@@ -15,23 +15,23 @@
 
 import jax
 import jax.numpy as jnp
-from d4ft.integral.gto_analytic.gto_utils import normalization_constant
+
+from d4ft.integral.gto.gto_utils import GTO
 
 
 def contraction_2c_sym(f, n_gtos, static_args):
-  """2c contraction with 2-fold symmetries."""
+  """4c centers contraction with provided index set."""
 
-  def _f(*args: GTO):
+  def f_curry(*args: GTO):
     return f(*args, static_args=static_args)
 
-  vmap_f = jax.vmap(_f, in_axes=(0, 0))
-
-  N = jax.vmap(normalization_constant)
+  vmap_f = jax.vmap(f_curry, in_axes=(0, 0))
 
   ab_idx, counts_ab = get_2c_combs(n_gtos)
 
-  def g(mo: MO):
-    Ns = N(mo.angular, mo.exponent)
+  def contract_fn(mo: GTO):
+    """assuming mo are normalized"""
+    Ns = mo.N
     gtos_ab = [
       GTO(*map(lambda gto_param: gto_param[ab_idx[:, i]], mo[:3]))
       for i in range(2)
@@ -43,23 +43,22 @@ def contraction_2c_sym(f, n_gtos, static_args):
     ab = jnp.einsum("k,k,k->", t_ab, N_ab, c_ab)
     return ab
 
-  return g
+  return contract_fn
 
 
-def contraction_4c_selected(f, n_gtos, static_args):
+def contraction_4c(f, static_args):
   """4c centers contraction with provided index set.
   Used together with precomputed prescreen or sampled index set.
   """
 
-  def _f(*args: GTO):
+  def f_curry(*args: GTO):
     return f(*args, static_args=static_args)
 
-  vmap_f = jax.vmap(_f, in_axes=(0, 0, 0, 0))
+  vmap_f = jax.vmap(f_curry, in_axes=(0, 0, 0, 0))
 
-  N = jax.vmap(normalization_constant)
-
-  def g(mo: MO, idx_count):
-    Ns = N(mo.angular, mo.exponent)
+  def contract_fn(mo: GTO, idx_count):
+    """assuming mo are normalized"""
+    Ns = mo.N
     c_lm = jnp.einsum("il,im->lm", mo.coeff, mo.coeff)
 
     abcd_idx = idx_count[:, :4]
@@ -75,4 +74,4 @@ def contraction_4c_selected(f, n_gtos, static_args):
     abcd = jnp.einsum("k,k,k,k->", t_abcd, N_abcd, c_ab, c_cd)
     return abcd
 
-  return g
+  return contract_fn

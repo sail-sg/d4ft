@@ -31,19 +31,6 @@ py_test(
     deps = ["//d4ft/integral/obara_saika:electron_repulsion_integral"],
 )
 
-# py_test(
-#     name = "tensorize_test",
-#     srcs = ["tensorize_test.py"],
-#     visibility = ["//visibility:public"],
-#     deps = [
-#         "//d4ft/integral/obara_saika:electron_repulsion_integral",
-#         "//d4ft/integral/obara_saika:kinetic_integral",
-#         "//d4ft/integral/obara_saika:nuclear_attraction_integral",
-#         "//d4ft/integral/obara_saika:overlap_integral",
-#         "//d4ft/integral/obara_saika:utils",
-#     ],
-# )
-
 py_test(
     name = "numerical_test",
     srcs = ["numerical_test.py"],

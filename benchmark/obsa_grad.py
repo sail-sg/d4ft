@@ -1,8 +1,9 @@
 import time
 
-import d4ft
 import jax
 from absl import app, flags
+
+import d4ft
 from d4ft.energy import get_os_intor, prescreen
 
 jax.config.update("jax_enable_x64", True)
