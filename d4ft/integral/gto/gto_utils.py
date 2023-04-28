@@ -1,6 +1,6 @@
 from __future__ import annotations  # forward declaration of GTO
 
-from typing import Callable, NamedTuple, Union
+from typing import Callable, NamedTuple, Union, Tuple
 
 import haiku as hk
 import jax
@@ -19,6 +19,7 @@ perm_2n_n = jnp.array(scipy.special.perm(2 * _r25, _r25))
  Used in GTO normalization and OS horizontal recursion."""
 
 
+@jax.vmap
 def normalization_constant(
   angular: Int[Array, "*batch 3"], exponent: Float[Array, "*batch"]
 ) -> Int[Array, "nmo_or_ngto"]:
@@ -29,6 +30,15 @@ def normalization_constant(
   return (2 * exponent / np.pi)**(3 / 4) * jnp.sqrt(
     (8 * exponent)**(jnp.sum(angular)) / jnp.prod(perm_2n_n[angular])
   )
+
+
+class GTOParam(NamedTuple):
+  angular: Int[Array, "*batch 3"]
+  """angular momentum vector, e.g. (0,1,0)"""
+  center: Float[Array, "*batch 3"]
+  """atom coordinates for each GTO."""
+  exponent: Float[Array, "*batch"]
+  """GTO exponent / bandwith"""
 
 
 class GTO(NamedTuple):
@@ -47,6 +57,7 @@ class GTO(NamedTuple):
   """GTO segment lengths. e.g. (3,3) for H2 in sto-3g.
   Store it in tuple form so that it is hashable, and can be
   passed to a jitted function as static arg."""
+  atom_to_gto: Int[Array, "*n_atoms"]
   charge: Int[Array, "*batch"]
   """charges of the atoms"""
   sto_seg_id: Int[Array, "n_gtos"]
@@ -57,14 +68,9 @@ class GTO(NamedTuple):
   def params(self):
     return [self.angular, self.center, self.exponent, self.coeff]
 
-  def map_params(self, f: Callable) -> GTO:
+  def map_params(self, f: Callable) -> Tuple[GTOParam, Float[Array, "*batch"]]:
     angular, center, exponent, coeff = map(f, self.params())
-    return self._replace(
-      angular=angular,
-      center=center,
-      exponent=exponent,
-      coeff=coeff,
-    )
+    return GTOParam(angular, center, exponent), coeff
 
   def normalization_constant(self) -> Int[Array, "nmo_or_ngto"]:
     """Normalization constant of GTO.
@@ -72,17 +78,6 @@ class GTO(NamedTuple):
     Ref: https://en.wikipedia.org/wiki/Gaussian_orbital
     """
     return normalization_constant(self.angular, self.exponent)
-
-  def normalize(self) -> GTO:
-    """Computed and store normalization constant for the
-    current GTO parameter.
-
-    Note that if basis are optimized then the normalization
-    constant need to be updated at every step.
-    """
-    # TODO: check whether jit is needed here
-    return self._replace(N=self.normalization_constant())
-    # return self._replace(N=jax.jit(self.normalization_constant)())
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "nao_or_ngto"]:
     """Evaluate GTO given real space coordinate."""
@@ -100,21 +95,28 @@ def mol_to_gto(mol: pyscf.gto.mole.Mole) -> GTO:
     all translated GTOs. STO TO GTO
   """
   all_gtos = []
+  atom_to_gto = []
   sto_to_gto = []
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coord(i)
+    n_gtos = 0
     for sto in mol._basis[element]:
       shell = Shell(sto[0])
       gtos = sto[1:]
       for angular in SHELL_TO_ANGULAR_VEC[shell]:
         sto_to_gto.append(len(gtos))
         for exponent, coeff in gtos:
+          n_gtos += 1
           all_gtos.append((angular, coord, exponent, coeff))
+    atom_to_gto.append(n_gtos)
   params = [jnp.array(np.stack(a, axis=0)) for a in zip(*all_gtos)]
   sto_to_gto = tuple(sto_to_gto)
   sto_seg_id = get_sto_segment_id(sto_to_gto)
   N = normalization_constant(params[0], params[2])
-  gtos = GTO(*(params + [sto_to_gto, mol.atom_charges(), sto_seg_id, N]))
+  gtos = GTO(
+    *(params + [sto_to_gto, atom_to_gto,
+                mol.atom_charges(), sto_seg_id, N])
+  )
   n_gto = sum(sto_to_gto)
   logging.info(f"there are {n_gto} GTOs")
   return gtos
@@ -143,9 +145,10 @@ def get_gto_param_fn(mol: pyscf.gto.mole.Mole) -> hk.Transformed:
     coeff = hk.get_parameter(
       "coeff", gtos.coeff.shape, init=lambda _, __: gtos.coeff
     )
+    center_rep = jnp.repeat(center, np.array(gtos.atom_to_gto), axis=0)
     return GTO(
-      gtos.angular, jnp.repeat(center, np.array(gtos.sto_to_gto), axis=0),
-      exponent, coeff, gtos.sto_to_gto, gtos.charge, gtos.sto_seg_id, gtos.N
+      gtos.angular, center_rep, exponent, coeff, gtos.sto_to_gto,
+      gtos.atom_to_gto, gtos.charge, gtos.sto_seg_id, gtos.N
     )
 
   return gto_param_fn

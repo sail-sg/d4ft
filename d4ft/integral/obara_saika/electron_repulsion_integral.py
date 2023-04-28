@@ -19,13 +19,13 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from d4ft.integral.gto.gto_utils import GTO
+from d4ft.integral.gto.gto_utils import GTOParam
 from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
 from d4ft.types import AngularStats
 
-USE_CONV = False
+USE_CONV = False  # slow
 PREALLOCATE = True
-PREALLOCATE_ALL = False
+PREALLOCATE_ALL = False  # mem explode
 PYSCAN = True
 
 if PYSCAN:
@@ -35,10 +35,10 @@ else:
 
 
 def electron_repulsion_integral(
-  a: GTO,
-  b: GTO,
-  c: GTO,
-  d: GTO,
+  a: GTOParam,
+  b: GTOParam,
+  c: GTOParam,
+  d: GTOParam,
   static_args: Optional[AngularStats] = None,
 ):
   r"""Electron repulsion integral using obara saika

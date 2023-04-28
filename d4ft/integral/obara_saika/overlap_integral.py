@@ -18,14 +18,14 @@ from typing import Optional
 import jax.numpy as jnp
 from jax import lax
 
-from d4ft.integral.gto.gto_utils import GTO
+from d4ft.integral.gto.gto_utils import GTOParam
 from d4ft.integral.obara_saika import angular_stats, terms, utils
 from d4ft.types import AngularStats
 
 
 def overlap_integral(
-  a: GTO,
-  b: GTO,
+  a: GTOParam,
+  b: GTOParam,
   static_args: Optional[AngularStats] = None,
   use_horizontal: bool = False
 ):

@@ -27,6 +27,11 @@ class DFTConfig:
   """quadrature point level, higher means more points"""
   converge_threshold: float = 1e-3
   """threshold for gradient descent convergence checking"""
+  incore: bool = True
+  """Whether to store tensors incore when not optimizing basis.
+  If false, tensors are computed on the fly."""
+  intor: Literal["obsa", "libcint", "quad"] = "obsa"
+  """which integration engine to use"""
 
 
 @dataclass(config=config)

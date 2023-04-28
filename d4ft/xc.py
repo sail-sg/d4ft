@@ -118,10 +118,11 @@ def integrand_exc_lda(mo: Callable):
   return lambda x: const * jnp.sum(wave2density(mo, keep_spin=True)(x)**(4 / 3))
 
 
+# TODO: integrate jax_xc
 def get_xc_intor(
   mol: pyscf.gto.mole.Mole,
   xc_type: str = "lda",
-  quad_level: int = 1,  # TODO: change this
+  quad_level: int = 1,
 ) -> Callable:
   """only support quadrature now"""
 

@@ -16,6 +16,7 @@
 Ref. doi.org/10.1063/1.450106
 """
 
+from . import driver
 from . import utils
 from .angular_stats import angular_static_args
 from .electron_repulsion_integral import electron_repulsion_integral
@@ -24,6 +25,7 @@ from .nuclear_attraction_integral import nuclear_attraction_integral
 from .overlap_integral import overlap_integral
 
 __all__ = [
+  "driver",
   "utils",
   "angular_static_args",
   "overlap_integral",

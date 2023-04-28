@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from typing import Union
 
-import black
 from ml_collections import ConfigDict
 
 
@@ -21,7 +20,3 @@ def load_cfg(save_path: Union[str, Path]) -> ConfigDict:
   with Path(save_path).open("r") as f:
     load_cfg = ConfigDict(json.load(f))
   return load_cfg
-
-
-def pprint(a):
-  return black.format_str(repr(a), mode=black.Mode())

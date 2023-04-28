@@ -5,6 +5,7 @@ from typing import Union
 import jax.numpy as jnp
 import pyscf
 from jaxtyping import Array, Float
+from d4ft.types import MoCoeff
 
 
 def sqrt_root_inv(mat: Float[Array, "a a"]) -> Float[Array, "a a"]:
@@ -49,7 +50,7 @@ def get_mo_coeff_fn(mol: pyscf.gto.mole.Mole, rks: bool):
 
   def mo_coeff_fn(
     params: Union[Float[Array, "nao nao"], Float[Array, "2 nao nao"]]
-  ):
+  ) -> MoCoeff:
     """get GTO representation of MO"""
     mo_coeff = qr_factor_param(params, ovlp)
     if rks:  # restrictied mo

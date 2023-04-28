@@ -16,17 +16,15 @@
 2. on the fly
 """
 from functools import partial
-from typing import Tuple
 
 import jax
 import jax.numpy as jnp
 from absl import logging
-from jaxtyping import Array, Float
-from tqdm import tqdm
-
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto import sto_utils, symmetry, tensorization
 from d4ft.integral.gto.gto_utils import GTO
+from d4ft.types import ETensorsIncore
+from tqdm import tqdm
 
 
 def incore_int(
@@ -34,8 +32,10 @@ def incore_int(
   batch_size: int = 2**25,
   prescreen_thresh: float = 1e-8,
   use_horizontal: bool = False,
-) -> Tuple[Float[Array, "ab"], Float[Array, "ab"], Float[Array, "abcd"]]:
+) -> ETensorsIncore:
   """Compute kin, ext and eri tensor incore.
+
+  ERI tensor is computed in batches.
 
   Args:
     batch_size: is tuned for A100
@@ -48,7 +48,7 @@ def incore_int(
 
   def ext_fn(a, b, static_args):
     ni = obsa.nuclear_attraction_integral
-    atom_coords = gtos.center[jnp.cumsum(gtos.sto_to_gto) - 1]
+    atom_coords = gtos.center[jnp.cumsum(jnp.array(gtos.atom_to_gto)) - 1]
     return jax.vmap(lambda Z, C: Z * ni(C, a, b, static_args, use_horizontal)
                    )(gtos.charge, atom_coords).sum()
 
@@ -60,8 +60,8 @@ def incore_int(
   sto_2c_seg_id = sto_utils.get_sto_segment_id_sym(
     ab_idx_counts, gtos.sto_to_gto
   )
-  sto_ab_idx_counts = symmetry.get_2c_sym_idx(n_stos)
-  n_sto_segs_2c = len(sto_ab_idx_counts)
+  n_sto_segs_2c = symmetry.unique_ij(n_stos)
+  n_sto_segs_4c = symmetry.unique_ijkl(n_stos)
   kin_ab = tensorization.tensorize_2c_sto(kin_fn, s2)(
     gtos, ab_idx_counts, sto_2c_seg_id, n_sto_segs_2c
   )
@@ -71,7 +71,6 @@ def incore_int(
   logging.info(f"2c precal finished, tensor size: {kin_ab.shape}")
 
   # 4c tensors
-
   ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
   abab_idx_count = jnp.hstack([ab_idx, ab_idx, counts_ab[:, None]]).astype(int)
 
@@ -99,13 +98,13 @@ def incore_int(
     start_idx = symmetry.get_triu_ij_from_idx(n_2c_idx, start)
     end_idx = symmetry.get_triu_ij_from_idx(n_2c_idx, end)
     abcd_idx_counts = symmetry.get_4c_sym_idx_range(
-      ab_idx, counts_ab, n_2c_idx, start_idx, end_idx, slice_size
+      ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size
     )
     sto_4c_seg_id_i = sto_utils.get_sto_segment_id_sym(
       abcd_idx_counts[:, :-1], gtos.sto_to_gto, four_center=True
     )
     eri_abcd_i = sto_4c_fn(
-      gtos, abcd_idx_counts, sto_4c_seg_id_i, n_sto_segs_2c
+      gtos, abcd_idx_counts, sto_4c_seg_id_i, n_sto_segs_4c
     )
     eri_abcd_sto += eri_abcd_i
 

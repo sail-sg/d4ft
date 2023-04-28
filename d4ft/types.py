@@ -1,4 +1,4 @@
-from typing import Callable, List, NamedTuple, Union
+from typing import Callable, List, NamedTuple, Tuple, Union
 
 import jax
 import numpy as np
@@ -12,6 +12,13 @@ IdxCount2C = Int[Array, "batch 3"]
 IdxCount4C = Int[Array, "batch 5"]
 """4c GTO index concatenated with the repetition count
  of that idx, e.g. (0,0,1,0|4)."""
+
+MoCoeff = Float[Array, "2 nmo nao"]
+"""MO coefficient matrix"""
+
+ETensorsIncore = Tuple[Float[Array, "ab"], Float[Array, "ab"], Float[Array,
+                                                                     "abcd"]]
+"""kin, ext and eri tensor incore"""
 
 
 class AngularStats(NamedTuple):
@@ -67,18 +74,16 @@ Trajectory = List[Transition]
 
 
 class Hamiltonian(NamedTuple):
-  ovlp: Array
-  """overlap matrix (n_gto, n_gto)"""
-  kin: Array
+  kin_fn: Callable
   """kinetic tensor in symmetry reduced form (unique_ab_idx,)"""
-  ext: Array
+  ext_fn: Callable
   """nuclear attraction tensor in symmetry reduced form (unique_ab_idx,)"""
-  eri: Array
+  eri_fn: Callable
   """electron repulsion tensor in symmetry reduced form (unique_abcd_idx,)"""
+  xc_fn: Callable
+  """xc functional"""
   mo_ab_idx_counts: IdxCount2C
   mo_abcd_idx_counts: IdxCount4C
-  xc_intor: Callable
-  """xc functional"""
   mo_coeff_fn: Callable
   """callable"""
   e_nuc: Float[Array, ""]
