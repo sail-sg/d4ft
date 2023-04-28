@@ -2,12 +2,12 @@
 
 from typing import List, Literal, Optional
 
+import d4ft.system.cccdbd
+import d4ft.system.fake_fullerene
 import pubchempy
 import pyscf
 import requests
-
-import d4ft.system.cccdbd
-import d4ft.system.fake_fullerene
+from absl import logging
 from d4ft.system.cccdbd import query_geometry_from_cccbdb
 
 periodic_table: List[str] = [
@@ -89,8 +89,10 @@ def get_pyscf_mol(
   source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
   """Construct a pyscf mole object from molecule name and basis name"""
-  # check if it is fullerene
-  geometry = get_fullerene_geometry(name)
+  if name.capitalize() in periodic_table:  # check if it is a single atom
+    geometry = f"{name.capitalize()} 0.0000 0.0000 0.0000"
+  else:  # check if it is fullerene
+    geometry = get_fullerene_geometry(name)
 
   if geometry is None:
     if source == "cccdbd":
@@ -101,11 +103,5 @@ def get_pyscf_mol(
   atoms = get_atom_from_geometry(geometry)
   spin = get_spin(atoms)
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin)
+  logging.info(f"spin: {spin}, geometry: {geometry}")
   return mol
-
-
-# TEST
-# mol = get_pyscf_mol("h2", "sto-3g")
-# gto_param_fn, ao_to_gto = get_gto_param_fn(mol)
-# gparams = gto_param_fn.init(1)
-# gtos = gto_param_fn.apply(gparams)

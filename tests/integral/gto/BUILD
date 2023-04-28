@@ -12,10 +12,5 @@ py_test(
 py_library(
     name = "symmetry_test",
     srcs = ["symmetry_test.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//d4ft/system:mol",
-        "//d4ft/integral/gto:gto_utils",
-        "//d4ft/integral/gto:symmetry",
-    ],
+    deps = ["//d4ft/integral/gto:symmetry"],
 )

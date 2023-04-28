@@ -37,8 +37,10 @@ py_library(
     deps = [
         ":config",
         ":mo_coeff_fn",
+        ":nuclear",
         ":types",
         ":xc",
+        "//d4ft/integral/gto:symmetry",
     ],
 )
 
@@ -73,6 +75,7 @@ py_library(
         ":logger",
         ":optimize",
         ":types",
+        ":utils",
     ],
 )
 

@@ -10,8 +10,8 @@ pandas>=1.5.2
 mpmath>=1.2.1
 tensorflow>=2.11.0
 pubchempy==1.0.4
-tqdm
-matplotlib
-pandas
-einops
-jaxtyping
+tqdm==4.64.1
+matplotlib==3.6.2
+pandas==1.5.2
+jaxtyping==0.2.15
+pydantic==1.10.2
