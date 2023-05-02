@@ -26,7 +26,33 @@ from jaxtyping import Array, Float
 
 from d4ft.types import IdxCount2C, IdxCount4C
 
+# TODO: An idea, can we use API like
+# sym_2c = Sym2C(n_gtos)
+# uniq_idx = sym_2c.encode(i, j)
+# i, j = sym_2c.decode(uniq_idx)
+# sym_2c.repetition_count(i, j)
+# This class itself is an iterator, we can do
+#
+# for i, j in sym_2c:
+#   pass
+#
+# for i, j, k, l in sym_4c:
+#   pass
 
+# to make batches of calculations, we can slice
+# for b in range(np.ceil(len(sym_2c) / batch_size)):
+#   for i, j in sym_2c[b * batch_size: (b + 1) * batch_size]:
+#     pass
+
+# Or if we don't want iterator, we can call
+# ij, count = sym_2c.unique_ij(return_count=True)
+# Or
+# ij, count = sym_2c[start:end].unique_ij(return_count=True)
+# If the end is out of range, we can just set ij to (0,0) and count to 0.
+# As such, the last batch can be padded to same size, and has not adverse effect.
+
+
+# TODO: name it to num_unique_ij ?
 def unique_ij(n):
   """Number of unique ij indices under the 2-fold symmetry.
 
@@ -36,6 +62,7 @@ def unique_ij(n):
   return int(n * (n + 1) / 2)
 
 
+# TODO: num_unique_ijkl ?
 def unique_ijkl(n):
   """Number of unique ijlk indices under the 8-fold symmetry.
 
