@@ -49,7 +49,8 @@ from d4ft.types import IdxCount2C, IdxCount4C
 # Or
 # ij, count = sym_2c[start:end].unique_ij(return_count=True)
 # If the end is out of range, we can just set ij to (0,0) and count to 0.
-# As such, the last batch can be padded to same size, and has not adverse effect.
+# As such, the last batch can be padded to same size, and has not adverse
+# effect.
 
 
 # TODO: name it to num_unique_ij ?

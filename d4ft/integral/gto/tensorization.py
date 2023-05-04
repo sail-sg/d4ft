@@ -133,7 +133,7 @@ def tensorize_4c_sto_range(f: Callable, static_args, sto: bool = True):
       ab_idx_counts, n_2c_idx, start_idx, end_idx, batch_size
     )
     sto_seg_id = sto_utils.get_sto_segment_id_sym(
-      idx_counts, gtos.sto_to_gto, four_center=True
+      idx_counts, gtos.sto_splits, four_center=True
     )
 
     Ns = gtos.N

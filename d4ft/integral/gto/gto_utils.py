@@ -60,18 +60,16 @@ class GTO(NamedTuple):
   # TODO: BTW, should we call it batch, or num_gto?
   # TODO: shouldn't this class be called LCGTO? if coeff is one of the fields?
 
-  sto_to_gto: Union[Int[Array, "*n_stos"], tuple]
+  sto_splits: Union[Int[Array, "*n_stos"], tuple]
   """GTO segment lengths. e.g. (3,3) for H2 in sto-3g.
   Store it in tuple form so that it is hashable, and can be
   passed to a jitted function as static arg."""
-  # TODO: this is not necessarily sto? It could be any LCGTO to make any orbital.
+  # TODO: this is not necessarily sto? It could be any LCGTO to make any orbital
   # including the cc orbitals.
-  # TODO: naming sto_to_gto, should we call it sto_splits? or sto_seg_len?
-  # naming can be borrowed from the segment_sum API in jax.
 
   atom_to_gto: Int[Array, "*n_atoms"]
   # TODO: same here for the naming
-  charge: Int[Array, "*batch"]
+  charge: Int[Array, "*n_atoms"]
   """charges of the atoms"""
   # TODO: the batch here could be confusing, we should distinguish it from
   # the batch above. One is for num_gtos, the other is for the num_atoms.
@@ -102,7 +100,7 @@ class GTO(NamedTuple):
     gto_val = self.normalization_constant() * self.coeff * jnp.exp(
       -self.exponent * jnp.sum((r - self.center)**2)
     )
-    n_stos = len(self.sto_to_gto)
+    n_stos = len(self.sto_splits)
     return jax.ops.segment_sum(gto_val, self.sto_seg_id, n_stos)
 
 
@@ -156,8 +154,8 @@ def mol_to_gto(mol: pyscf.gto.mole.Mole) -> GTO:
 
 # Design 2: we only have one GTO, but we control its behavior via arguments.
 # gto = GTO.from_pyscf_mol(mol, use_exponent=True, use_center=True)
-# If any use_* is true, then this can be only constructed within a hk.transformed
-# context.
+# If any use_* is true, then this can be only constructed within a
+# hk.transformed context.
 
 
 def get_gto_param_fn(mol: pyscf.gto.mole.Mole) -> hk.Transformed:
@@ -185,7 +183,7 @@ def get_gto_param_fn(mol: pyscf.gto.mole.Mole) -> hk.Transformed:
     )
     center_rep = jnp.repeat(center, np.array(gtos.atom_to_gto), axis=0)
     return GTO(
-      gtos.angular, center_rep, exponent, coeff, gtos.sto_to_gto,
+      gtos.angular, center_rep, exponent, coeff, gtos.sto_splits,
       gtos.atom_to_gto, gtos.charge, gtos.sto_seg_id, gtos.N
     )
 

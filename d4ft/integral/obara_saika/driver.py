@@ -43,7 +43,7 @@ def incore_int(
     batch_size: is tuned for A100
   """
   n_gtos = gtos.angular.shape[0]
-  n_stos = len(gtos.sto_to_gto)
+  n_stos = len(gtos.sto_splits)
 
   kin_fn = partial(obsa.kinetic_integral, use_horizontal=use_horizontal)
   eri_fn = obsa.electron_repulsion_integral
@@ -60,7 +60,7 @@ def incore_int(
   # 2c tensors
   ab_idx_counts = symmetry.get_2c_sym_idx(n_gtos)
   sto_2c_seg_id = sto_utils.get_sto_segment_id_sym(
-    ab_idx_counts, gtos.sto_to_gto
+    ab_idx_counts, gtos.sto_splits
   )
   n_sto_segs_2c = symmetry.unique_ij(n_stos)
   n_sto_segs_4c = symmetry.unique_ijkl(n_stos)
@@ -104,7 +104,7 @@ def incore_int(
       ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size
     )
     sto_4c_seg_id_i = sto_utils.get_sto_segment_id_sym(
-      abcd_idx_counts[:, :-1], gtos.sto_to_gto, four_center=True
+      abcd_idx_counts[:, :-1], gtos.sto_splits, four_center=True
     )
     eri_abcd_i = sto_4c_fn(
       gtos, abcd_idx_counts, sto_4c_seg_id_i, n_sto_segs_4c
