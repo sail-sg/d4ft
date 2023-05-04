@@ -1,11 +1,12 @@
+import haiku as hk
 import jax.numpy as jnp
 import pyscf
 from jaxtyping import Array, Float
 
-from d4ft.integral.obara_saika.driver import incore_int
 from d4ft.config import DFTConfig
 from d4ft.integral.gto import symmetry
-from d4ft.integral.gto.gto_utils import get_gto_param_fn
+from d4ft.integral.gto.gto_utils import LCGTO
+from d4ft.integral.obara_saika.driver import incore_int
 from d4ft.mo_coeff_fn import get_mo_coeff_fn
 from d4ft.nuclear import e_nuclear
 from d4ft.types import (
@@ -37,10 +38,11 @@ def libcint_incore(
 
 def calc_hamiltonian(mol: pyscf.gto.mole.Mole, cfg: DFTConfig) -> Hamiltonian:
   """Discretize the electron Hamiltonian in GTO basis (except for XC)."""
-  gto_param_fn = get_gto_param_fn(mol)
-  gparams = gto_param_fn.init(1)
-  gtos = gto_param_fn.apply(gparams)
-  nmo = len(gtos.sto_to_gto)
+  get_lcgto = LCGTO.from_pyscf_mol(mol, use_hk=True)
+  get_lcgto = hk.without_apply_rng(hk.transform(get_lcgto))
+  gparams = get_lcgto.init(1)
+  gtos = get_lcgto.apply(gparams)
+  nmo = len(gtos.cgto_splits)
 
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)

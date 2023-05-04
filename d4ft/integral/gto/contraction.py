@@ -16,24 +16,24 @@
 import jax
 import jax.numpy as jnp
 
-from d4ft.integral.gto.gto_utils import GTO
+from d4ft.integral.gto.gto_utils import LCGTO
 
 
 def contraction_2c_sym(f, n_gtos, static_args):
   """4c centers contraction with provided index set."""
 
-  def f_curry(*args: GTO):
+  def f_curry(*args: LCGTO):
     return f(*args, static_args=static_args)
 
   vmap_f = jax.vmap(f_curry, in_axes=(0, 0))
 
   ab_idx, counts_ab = get_2c_combs(n_gtos)
 
-  def contract_fn(mo: GTO):
+  def contract_fn(mo: LCGTO):
     """assuming mo are normalized"""
     Ns = mo.N
     gtos_ab = [
-      GTO(*map(lambda gto_param: gto_param[ab_idx[:, i]], mo[:3]))
+      LCGTO(*map(lambda gto_param: gto_param[ab_idx[:, i]], mo[:3]))
       for i in range(2)
     ]
     N_ab = Ns[ab_idx].prod(-1) * counts_ab
@@ -51,12 +51,12 @@ def contraction_4c(f, static_args):
   Used together with precomputed prescreen or sampled index set.
   """
 
-  def f_curry(*args: GTO):
+  def f_curry(*args: LCGTO):
     return f(*args, static_args=static_args)
 
   vmap_f = jax.vmap(f_curry, in_axes=(0, 0, 0, 0))
 
-  def contract_fn(mo: GTO, idx_count):
+  def contract_fn(mo: LCGTO, idx_count):
     """assuming mo are normalized"""
     Ns = mo.N
     c_lm = jnp.einsum("il,im->lm", mo.coeff, mo.coeff)
@@ -64,7 +64,7 @@ def contraction_4c(f, static_args):
     abcd_idx = idx_count[:, :4]
     counts_abcd_i = idx_count[:, -1]
     gtos_abcd = [
-      GTO(*map(lambda gto_param: gto_param[abcd_idx[:, i]], mo[:3]))
+      LCGTO(*map(lambda gto_param: gto_param[abcd_idx[:, i]], mo[:3]))
       for i in range(4)
     ]
     N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i

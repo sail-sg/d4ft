@@ -19,15 +19,15 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from d4ft.integral.gto.gto_utils import GTOParam
+from d4ft.integral.gto.gto_utils import PrimitiveGaussian
 from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
 from d4ft.types import AngularStats
 
 
 def nuclear_attraction_integral(
   nuclear_center,
-  a: GTOParam,
-  b: GTOParam,
+  a: PrimitiveGaussian,
+  b: PrimitiveGaussian,
   static_args: Optional[AngularStats] = None,
   use_horizontal: bool = False
 ):

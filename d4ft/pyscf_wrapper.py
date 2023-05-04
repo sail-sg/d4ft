@@ -38,12 +38,12 @@ def pyscf_solver(
 
   # batch = (mol.grids, mol.weights)
 
-  # gto, sto_to_gto = mol_to_obsa_gto(mol)
+  # gto, cgto_splits = mol_to_obsa_gto(mol)
   # e_kwargs = {}
   # if os_scheme != "none":
   #   e_kwargs["mol"] = mol
   #   e_kwargs["gto"] = gto
-  #   e_kwargs["sto_to_gto"] = sto_to_gto
+  #   e_kwargs["cgto_splits"] = cgto_splits
 
   # intors = get_intor(mol, mol.grids[0], 137, False, mol.xc, os_scheme)
 

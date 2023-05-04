@@ -41,17 +41,17 @@ def utr_4c_idx(n: int, ijkl: Int[Array, "4"]) -> Int[Array, ""]:
   return utr_idx(N, ij, kl)
 
 
-def get_sto_segment_id(sto_to_gto: tuple) -> Int[Array, "n_gtos"]:
-  n_gtos = sum(sto_to_gto)
-  sto_seg_len = jnp.cumsum(jnp.array(sto_to_gto))
+def get_sto_segment_id(cgto_splits: tuple) -> Int[Array, "n_gtos"]:
+  n_gtos = sum(cgto_splits)
+  sto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
   seg_id = jnp.argmax(jnp.arange(n_gtos)[:, None] < sto_seg_len, axis=-1)
   return seg_id
 
 
-@partial(jax.jit, static_argnames=["sto_to_gto", "four_center"])
+@partial(jax.jit, static_argnames=["cgto_splits", "four_center"])
 def get_sto_segment_id_sym(
   gto_idx_counts: IdxCount,
-  sto_to_gto: tuple,
+  cgto_splits: tuple,
   four_center: bool = False
 ) -> Int[Array, "batch"]:
   """Compute the segment id for contracting GTO tensor in
@@ -60,8 +60,8 @@ def get_sto_segment_id_sym(
   For example, for STO-3g, every AO has 3 GTO, so the
   conversion can be computed as sto_idx = gto_idx // 3.
   """
-  n_stos = len(sto_to_gto)
-  sto_seg_len = jnp.cumsum(jnp.array(sto_to_gto))
+  n_stos = len(cgto_splits)
+  sto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
 
   if four_center:
     # translate to sto seg id
