@@ -34,8 +34,8 @@ def gto_normalization_constant(
 
 def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_gtos"]:
   n_gtos = sum(cgto_splits)
-  sto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
-  seg_id = jnp.argmax(jnp.arange(n_gtos)[:, None] < sto_seg_len, axis=-1)
+  cgto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
+  seg_id = jnp.argmax(jnp.arange(n_gtos)[:, None] < cgto_seg_len, axis=-1)
   return seg_id
 
 

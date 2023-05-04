@@ -58,16 +58,16 @@ def incore_int(
 
   # 2c tensors
   ab_idx_counts = symmetry.get_2c_sym_idx(lcgto.n_gtos)
-  sto_2c_seg_id = symmetry.get_sto_segment_id_sym(
+  cgto_2c_seg_id = symmetry.get_cgto_segment_id_sym(
     ab_idx_counts, lcgto.cgto_splits
   )
-  n_sto_segs_2c = symmetry.num_unique_ij(lcgto.n_cgtos)
-  n_sto_segs_4c = symmetry.num_unique_ijkl(lcgto.n_cgtos)
-  kin_ab = tensorization.tensorize_2c_sto(kin_fn, s2)(
-    lcgto, ab_idx_counts, sto_2c_seg_id, n_sto_segs_2c
+  n_cgto_segs_2c = symmetry.num_unique_ij(lcgto.n_cgtos)
+  n_cgto_segs_4c = symmetry.num_unique_ijkl(lcgto.n_cgtos)
+  kin_ab = tensorization.tensorize_2c_cgto(kin_fn, s2)(
+    lcgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
   )
-  ext_ab = tensorization.tensorize_2c_sto(ext_fn, s2)(
-    lcgto, ab_idx_counts, sto_2c_seg_id, n_sto_segs_2c
+  ext_ab = tensorization.tensorize_2c_cgto(ext_fn, s2)(
+    lcgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
   )
   logging.info(f"2c precal finished, tensor size: {kin_ab.shape}")
 
@@ -75,14 +75,14 @@ def incore_int(
   ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
   abab_idx_count = jnp.hstack([ab_idx, ab_idx, counts_ab[:, None]]).astype(int)
 
-  gto_4c_fn = tensorization.tensorize_4c_sto(eri_fn, s4, sto=False)
-  sto_4c_fn = tensorization.tensorize_4c_sto(eri_fn, s4)
-  # sto_4c_fn = tensorization.tensorize_4c_sto_range(eri_fn, s4)
+  gto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4, sto=False)
+  cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
+  # cgto_4c_fn = tensorization.tensorize_4c_cgto_range(eri_fn, s4)
 
   eri_abab = gto_4c_fn(lcgto, abab_idx_count, None, None)
   logging.info(f"block diag (ab|ab) computed, size: {eri_abab.shape}")
 
-  eri_abcd_sto = 0.
+  eri_abcd_cgto = 0.
 
   # TODO: contract diag sto first
   # TODO: prescreen
@@ -102,16 +102,16 @@ def incore_int(
     abcd_idx_counts = symmetry.get_4c_sym_idx_range(
       ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size
     )
-    sto_4c_seg_id_i = symmetry.get_sto_segment_id_sym(
+    cgto_4c_seg_id_i = symmetry.get_cgto_segment_id_sym(
       abcd_idx_counts[:, :-1], lcgto.cgto_splits, four_center=True
     )
-    eri_abcd_i = sto_4c_fn(
-      lcgto, abcd_idx_counts, sto_4c_seg_id_i, n_sto_segs_4c
+    eri_abcd_i = cgto_4c_fn(
+      lcgto, abcd_idx_counts, cgto_4c_seg_id_i, n_cgto_segs_4c
     )
-    # eri_abcd_i = sto_4c_fn(
+    # eri_abcd_i = cgto_4c_fn(
     #   gtos, ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size,
-    #   n_sto_segs_4c
+    #   n_cgto_segs_4c
     # )
-    eri_abcd_sto += eri_abcd_i
+    eri_abcd_cgto += eri_abcd_i
 
-  return kin_ab, ext_ab, eri_abcd_sto
+  return kin_ab, ext_ab, eri_abcd_cgto

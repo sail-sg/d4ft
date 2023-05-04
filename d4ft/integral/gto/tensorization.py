@@ -24,7 +24,7 @@ from d4ft.integral.gto.lcgto import LCGTO, PrimitiveGaussian
 from d4ft.types import IdxCount2C, IdxCount4C
 
 
-def tensorize_2c_sto(f: Callable, static_args, sto: bool = True):
+def tensorize_2c_cgto(f: Callable, static_args, sto: bool = True):
   """2c centers tensorization with provided index set,
   where the tensor is contracted to sto basis.
   Used for incore/precompute.
@@ -38,12 +38,12 @@ def tensorize_2c_sto(f: Callable, static_args, sto: bool = True):
 
   vmap_f = jax.vmap(f_curry, in_axes=(0, 0))
 
-  @partial(jax.jit, static_argnames=["n_sto_segs"])
+  @partial(jax.jit, static_argnames=["n_cgto_segs"])
   def tensorize(
     gtos: LCGTO,
     ab_idx_counts: IdxCount2C,
     cgto_seg_id,
-    n_sto_segs,
+    n_cgto_segs,
   ):
     Ns = gtos.N
     ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
@@ -59,13 +59,13 @@ def tensorize_2c_sto(f: Callable, static_args, sto: bool = True):
     ab = jnp.einsum("k,k,k,k->k", t_ab, N_ab, *coeffs_ab)
     if not sto:
       return ab
-    sto_ab = jax.ops.segment_sum(ab, cgto_seg_id, n_sto_segs)
-    return sto_ab
+    cgto_ab = jax.ops.segment_sum(ab, cgto_seg_id, n_cgto_segs)
+    return cgto_ab
 
   return tensorize
 
 
-def tensorize_4c_sto(f: Callable, static_args, sto: bool = True):
+def tensorize_4c_cgto(f: Callable, static_args, sto: bool = True):
   """4c centers tensorization with provided index set.
   where the tensor is contracted to sto basis.
   Used for incore/precompute.
@@ -100,13 +100,13 @@ def tensorize_4c_sto(f: Callable, static_args, sto: bool = True):
     counts_abcd_i = idx_counts[:, 4]
     N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i
     abcd = jnp.einsum("k,k,k,k,k,k->k", t_abcd, N_abcd, *coeffs_abcd)
-    sto_abcd = jax.ops.segment_sum(abcd, cgto_seg_id, n_segs)
-    return sto_abcd
+    cgto_abcd = jax.ops.segment_sum(abcd, cgto_seg_id, n_segs)
+    return cgto_abcd
 
   return tensorize
 
 
-def tensorize_4c_sto_range(f: Callable, static_args, sto: bool = True):
+def tensorize_4c_cgto_range(f: Callable, static_args, sto: bool = True):
   """NOTE: this brings marginal speed up"""
 
   def f_curry(*args: PrimitiveGaussian):
@@ -132,7 +132,7 @@ def tensorize_4c_sto_range(f: Callable, static_args, sto: bool = True):
     idx_counts = symmetry.get_4c_sym_idx_range(
       ab_idx_counts, n_2c_idx, start_idx, end_idx, batch_size
     )
-    cgto_seg_id = symmetry.get_sto_segment_id_sym(
+    cgto_seg_id = symmetry.get_cgto_segment_id_sym(
       idx_counts, gtos.cgto_splits, four_center=True
     )
 
@@ -150,7 +150,7 @@ def tensorize_4c_sto_range(f: Callable, static_args, sto: bool = True):
     counts_abcd_i = idx_counts[:, 4]
     N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i
     abcd = jnp.einsum("k,k,k,k,k,k->k", t_abcd, N_abcd, *coeffs_abcd)
-    sto_abcd = jax.ops.segment_sum(abcd, cgto_seg_id, n_segs)
-    return sto_abcd
+    cgto_abcd = jax.ops.segment_sum(abcd, cgto_seg_id, n_segs)
+    return cgto_abcd
 
   return tensorize

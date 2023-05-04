@@ -214,7 +214,7 @@ def utr_4c_idx(n: int, ijkl: Int[Array, "4"]) -> Int[Array, ""]:
 
 
 @partial(jax.jit, static_argnames=["cgto_splits", "four_center"])
-def get_sto_segment_id_sym(
+def get_cgto_segment_id_sym(
   gto_idx_counts: IdxCount,
   cgto_splits: tuple,
   four_center: bool = False
@@ -223,21 +223,23 @@ def get_sto_segment_id_sym(
   symmetry reduced form to AO/STO tensor using segment_sum.
 
   For example, for STO-3g, every AO has 3 GTO, so the
-  conversion can be computed as sto_idx = gto_idx // 3.
+  conversion can be computed as cgto_idx = gto_idx // 3.
   """
-  n_stos = len(cgto_splits)
-  sto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
+  n_cgtos = len(cgto_splits)
+  cgto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
 
   if four_center:
     # translate to sto seg id
     gto_idx_segmented = jnp.argmax(
-      gto_idx_counts[:, :4, None] < sto_seg_len, axis=-1
+      gto_idx_counts[:, :4, None] < cgto_seg_len, axis=-1
     )
-    seg_ids = jax.vmap(lambda ijkl: utr_4c_idx(n_stos, ijkl))(gto_idx_segmented)
+    seg_ids = jax.vmap(lambda ijkl: utr_4c_idx(n_cgtos, ijkl))(
+      gto_idx_segmented
+    )
   else:  # two center
     # translate to sto seg id
     gto_idx_segmented = jnp.argmax(
-      gto_idx_counts[:, :2, None] < sto_seg_len, axis=-1
+      gto_idx_counts[:, :2, None] < cgto_seg_len, axis=-1
     )
-    seg_ids = jax.vmap(lambda ij: utr_2c_idx(n_stos, ij))(gto_idx_segmented)
+    seg_ids = jax.vmap(lambda ij: utr_2c_idx(n_cgtos, ij))(gto_idx_segmented)
   return seg_ids
