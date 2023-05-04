@@ -18,7 +18,7 @@ from typing import Optional
 import jax.numpy as jnp
 from jax import lax
 
-from d4ft.integral.gto.gto_utils import PrimitiveGaussian
+from d4ft.integral.gto.lcgto import PrimitiveGaussian
 from d4ft.integral.obara_saika import angular_stats, terms
 from d4ft.types import AngularStats
 

@@ -16,7 +16,7 @@
 import jax
 import jax.numpy as jnp
 
-from d4ft.integral.gto.gto_utils import LCGTO
+from d4ft.integral.gto.lcgto import LCGTO
 
 
 def contraction_2c_sym(f, n_gtos, static_args):

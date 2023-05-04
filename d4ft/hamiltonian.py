@@ -5,7 +5,7 @@ from jaxtyping import Array, Float
 
 from d4ft.config import DFTConfig
 from d4ft.integral.gto import symmetry
-from d4ft.integral.gto.gto_utils import LCGTO
+from d4ft.integral.gto.lcgto import LCGTO
 from d4ft.integral.obara_saika.driver import incore_int
 from d4ft.mo_coeff_fn import get_mo_coeff_fn
 from d4ft.nuclear import e_nuclear

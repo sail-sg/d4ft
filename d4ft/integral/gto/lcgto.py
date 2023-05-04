@@ -10,7 +10,6 @@ import pyscf
 import scipy.special
 from absl import logging
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
-from d4ft.integral.gto.sto_utils import get_sto_segment_id
 from jaxtyping import Array, Float, Int
 
 _r25 = np.arange(25)
@@ -31,6 +30,13 @@ def gto_normalization_constant(
   return (2 * exponent / np.pi)**(3 / 4) * jnp.sqrt(
     (8 * exponent)**(jnp.sum(angular)) / jnp.prod(perm_2n_n[angular])
   )
+
+
+def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_gtos"]:
+  n_gtos = sum(cgto_splits)
+  sto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
+  seg_id = jnp.argmax(jnp.arange(n_gtos)[:, None] < sto_seg_len, axis=-1)
+  return seg_id
 
 
 def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> LCGTO:
@@ -60,7 +66,7 @@ def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> LCGTO:
     *[jnp.array(np.stack(a, axis=0)) for a in zip(*primitives)]
   )
   cgto_splits = tuple(cgto_splits)
-  cgto_seg_id = get_sto_segment_id(cgto_splits)
+  cgto_seg_id = get_cgto_segment_id(cgto_splits)
   lcgto = LCGTO(
     primitives, primitives.normalization_constant(), jnp.array(coeffs),
     cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges()

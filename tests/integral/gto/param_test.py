@@ -2,7 +2,7 @@ import haiku as hk
 import jax
 import numpy as np
 from absl.testing import absltest, parameterized
-from d4ft.integral.gto.gto_utils import LCGTO
+from d4ft.integral.gto.lcgto import LCGTO
 from d4ft.system.mol import get_pyscf_mol
 
 

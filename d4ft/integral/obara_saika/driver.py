@@ -23,8 +23,8 @@ from absl import logging
 from tqdm import tqdm
 
 from d4ft.integral import obara_saika as obsa
-from d4ft.integral.gto import sto_utils, symmetry, tensorization
-from d4ft.integral.gto.gto_utils import LCGTO
+from d4ft.integral.gto import symmetry, tensorization
+from d4ft.integral.gto.lcgto import LCGTO
 from d4ft.types import ETensorsIncore
 
 
@@ -58,11 +58,11 @@ def incore_int(
 
   # 2c tensors
   ab_idx_counts = symmetry.get_2c_sym_idx(lcgto.n_gtos)
-  sto_2c_seg_id = sto_utils.get_sto_segment_id_sym(
+  sto_2c_seg_id = symmetry.get_sto_segment_id_sym(
     ab_idx_counts, lcgto.cgto_splits
   )
-  n_sto_segs_2c = symmetry.unique_ij(lcgto.n_cgtos)
-  n_sto_segs_4c = symmetry.unique_ijkl(lcgto.n_cgtos)
+  n_sto_segs_2c = symmetry.num_unique_ij(lcgto.n_cgtos)
+  n_sto_segs_4c = symmetry.num_unique_ijkl(lcgto.n_cgtos)
   kin_ab = tensorization.tensorize_2c_sto(kin_fn, s2)(
     lcgto, ab_idx_counts, sto_2c_seg_id, n_sto_segs_2c
   )
@@ -87,7 +87,7 @@ def incore_int(
   # TODO: contract diag sto first
   # TODO: prescreen
   n_2c_idx = len(ab_idx_counts)
-  num_idx = symmetry.unique_ij(n_2c_idx)
+  num_idx = symmetry.num_unique_ij(n_2c_idx)
   has_remainder = num_idx % batch_size != 0
   num_batches = num_idx // batch_size + int(has_remainder)
   for i in tqdm(range(num_batches)):
@@ -102,7 +102,7 @@ def incore_int(
     abcd_idx_counts = symmetry.get_4c_sym_idx_range(
       ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size
     )
-    sto_4c_seg_id_i = sto_utils.get_sto_segment_id_sym(
+    sto_4c_seg_id_i = symmetry.get_sto_segment_id_sym(
       abcd_idx_counts[:, :-1], lcgto.cgto_splits, four_center=True
     )
     eri_abcd_i = sto_4c_fn(

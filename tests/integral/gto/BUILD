@@ -4,7 +4,7 @@ py_test(
     name = "param_test",
     srcs = ["param_test.py"],
     deps = [
-        "//d4ft/integral/gto:gto_utils",
+        "//d4ft/integral/gto:lcgto",
         "//d4ft/system:mol",
     ],
 )

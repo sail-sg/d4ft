@@ -19,8 +19,8 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 
-from d4ft.integral.gto import sto_utils, symmetry
-from d4ft.integral.gto.gto_utils import LCGTO, PrimitiveGaussian
+from d4ft.integral.gto import symmetry
+from d4ft.integral.gto.lcgto import LCGTO, PrimitiveGaussian
 from d4ft.types import IdxCount2C, IdxCount4C
 
 
@@ -132,7 +132,7 @@ def tensorize_4c_sto_range(f: Callable, static_args, sto: bool = True):
     idx_counts = symmetry.get_4c_sym_idx_range(
       ab_idx_counts, n_2c_idx, start_idx, end_idx, batch_size
     )
-    cgto_seg_id = sto_utils.get_sto_segment_id_sym(
+    cgto_seg_id = symmetry.get_sto_segment_id_sym(
       idx_counts, gtos.cgto_splits, four_center=True
     )
 

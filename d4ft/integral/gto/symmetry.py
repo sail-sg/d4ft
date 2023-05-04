@@ -21,10 +21,9 @@ from typing import Tuple
 import jax
 import jax.numpy as jnp
 import numpy as np
+from d4ft.types import IdxCount, IdxCount2C, IdxCount4C
 from jax import lax
-from jaxtyping import Array, Float
-
-from d4ft.types import IdxCount2C, IdxCount4C
+from jaxtyping import Array, Float, Int
 
 # TODO: An idea, can we use API like
 # sym_2c = Sym2C(n_gtos)
@@ -45,16 +44,15 @@ from d4ft.types import IdxCount2C, IdxCount4C
 #     pass
 
 # Or if we don't want iterator, we can call
-# ij, count = sym_2c.unique_ij(return_count=True)
+# ij, count = sym_2c.num_unique_ij(return_count=True)
 # Or
-# ij, count = sym_2c[start:end].unique_ij(return_count=True)
+# ij, count = sym_2c[start:end].num_unique_ij(return_count=True)
 # If the end is out of range, we can just set ij to (0,0) and count to 0.
 # As such, the last batch can be padded to same size, and has not adverse
 # effect.
 
 
-# TODO: name it to num_unique_ij ?
-def unique_ij(n):
+def num_unique_ij(n):
   """Number of unique ij indices under the 2-fold symmetry.
 
   equivalent to number of upper triangular elements,
@@ -63,14 +61,13 @@ def unique_ij(n):
   return int(n * (n + 1) / 2)
 
 
-# TODO: num_unique_ijkl ?
-def unique_ijkl(n):
+def num_unique_ijkl(n):
   """Number of unique ijlk indices under the 8-fold symmetry.
 
   equivalent to
   int(1 / 8 * (n**4 + 2 * n**3 + 3 * n**2 + 2 * n))
   """
-  return unique_ij(unique_ij(n))
+  return num_unique_ij(num_unique_ij(n))
 
 
 # TODO: jit this
@@ -193,3 +190,54 @@ def get_4c_sym_idx_range(
   )
   abcd_idx_count = jnp.hstack([abcd_idx, counts_abcd[..., None]]).astype(int)
   return abcd_idx_count
+
+
+def utr_idx(n: int, i: Int[Array, ""], j: Int[Array, ""]) -> Int[Array, ""]:
+  """Recover the enumeration index of upper triangular (i,j)"""
+  idx_fn = lambda i, j: (2 * n + 1 - i) * i // 2 + j - i
+  return jnp.min(jnp.array([idx_fn(i, j), idx_fn(j, i)]))
+
+
+def utr_2c_idx(n: int, ij: Int[Array, "2"]) -> Int[Array, ""]:
+  """Recover the enumeration index of 2c idx (i,j)"""
+  i, j = ij
+  return utr_idx(n, i, j)
+
+
+def utr_4c_idx(n: int, ijkl: Int[Array, "4"]) -> Int[Array, ""]:
+  """Recover the enumeration index of 4c idx (i,j,k,l)"""
+  i, j, k, l = ijkl
+  N = n * (n + 1) // 2
+  ij = utr_idx(n, i, j)
+  kl = utr_idx(n, k, l)
+  return utr_idx(N, ij, kl)
+
+
+@partial(jax.jit, static_argnames=["cgto_splits", "four_center"])
+def get_sto_segment_id_sym(
+  gto_idx_counts: IdxCount,
+  cgto_splits: tuple,
+  four_center: bool = False
+) -> Int[Array, "batch"]:
+  """Compute the segment id for contracting GTO tensor in
+  symmetry reduced form to AO/STO tensor using segment_sum.
+
+  For example, for STO-3g, every AO has 3 GTO, so the
+  conversion can be computed as sto_idx = gto_idx // 3.
+  """
+  n_stos = len(cgto_splits)
+  sto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
+
+  if four_center:
+    # translate to sto seg id
+    gto_idx_segmented = jnp.argmax(
+      gto_idx_counts[:, :4, None] < sto_seg_len, axis=-1
+    )
+    seg_ids = jax.vmap(lambda ijkl: utr_4c_idx(n_stos, ijkl))(gto_idx_segmented)
+  else:  # two center
+    # translate to sto seg id
+    gto_idx_segmented = jnp.argmax(
+      gto_idx_counts[:, :2, None] < sto_seg_len, axis=-1
+    )
+    seg_ids = jax.vmap(lambda ij: utr_2c_idx(n_stos, ij))(gto_idx_segmented)
+  return seg_ids
