@@ -107,7 +107,8 @@ def tensorize_4c_cgto(f: Callable, static_args, sto: bool = True):
 
 
 def tensorize_4c_cgto_range(f: Callable, static_args, sto: bool = True):
-  """NOTE: this brings marginal speed up"""
+  """Currently not used.
+  This brings marginal speed up compared to tensorize_4c_cgto"""
 
   def f_curry(*args: PrimitiveGaussian):
     return f(*args, static_args=static_args)

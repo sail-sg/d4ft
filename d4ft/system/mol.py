@@ -1,6 +1,7 @@
 """Geometry for some molecules."""
 
 from typing import List, Literal, Optional
+from typing import Callable, NamedTuple, Tuple, Union
 
 import pubchempy
 import pyscf
@@ -106,3 +107,7 @@ def get_pyscf_mol(
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin)
   logging.info(f"spin: {spin}, geometry: {geometry}")
   return mol
+
+
+class Mol(NamedTuple):
+  """Represents a molecular system."""

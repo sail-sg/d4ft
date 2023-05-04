@@ -136,7 +136,6 @@ class LCGTO(NamedTuple):
     Can be used to get a tensor slice of the parameters for contraction or
     tensorization.
     """
-    # TODO: add purpose and use example for this API.
     angular, center, exponent, coeff = map(
       f, [
         self.primitives.angular, self.primitives.center,

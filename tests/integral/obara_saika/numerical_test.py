@@ -75,7 +75,7 @@ class _TestNumericalCorrectness(absltest.TestCase):
         za, zb, zc, zd, ra, rb, rc, rd,
         na.tolist() + nb.tolist() + nc.tolist() + nd.tolist()
       )
-      # NOTE: d4ft version already accounts for the 1/2 prefactor
+      # *2 as d4ft version already accounts for the 1/2 prefactor
       e2 = 2 * electron_repulsion_integral(a, b, c, d)
       np.testing.assert_allclose(float(e1), float(e2))
 

@@ -197,7 +197,7 @@ def electron_repulsion_integral(
       I_0 = I_0.at[0, :len(I_0_0)].set(I_0_0)
       wq_i = rho * pq[i] / eta
       for cm1 in range(0, s.max_cd[i] + 1):
-        cm2 = cm1 - 1  # HACK: for the first iter, this wraps to the back
+        cm2 = cm1 - 1  # for the first iter, this wraps to the back
         c = cm1 + 1
         I_mp1 = wq_i * I_0[cm1] + (-cm1 / 2 / eta * rho / eta) * I_0[cm2]
         I_0_c = qc[i] * I_0[cm1] + (cm1 / 2 / eta) * I_0[cm2]
@@ -295,7 +295,7 @@ def electron_repulsion_integral(
       I = I.at[0].set(I_0)
       wp_i = -rho * pq[i] / zeta
       for am1 in range(0, s.max_ab[i] + 1):
-        am2 = am1 - 1  # HACK: for the first iter, this wraps to the back
+        am2 = am1 - 1  # for the first iter, this wraps to the back
         a = am1 + 1
         I_mp1 = wp_i * I[am1] + (-am1 / 2 / zeta * rho / zeta) * I[am2]
         I_a = pa[i] * I[am1] + (am1 / 2 / zeta) * I[am2]
@@ -366,7 +366,7 @@ def electron_repulsion_integral(
 
       # vertical (00|c0)^[m]
       for cm1 in range(0, s.max_cd[i] + 1):
-        cm2 = cm1 - 1  # HACK: for the first iter, this wraps to the back
+        cm2 = cm1 - 1  # for the first iter, this wraps to the back
         c = cm1 + 1
         I_mp1 = wq_i * I[0, cm1] + (-cm1 / 2 / eta * rho / eta) * I[0, cm2]
         I_0_c = qc[i] * I[0, cm1] + (cm1 / 2 / eta) * I[0, cm2]
@@ -379,7 +379,7 @@ def electron_repulsion_integral(
 
       # vertical (a0|c0)^[m]
       for am1 in range(0, s.max_ab[i] + 1):
-        am2 = am1 - 1  # HACK: for the first iter, this wraps to the back
+        am2 = am1 - 1  #  for the first iter, this wraps to the back
         a = am1 + 1
         I_mp1 = wp_i * I[am1] + (-am1 / 2 / zeta * rho / zeta) * I[am2]
         I_a = pa[i] * I[am1] + (am1 / 2 / zeta) * I[am2]

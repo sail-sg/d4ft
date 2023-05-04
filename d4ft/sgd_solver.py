@@ -25,7 +25,6 @@ def sgd_solver(
   shape = ([nmo, nmo] if dft_cfg.rks else [2, nmo, nmo])
   params = jax.random.normal(key, shape) / jnp.sqrt(nmo)
 
-  # TODO: refactor hamiltonian
   H = calc_hamiltonian(mol, dft_cfg)
 
   # init optimizer
@@ -45,7 +44,7 @@ def sgd_solver(
     mo_coeff = H.mo_coeff_fn(params)  # (2*nao, nao)
     e_grads = [jax.grad(e_fn)(mo_coeff) for e_fn in e_fns]  # (2*nao, nao)
 
-    # # NOTE: to get total gradient, compose with mo_grad
+    # to get total gradient, compose with mo_grad
     # mo_grad = jax.jacfwd(H.mo_coeff_fn)(params)  # (2*nao, nao, nao, nao)
     # t_grad = jnp.einsum("ijkl,ij->kl", mo_grad, e_grads[0])
     # np.allclose(t_grad, val_and_grads[0][1], atol=1e-5)
