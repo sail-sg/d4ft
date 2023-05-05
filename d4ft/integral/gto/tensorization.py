@@ -20,7 +20,7 @@ import jax
 import jax.numpy as jnp
 
 from d4ft.integral.gto import symmetry
-from d4ft.integral.gto.lcgto import LCGTO, PrimitiveGaussian
+from d4ft.integral.gto.cgto import CGTO, PrimitiveGaussian
 from d4ft.types import IdxCount2C, IdxCount4C
 
 
@@ -40,7 +40,7 @@ def tensorize_2c_cgto(f: Callable, static_args, sto: bool = True):
 
   @partial(jax.jit, static_argnames=["n_cgto_segs"])
   def tensorize(
-    gtos: LCGTO,
+    gtos: CGTO,
     ab_idx_counts: IdxCount2C,
     cgto_seg_id,
     n_cgto_segs,
@@ -81,7 +81,7 @@ def tensorize_4c_cgto(f: Callable, static_args, sto: bool = True):
 
   @partial(jax.jit, static_argnames=["n_segs"])
   def tensorize(
-    gtos: LCGTO,
+    gtos: CGTO,
     idx_counts: IdxCount4C,
     cgto_seg_id,
     n_segs: int,
@@ -122,7 +122,7 @@ def tensorize_4c_cgto_range(f: Callable, static_args, sto: bool = True):
     ]
   )
   def tensorize(
-    gtos: LCGTO,
+    gtos: CGTO,
     ab_idx_counts: IdxCount2C,
     n_2c_idx: int,
     start_idx: int,

@@ -23,6 +23,7 @@ py_library(
     deps = [],
 )
 
+
 py_library(
     name = "types",
     srcs = ["types.py"],
@@ -30,31 +31,10 @@ py_library(
     deps = [],
 )
 
-py_library(
-    name = "hamiltonian",
-    srcs = ["hamiltonian.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":config",
-        ":mo_coeff_fn",
-        ":nuclear",
-        ":types",
-        ":xc",
-        "//d4ft/integral/gto:symmetry",
-        "//d4ft/integral/obara_saika:driver",
-    ],
-)
 
 py_library(
     name = "nuclear",
     srcs = ["nuclear.py"],
-    visibility = ["//visibility:public"],
-    deps = [],
-)
-
-py_library(
-    name = "mo_coeff_fn",
-    srcs = ["mo_coeff_fn.py"],
     visibility = ["//visibility:public"],
     deps = [],
 )
@@ -72,11 +52,11 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         ":config",
-        ":hamiltonian",
         ":logger",
         ":optimize",
         ":types",
         ":utils",
+        "//d4ft/system:mol",
     ],
 )
 
@@ -93,7 +73,6 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         ":config",
-        ":hamiltonian",
         ":logger",
         ":optimize",
         ":types",
@@ -135,9 +114,7 @@ py_library(
     deps = [
         ":config",
         ":constants",
-        ":hamiltonian",
         ":logger",
-        ":mo_coeff_fn",
         ":nuclear",
         ":optimize",
         ":pyscf_wrapper",

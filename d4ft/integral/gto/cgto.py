@@ -6,7 +6,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-import pyscf
+from d4ft.system.mol import Mol
 import scipy.special
 from absl import logging
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
@@ -39,8 +39,8 @@ def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_gtos"]:
   return seg_id
 
 
-def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> LCGTO:
-  """Transform pyscf mol object to GTOs.
+def build_cgto_from_mol(mol: Mol) -> CGTO:
+  """Transform pyscf mol object to CGTO.
 
   Returns:
     all translated GTOs. STO TO GTO
@@ -50,9 +50,9 @@ def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> LCGTO:
   cgto_splits = []
   coeffs = []
   for i, element in enumerate(mol.elements):
-    coord = mol.atom_coord(i)
+    coord = mol.atom_coords[i]
     n_gtos = 0
-    for sto in mol._basis[element]:
+    for sto in mol.basis[element]:
       shell = Shell(sto[0])
       gtos = sto[1:]
       for angular in SHELL_TO_ANGULAR_VEC[shell]:
@@ -67,12 +67,12 @@ def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> LCGTO:
   )
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
-  lcgto = LCGTO(
+  cgto = CGTO(
     primitives, primitives.normalization_constant(), jnp.array(coeffs),
-    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges()
+    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges
   )
   logging.info(f"there are {sum(cgto_splits)} GTOs")
-  return lcgto
+  return cgto
 
 
 class PrimitiveGaussian(NamedTuple):
@@ -88,11 +88,18 @@ class PrimitiveGaussian(NamedTuple):
     return gto_normalization_constant(self.angular, self.exponent)
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "*batch"]:
-    """Evaluate GTO (unnormalized) with given real space coordinate."""
-    return jnp.exp(-self.exponent * jnp.sum((r - self.center)**2))
+    """Evaluate GTO (unnormalized) with given real space coordinate.
+
+    Returns:
+      unnormalized x^l y^m z^n e^{-alpha r^2}
+    """
+    xyz_lmn = jnp.prod(jnp.power(r, self.angular), axis=1)
+    return xyz_lmn * jnp.exp(
+      -self.exponent * jnp.sum((r - self.center)**2, axis=1)
+    )
 
 
-class LCGTO(NamedTuple):
+class CGTO(NamedTuple):
   """Linear Combination of Contracted Gaussian-Type Orbitals.
   Can be used to represent AO.
   """
@@ -129,6 +136,10 @@ class LCGTO(NamedTuple):
   def n_atoms(self):
     return len(self.atom_splits)
 
+  @property
+  def atom_coords(self):
+    return self.primitives.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
+
   def map_params(
     self, f: Callable
   ) -> Tuple[PrimitiveGaussian, Float[Array, "*batch"]]:
@@ -152,37 +163,32 @@ class LCGTO(NamedTuple):
     return jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
 
   @staticmethod
-  def from_pyscf_mol(mol: pyscf.gto.mole.Mole,
-                     use_hk: bool = True) -> Union[LCGTO, Callable]:
-    """Build LCGTO from pyscf mol.
+  def from_mol(mol: Mol, use_hk: bool = True) -> CGTO:
+    """Build CGTO from pyscf mol.
 
     Args:
       hk: If true, then construct a function that maps optimizable paramters to
-        LCGTO. Note that function must be haiku transformed. Can be used for
+        CGTO. Note that function must be haiku transformed. Can be used for
         basis optimization.
     """
-    lcgto = from_pyscf_mol(mol)
+    cgto = build_cgto_from_mol(mol)
     if not use_hk:
-      return lcgto
+      return cgto
 
-    center_init: Float[np.ndarray, "n_atoms 3"] = mol.atom_coords()
-
-    def get_lcgto() -> LCGTO:
-      center = hk.get_parameter(
-        "center", center_init.shape, init=lambda _, __: center_init
-      )
-      center_rep = jnp.repeat(center, np.array(lcgto.atom_splits), axis=0)
-      exponent = hk.get_parameter(
-        "exponent",
-        lcgto.primitives.exponent.shape,
-        init=lambda _, __: lcgto.primitives.exponent
-      )
-      coeff = hk.get_parameter(
-        "coeff", lcgto.coeff.shape, init=lambda _, __: lcgto.coeff
-      )
-      primitives = PrimitiveGaussian(
-        lcgto.primitives.angular, center_rep, exponent
-      )
-      return lcgto._replace(primitives=primitives, coeff=coeff)
-
-    return get_lcgto
+    center_init: Float[np.ndarray, "n_atoms 3"] = mol.atom_coords
+    center = hk.get_parameter(
+      "center", center_init.shape, init=lambda _, __: center_init
+    )
+    center_rep = jnp.repeat(center, np.array(cgto.atom_splits), axis=0)
+    exponent = hk.get_parameter(
+      "exponent",
+      cgto.primitives.exponent.shape,
+      init=lambda _, __: cgto.primitives.exponent
+    )
+    coeff = hk.get_parameter(
+      "coeff", cgto.coeff.shape, init=lambda _, __: cgto.coeff
+    )
+    primitives = PrimitiveGaussian(
+      cgto.primitives.angular, center_rep, exponent
+    )
+    return cgto._replace(primitives=primitives, coeff=coeff)

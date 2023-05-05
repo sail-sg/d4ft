@@ -25,7 +25,7 @@ class DFTConfig:
   """name of the xc functional to use"""
   quad_level: int = 1
   """quadrature point level, higher means more points"""
-  converge_threshold: float = 1e-3
+  converge_threshold: float = 1e-4
   """threshold for gradient descent convergence checking"""
   incore: bool = True
   """Whether to store tensors incore when not optimizing basis.

@@ -19,7 +19,7 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from d4ft.integral.gto.lcgto import PrimitiveGaussian
+from d4ft.integral.gto.cgto import PrimitiveGaussian
 from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
 from d4ft.types import AngularStats
 
@@ -379,7 +379,7 @@ def electron_repulsion_integral(
 
       # vertical (a0|c0)^[m]
       for am1 in range(0, s.max_ab[i] + 1):
-        am2 = am1 - 1  #  for the first iter, this wraps to the back
+        am2 = am1 - 1  # for the first iter, this wraps to the back
         a = am1 + 1
         I_mp1 = wp_i * I[am1] + (-am1 / 2 / zeta * rho / zeta) * I[am2]
         I_a = pa[i] * I[am1] + (am1 / 2 / zeta) * I[am2]

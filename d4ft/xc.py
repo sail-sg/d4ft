@@ -4,13 +4,13 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 import numpy as np
-import pyscf
-from pyscf.dft import gen_grid
+from jaxtyping import Array
 
-from d4ft.types import Array
+from d4ft.system.mol import Mol
 
 
-def eval_ao(r: Array, mol: pyscf.gto.mole.Mole):
+# TODO: refactor this file. use integral/quadrature
+def eval_ao(r: Array, mol: Mol):
   """Evaluate N-body atomic orbitals at location r.
 
   Args:
@@ -19,12 +19,12 @@ def eval_ao(r: Array, mol: pyscf.gto.mole.Mole):
   Returns:
     (N,) ao output
   """
-  atom_coords = mol.atom_coords()
+  atom_coords = mol.atom_coords
   output = []
   for idx in np.arange(len(mol.elements)):
     element = mol.elements[idx]
     coord = atom_coords[idx]
-    for i in mol._basis[element]:
+    for i in mol.basis[element]:
       prm_array = jnp.array(i[1:])
       exponents = prm_array[:, 0]
       coeffs = prm_array[:, 1]
@@ -119,23 +119,13 @@ def integrand_exc_lda(mo: Callable):
 
 
 # TODO: integrate jax_xc
-def get_xc_intor(
-  mol: pyscf.gto.mole.Mole,
-  xc_type: str = "lda",
-  quad_level: int = 1,
-) -> Callable:
+def get_xc_intor(mol: Mol, xc_type: str = "lda") -> Callable:
   """only support quadrature now"""
-
-  g = gen_grid.Grids(mol)
-  g.level = quad_level
-  g.build()
-  grids = jnp.array(g.coords)
-  weights = jnp.array(g.weights)
 
   def xc_intor(mo_coeff):
     mo_coeff = mo_coeff.reshape(2, mol.nao, mol.nao)
     orbitals = lambda r: mo_coeff @ eval_ao(r, mol)
-    batch = (grids, weights)
+    batch = (mol.grids, mol.weights)
 
     if xc_type == 'lda':
       return quadrature_integral(integrand_exc_lda(orbitals), batch)

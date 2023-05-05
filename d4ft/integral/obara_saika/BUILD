@@ -23,7 +23,7 @@ py_library(
         ":electron_repulsion_integral",
         ":kinetic_integral",
         ":nuclear_attraction_integral",
-        "//d4ft/integral/gto:lcgto",
+        "//d4ft/integral/gto:cgto",
         "//d4ft/integral/gto:symmetry",
         "//d4ft/integral/gto:tensorization",
         "//d4ft/integral/obara_saika",
@@ -73,7 +73,7 @@ py_library(
         ":terms",
         ":utils",
         "//d4ft:types",
-        "//d4ft/integral/gto:lcgto",
+        "//d4ft/integral/gto:cgto",
     ],
 )
 
@@ -85,7 +85,7 @@ py_library(
         ":angular_stats",
         ":terms",
         "//d4ft:types",
-        "//d4ft/integral/gto:lcgto",
+        "//d4ft/integral/gto:cgto",
     ],
 )
 
@@ -99,7 +99,7 @@ py_library(
         ":terms",
         ":utils",
         "//d4ft:types",
-        "//d4ft/integral/gto:lcgto",
+        "//d4ft/integral/gto:cgto",
     ],
 )
 
@@ -113,7 +113,7 @@ py_library(
         ":terms",
         ":utils",
         "//d4ft:types",
-        "//d4ft/integral/gto:lcgto",
+        "//d4ft/integral/gto:cgto",
     ],
 )
 

@@ -15,43 +15,22 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
-    name = "utils",
-    srcs = ["utils.py"],
+    name = "ortho",
+    srcs = ["ortho.py"],
     visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
-    name = "geometry",
-    srcs = ["geometry.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":cccdbd",
-        ":fake_fullerene",
-        ":utils",
-    ],
-)
-
-py_library(
-    name = "mol",
-    srcs = ["mol.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":geometry",
-        "//d4ft:types",
-    ],
-)
-
-py_library(
-    name = "cccdbd",
-    srcs = ["cccdbd.py"],
+    name = "cgto_intors",
+    srcs = ["cgto_intors.py"],
     visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
-    name = "fake_fullerene",
-    srcs = ["fake_fullerene.py"],
+    name = "dft_cgto",
+    srcs = ["dft_cgto.py"],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [":cgto_intors"],
 )

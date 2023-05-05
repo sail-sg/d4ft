@@ -1,10 +1,10 @@
 load("@rules_python//python:defs.bzl", "py_test")
 
 py_test(
-    name = "param_test",
-    srcs = ["param_test.py"],
+    name = "primitive_test",
+    srcs = ["primitive_test.py"],
     deps = [
-        "//d4ft/integral/gto:lcgto",
+        "//d4ft/integral/gto:cgto",
         "//d4ft/system:mol",
     ],
 )

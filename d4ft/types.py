@@ -1,10 +1,7 @@
 from typing import Callable, List, NamedTuple, Tuple, Union
 
-import jax
 import numpy as np
-from jaxtyping import Float, Int
-
-Array = Union[jax.Array, np.ndarray]
+from jaxtyping import Array, Float, Int
 
 IdxCount2C = Int[Array, "batch 3"]
 """2c GTO index concatenated with the repetition count
@@ -38,23 +35,13 @@ class AngularStats(NamedTuple):
   max_z: int
 
 
-class Metrics(NamedTuple):
-  total_loss: float
-  e_loss: float
-  kin_loss: float
-  ext_loss: float
-  eri_loss: float
-  xc_loss: float
-  grad_loss: float
-
-
 class Energies(NamedTuple):
-  e_total: float
-  e_kin: float
-  e_ext: float
-  e_eri: float
-  e_xc: float
-  e_nuc: float
+  e_total: Float[Array, ""]
+  e_kin: Float[Array, ""]
+  e_ext: Float[Array, ""]
+  e_eri: Float[Array, ""]
+  e_xc: Float[Array, ""]
+  e_nuc: Float[Array, ""]
 
 
 class Grads(NamedTuple):
@@ -62,6 +49,9 @@ class Grads(NamedTuple):
   ext_grad: Array
   eri_grad: Array
   xc_grad: Array
+
+
+Aux = Tuple[Energies, Grads]
 
 
 class Transition(NamedTuple):
@@ -74,19 +64,27 @@ class Transition(NamedTuple):
 Trajectory = List[Transition]
 
 
+# TODO: consider PBC / plane wave
 class Hamiltonian(NamedTuple):
+  """CGTO hamiltonian"""
+
   kin_fn: Callable
-  """kinetic tensor in symmetry reduced form (unique_ab_idx,)"""
+  """Maps mo_coeff to kinetic energy."""
   ext_fn: Callable
-  """nuclear attraction tensor in symmetry reduced form (unique_ab_idx,)"""
+  """Maps mo_coeff to external (nuclera attraction) energy."""
   eri_fn: Callable
-  """electron repulsion tensor in symmetry reduced form (unique_abcd_idx,)"""
+  """Maps mo_coeff to electronic repulsion energy."""
   xc_fn: Callable
-  """xc functional"""
-  mo_ab_idx_counts: IdxCount2C
-  mo_abcd_idx_counts: IdxCount4C
+  """XC functional."""
+  nuc_fn: Callable
+  """Nuclear repulsion energy fn, which only depends on the geometry."""
   mo_coeff_fn: Callable
-  """callable"""
-  e_nuc: Float[Array, ""]
-  """nuclear repulsion energy. since we are not doing geometry optimization,
-  this term is fixed"""
+  """Function to get MO coefficient."""
+  energy_fn: Callable
+  """Function to get total energy. Can be used as the loss function."""
+
+
+HamiltonianHKFactory = Callable[[], Tuple[Callable, Hamiltonian]]
+
+CGTOIntors = Tuple[Callable, Callable, Callable]
+"""intor for kin, ext and eri."""

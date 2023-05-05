@@ -16,11 +16,12 @@ from typing import Callable, Generator
 
 import jax
 import jax.numpy as jnp
+from jaxtyping import Array
 
 
 def make_quadrature_points_batches(
-  grids: jnp.array,
-  weights: jnp.array,
+  grids: Array,
+  weights: Array,
   batch_size: int,
   epochs: int,
   num_copies: int,
@@ -56,10 +57,10 @@ def make_quadrature_points_batches(
 
 
 def shuffle_quadrature_points(
-  grids: jnp.array,
-  weights: jnp.array,
+  grids: Array,
+  weights: Array,
   batch_size: int,
-  key: jnp.array,
+  key: Array,
 ):
   """Shuffle all
 
@@ -92,7 +93,7 @@ def shuffle_quadrature_points(
   return list(zip(batched_g, batched_w))
 
 
-def quadrature_integral(integrand: Callable, *coords_and_weights) -> jnp.array:
+def quadrature_integral(integrand: Callable, *coords_and_weights) -> Array:
   """Integrate a multivariate function with quadrature.
 
   - The integral can be computed with a randomly sampled batch of
@@ -147,7 +148,7 @@ def get_integrand(f: Callable, g: Callable, keepdims: bool = False) -> Callable:
   (<f_i|g_j>)_{ij} = \\sum_k w_k \\dot (F(r_k)G(r_k)^T)
   """
 
-  def integrand(r: jnp.array) -> jnp.array:
+  def integrand(r: Array) -> Array:
     F, G = f(r), g(r)
     if keepdims:
       if len(F.shape) == 1:

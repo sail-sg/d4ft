@@ -18,15 +18,16 @@ py_library(
     name = "contraction",
     srcs = ["contraction.py"],
     visibility = ["//visibility:public"],
-    deps = [":lcgto"],
+    deps = [":cgto"],
 )
 
 py_library(
-    name = "lcgto",
-    srcs = ["lcgto.py"],
+    name = "cgto",
+    srcs = ["cgto.py"],
     visibility = ["//visibility:public"],
     deps = [
         "//d4ft:constants",
+        "//d4ft/system:mol",
     ],
 )
 
@@ -42,7 +43,7 @@ py_library(
     srcs = ["tensorization.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":lcgto",
+        ":cgto",
         "//d4ft:types",
     ],
 )

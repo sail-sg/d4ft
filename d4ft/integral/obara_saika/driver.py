@@ -24,18 +24,18 @@ from tqdm import tqdm
 
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto import symmetry, tensorization
-from d4ft.integral.gto.lcgto import LCGTO
+from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import ETensorsIncore
 
 
-def incore_int(
-  lcgto: LCGTO,
+def incore_int_sym(
+  cgto: CGTO,
   # batch_size: int = 2**25,
   batch_size: int = 2**23,
   prescreen_thresh: float = 1e-8,
   use_horizontal: bool = False,
 ) -> ETensorsIncore:
-  """Compute kin, ext and eri tensor incore.
+  """Compute kin, ext and eri tensor in symmetry reduced form incore.
 
   ERI tensor is computed in batches.
 
@@ -48,26 +48,26 @@ def incore_int(
 
   def ext_fn(a, b, static_args):
     ni = obsa.nuclear_attraction_integral
-    atom_coords = lcgto.primitives.center[
-      jnp.cumsum(jnp.array(lcgto.atom_splits)) - 1]
+    atom_coords = cgto.primitives.center[
+      jnp.cumsum(jnp.array(cgto.atom_splits)) - 1]
     return jax.vmap(lambda Z, C: Z * ni(C, a, b, static_args, use_horizontal)
-                   )(lcgto.charge, atom_coords).sum()
+                   )(cgto.charge, atom_coords).sum()
 
-  s2 = obsa.angular_static_args(*[lcgto.primitives.angular] * 2)
-  s4 = obsa.angular_static_args(*[lcgto.primitives.angular] * 4)
+  s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
+  s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
 
   # 2c tensors
-  ab_idx_counts = symmetry.get_2c_sym_idx(lcgto.n_gtos)
+  ab_idx_counts = symmetry.get_2c_sym_idx(cgto.n_gtos)
   cgto_2c_seg_id = symmetry.get_cgto_segment_id_sym(
-    ab_idx_counts, lcgto.cgto_splits
+    ab_idx_counts, cgto.cgto_splits
   )
-  n_cgto_segs_2c = symmetry.num_unique_ij(lcgto.n_cgtos)
-  n_cgto_segs_4c = symmetry.num_unique_ijkl(lcgto.n_cgtos)
+  n_cgto_segs_2c = symmetry.num_unique_ij(cgto.n_cgtos)
+  n_cgto_segs_4c = symmetry.num_unique_ijkl(cgto.n_cgtos)
   kin_ab = tensorization.tensorize_2c_cgto(kin_fn, s2)(
-    lcgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
+    cgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
   )
   ext_ab = tensorization.tensorize_2c_cgto(ext_fn, s2)(
-    lcgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
+    cgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
   )
   logging.info(f"2c precal finished, tensor size: {kin_ab.shape}")
 
@@ -79,7 +79,7 @@ def incore_int(
   cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
   # cgto_4c_fn = tensorization.tensorize_4c_cgto_range(eri_fn, s4)
 
-  eri_abab = gto_4c_fn(lcgto, abab_idx_count, None, None)
+  eri_abab = gto_4c_fn(cgto, abab_idx_count, None, None)
   logging.info(f"block diag (ab|ab) computed, size: {eri_abab.shape}")
 
   eri_abcd_cgto = 0.
@@ -103,10 +103,10 @@ def incore_int(
       ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size
     )
     cgto_4c_seg_id_i = symmetry.get_cgto_segment_id_sym(
-      abcd_idx_counts[:, :-1], lcgto.cgto_splits, four_center=True
+      abcd_idx_counts[:, :-1], cgto.cgto_splits, four_center=True
     )
     eri_abcd_i = cgto_4c_fn(
-      lcgto, abcd_idx_counts, cgto_4c_seg_id_i, n_cgto_segs_4c
+      cgto, abcd_idx_counts, cgto_4c_seg_id_i, n_cgto_segs_4c
     )
     # eri_abcd_i = cgto_4c_fn(
     #   gtos, ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size,
