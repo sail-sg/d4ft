@@ -30,7 +30,6 @@ py_library(
     deps = [],
 )
 
-
 py_library(
     name = "xc",
     srcs = ["xc.py"],
@@ -44,36 +43,10 @@ py_library(
 )
 
 py_library(
-    name = "sgd_solver",
-    srcs = ["sgd_solver.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":config",
-        ":logger",
-        ":optimize",
-        ":types",
-        ":utils",
-        "//d4ft/system:mol",
-    ],
-)
-
-py_library(
     name = "config",
     srcs = ["config.py"],
     visibility = ["//visibility:public"],
     deps = [],
-)
-
-py_library(
-    name = "scf_solver",
-    srcs = ["scf_solver.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":config",
-        ":logger",
-        ":optimize",
-        ":types",
-    ],
 )
 
 py_library(
@@ -86,13 +59,6 @@ py_library(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    visibility = ["//visibility:public"],
-    deps = [],
-)
-
-py_library(
-    name = "pyscf_wrapper",
-    srcs = ["pyscf_wrapper.py"],
     visibility = ["//visibility:public"],
     deps = [],
 )
@@ -114,8 +80,6 @@ py_library(
         ":logger",
         ":optimize",
         ":pyscf_wrapper",
-        ":scf_solver",
-        ":sgd_solver",
         ":types",
         ":utils",
         ":xc",

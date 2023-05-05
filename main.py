@@ -14,8 +14,8 @@ from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
 from d4ft.integral.quadrature.grids import grids_from_pyscf_mol
 from d4ft.logger import RunLogger
-from d4ft.pyscf_wrapper import pyscf_solver
-from d4ft.sgd_solver import sgd_solver
+from d4ft.solver.pyscf_wrapper import pyscf
+from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_xc_intor
@@ -33,9 +33,12 @@ def main(_):
     key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
     pyscf_mol = get_pyscf_mol(cfg.mol_cfg.mol_name, cfg.mol_cfg.basis)
     mol = Mol.from_pyscf_mol(pyscf_mol)
-    grids_and_weights = grids_from_pyscf_mol(pyscf_mol, cfg.dft_cfg.quad_level)
+    grids_and_weights = grids_from_pyscf_mol(
+      pyscf_mol, cfg.dft_cfg.quad_level
+    )  # TODO: replace this with differentiable grids
     cgto = CGTO.from_mol(mol)
 
+    # TODO: intor.split() for pmap / batched
     s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
     s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
     incore_energy_tensors = incore_int_sym(cgto, s2, s4)
@@ -53,13 +56,13 @@ def main(_):
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, lda_x)
       return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
-    sgd_solver(cfg.dft_cfg, cfg.optim_cfg, H_factory, key)
+    sgd(cfg.dft_cfg, cfg.optim_cfg, H_factory, key)
 
   elif FLAGS.run == "pyscf":
 
     # solve with pyscf
     pyscf_mol = get_pyscf_mol(cfg.mol_cfg.mol_name, cfg.mol_cfg.basis)
-    mo_coeff = pyscf_solver(
+    mo_coeff = pyscf(
       pyscf_mol, cfg.dft_cfg.rks, cfg.dft_cfg.xc_type, cfg.dft_cfg.quad_level
     )
 

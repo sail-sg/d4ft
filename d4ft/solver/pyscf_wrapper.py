@@ -10,7 +10,7 @@ from d4ft.types import MoCoeff
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
 
-def pyscf_solver(
+def pyscf(
   mol: pyscf.gto.mole.Mole,
   rks: bool,
   xc: str = "lda",

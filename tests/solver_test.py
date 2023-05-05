@@ -10,7 +10,7 @@ from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
 from d4ft.integral.quadrature.grids import grids_from_pyscf_mol
-from d4ft.sgd_solver import sgd_solver
+from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.xc import get_xc_intor
 from jax_xc import lda_x
@@ -40,7 +40,7 @@ class SolverTest(parameterized.TestCase):
     xc_fn = get_xc_intor(grids_and_weights, cgto, lda_x)
     mo_coeff_fn = partial(mol.get_mo_coeff, rks=True, ortho_fn=qr_factor)
     H_fac = partial(dft_cgto, cgto, cgto_intor, xc_fn, mo_coeff_fn)
-    e_total, _, _ = sgd_solver(DFTConfig(), OptimizerConfig(), H_fac, key)
+    e_total, _, _ = sgd(DFTConfig(), OptimizerConfig(), H_fac, key)
     upper_bound, lower_bound = energy_bounds
     self.assertTrue(e_total < upper_bound and e_total > lower_bound)
 

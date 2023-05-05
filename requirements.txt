@@ -1,12 +1,14 @@
+bs4==0.0.1
 chex==0.1.5
 distrax>=0.1.2
 dm-haiku>=0.0.9
-jax>=0.4.0
+jax>=0.3.25
 jax_xc==0.0.3
-jaxlib>=0.4.0
+jaxlib>=0.3.25
 jaxtyping==0.2.15
 matplotlib==3.6.2
 matplotlib>=3.6.2
+ml_collections==0.1.1
 mpmath>=1.2.1
 optax>=0.1.4
 pandas==1.5.2

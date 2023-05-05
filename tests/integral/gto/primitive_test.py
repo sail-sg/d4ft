@@ -53,12 +53,12 @@ class HKTest(parameterized.TestCase):
   )
   def test_basis_param(self, system, basis, n_atoms, n_cgtos, n_gtos):
     mol = Mol.from_mol_name(system, basis)
-    get_cgto = hk.without_apply_rng(
-      hk.transform(lambda: CGTO.from_mol(mol, use_hk=True))
+    cgto_transformed = hk.without_apply_rng(
+      hk.transform(lambda: CGTO.from_mol(mol).to_hk())
     )
 
-    gparams = get_cgto.init(1)
-    cgto = get_cgto.apply(gparams)
+    gparams = cgto_transformed.init(1)
+    cgto = cgto_transformed.apply(gparams)
 
     for _ in range(3):
       r = np.random.randn(3)

@@ -97,7 +97,7 @@ class PrimitiveGaussian(NamedTuple):
     Returns:
       unnormalized gto (x-c_x)^l (y-c_y)^m (z-c_z)^n exp{-alpha |r-c|^2}
     """
-    xyz_lmn = jnp.prod(jnp.power((r - self.center), self.angular), axis=1)
+    xyz_lmn = jnp.prod(jnp.power(r - self.center, self.angular), axis=1)
     exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
     return xyz_lmn * exp
 
@@ -193,9 +193,11 @@ class CGTO(NamedTuple):
       center,
       jnp.array(self.atom_splits),
       axis=0,
-      total_repeat_length=self.n_cgtos
+      total_repeat_length=self.n_gtos
     )
-    # NOTE: use softplus to make sure that exponent > 0
+    # NOTE: we want to have some activation function here to make sure
+    # that exponent > 0. However softplus is not good as inv_softplus
+    # makes some exponent goes inf
     exponent = jax.nn.softplus(
       hk.get_parameter(
         "exponent",

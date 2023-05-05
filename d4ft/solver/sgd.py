@@ -16,7 +16,7 @@ from d4ft.types import (
 )
 
 
-def sgd_solver(
+def sgd(
   dft_cfg: DFTConfig, optim_cfg: OptimizerConfig,
   H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
 ) -> Tuple[float, Trajectory, Hamiltonian]:
