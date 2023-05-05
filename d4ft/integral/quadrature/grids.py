@@ -4,10 +4,13 @@ Rewrite of the original PySCF code to make it differentiable wrt
 the atomic coordinates.
 """
 
+import pyscf
 import jax
 import jax.numpy as jnp
 from pyscf.data.elements import charge as elements_proton
 from pyscf.dft import gen_grid, radi
+
+from d4ft.types import QuadGridsNWeights
 
 
 def treutler_atomic_radii_adjust(mol, atomic_radii):
@@ -108,3 +111,14 @@ class DifferentiableGrids(gen_grid.Grids):
       original_becke,
     )
     return coords, weights
+
+
+def grids_from_pyscf_mol(
+  mol: pyscf.gto.mole.Mole, quad_level: int = 1
+) -> QuadGridsNWeights:
+  g = gen_grid.Grids(mol)
+  g.level = quad_level
+  g.build()
+  grids = jnp.array(g.coords)
+  weights = jnp.array(g.weights)
+  return grids, weights

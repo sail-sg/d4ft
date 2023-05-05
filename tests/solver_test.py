@@ -8,9 +8,11 @@ from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.ortho import qr_factor
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
+from d4ft.integral.quadrature.grids import grids_from_pyscf_mol
 from d4ft.sgd_solver import sgd_solver
-from d4ft.system.mol import Mol
+from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.xc import get_xc_intor
+from jax_xc import lda_x
 
 
 class SolverTest(parameterized.TestCase):
@@ -24,13 +26,15 @@ class SolverTest(parameterized.TestCase):
     basis = '6-31g'
     key = jax.random.PRNGKey(137)
 
-    mol = Mol.from_mol_name(system, basis)
+    pyscf_mol = get_pyscf_mol(system, basis)
+    mol = Mol.from_pyscf_mol(pyscf_mol)
     cgto = CGTO.from_mol(mol, use_hk=False)
     incore_energy_tensors = incore_int_sym(cgto)
     cgto_intor = get_cgto_intor(
       cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
     )
-    xc_fn = get_xc_intor(mol, "lda")
+    grids_and_weights = grids_from_pyscf_mol(pyscf_mol, 1)
+    xc_fn = get_xc_intor(grids_and_weights, cgto, lda_x)
     mo_coeff_fn = partial(mol.get_mo_coeff, rks=True, ortho_fn=qr_factor)
     H_fac = partial(dft_cgto, cgto, cgto_intor, xc_fn, mo_coeff_fn)
     e_total, _, _ = sgd_solver(DFTConfig(), OptimizerConfig(), H_fac, key)

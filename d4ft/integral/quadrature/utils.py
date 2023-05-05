@@ -160,20 +160,18 @@ def get_integrand(f: Callable, g: Callable, keepdims: bool = False) -> Callable:
   return integrand
 
 
-def wave2density(
-  orbitals: Callable, nocc: float = 1., keep_spin=False
-) -> Callable:
+def wave2density(orbitals: Callable, polarized=False) -> Callable:
   """
   Transform the wave function into density function.
   Args:
     mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
         mo only takes one argment, which is the coordinate.
-    keep_spin: if True will return a 1D array with two elements indicating
+    polarized: if True will return a 1D array with two elements indicating
     the density of each spin
   Return:
     density function: [3] -> float or 1D array.
   """
-  if keep_spin:
-    return lambda r: jnp.sum((orbitals(r) * nocc)**2, axis=1)
+  if polarized:
+    return lambda r: jnp.sum((orbitals(r))**2, axis=1)
   else:
-    return lambda r: jnp.sum((orbitals(r) * nocc)**2)
+    return lambda r: jnp.sum((orbitals(r))**2)

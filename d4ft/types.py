@@ -20,6 +20,12 @@ ETensorsIncore = Tuple[Float[Array, "ab"], Float[Array, "ab"], Float[Array,
                                                                      "abcd"]]
 """kin, ext and eri tensor incore"""
 
+QuadGrids = Float[Array, "n_grid_pts d"]
+"""quadrature grids"""
+QuadWeights = Float[Array, "n_grid_pts"]
+"""quadrature weights"""
+QuadGridsNWeights = Tuple[QuadGrids, QuadWeights]
+
 
 class AngularStats(NamedTuple):
   min_a: Int[np.ndarray, "3"]

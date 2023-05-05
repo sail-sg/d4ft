@@ -1,8 +1,12 @@
 import json
 from pathlib import Path
-from typing import Union
+from typing import Union, Any
 
 from ml_collections import ConfigDict
+
+
+def make_constant_fn(val: Any):
+  return lambda *a, **kw: val
 
 
 def compose(f, g):

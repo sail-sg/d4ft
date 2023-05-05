@@ -15,6 +15,13 @@
 load("@rules_python//python:defs.bzl", "py_library")
 
 py_library(
+    name = "nuclear",
+    srcs = ["nuclear.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
+py_library(
     name = "ortho",
     srcs = ["ortho.py"],
     visibility = ["//visibility:public"],
@@ -32,5 +39,8 @@ py_library(
     name = "dft_cgto",
     srcs = ["dft_cgto.py"],
     visibility = ["//visibility:public"],
-    deps = [":cgto_intors"],
+    deps = [
+        ":cgto_intors",
+        ":nuclear",
+    ],
 )

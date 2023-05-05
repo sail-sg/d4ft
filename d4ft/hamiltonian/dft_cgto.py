@@ -2,8 +2,8 @@ from typing import Callable, Tuple
 
 import jax
 import jax.numpy as jnp
+from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.integral.gto.cgto import CGTO
-from d4ft.nuclear import e_nuclear
 from d4ft.types import (
   Aux, CGTOIntors, Energies, Grads, Hamiltonian, MoCoeffFlat
 )

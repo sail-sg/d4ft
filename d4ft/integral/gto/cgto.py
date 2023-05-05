@@ -9,6 +9,7 @@ import numpy as np
 import scipy.special
 from absl import logging
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
+from d4ft.utils import make_constant_fn
 from d4ft.system.mol import Mol
 from jaxtyping import Array, Float, Int
 
@@ -90,13 +91,15 @@ class PrimitiveGaussian(NamedTuple):
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "*batch"]:
     """Evaluate GTO (unnormalized) with given real space coordinate.
 
+    Args:
+      r: 3D real space coordinate
+
     Returns:
-      unnormalized x^l y^m z^n e^{-alpha r^2}
+      unnormalized gto (x-c_x)^l (y-c_y)^m (z-c_z)^n exp{-alpha |r-c|^2}
     """
-    xyz_lmn = jnp.prod(jnp.power(r, self.angular), axis=1)
-    return xyz_lmn * jnp.exp(
-      -self.exponent * jnp.sum((r - self.center)**2, axis=1)
-    )
+    xyz_lmn = jnp.prod(jnp.power((r - self.center), self.angular), axis=1)
+    exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
+    return xyz_lmn * exp
 
 
 class CGTO(NamedTuple):
@@ -161,7 +164,14 @@ class CGTO(NamedTuple):
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "n_cgtos"]:
     """Evaluate CGTO given real space coordinate by first evaluate
-    all primitives, normalize it then contract them."""
+    all primitives, normalize it then contract them.
+
+    Args:
+      r: 3D real space coordinate
+
+    Returns:
+      contracted normalized gtos.
+    """
     gto_val = self.coeff * self.N * self.primitives.eval(r)
     n_cgtos = len(self.cgto_splits)
     return jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
@@ -181,16 +191,16 @@ class CGTO(NamedTuple):
 
     center_init: Float[np.ndarray, "n_atoms 3"] = mol.atom_coords
     center = hk.get_parameter(
-      "center", center_init.shape, init=lambda _, __: center_init
+      "center", center_init.shape, init=make_constant_fn(center_init)
     )
     center_rep = jnp.repeat(center, np.array(cgto.atom_splits), axis=0)
     exponent = hk.get_parameter(
       "exponent",
       cgto.primitives.exponent.shape,
-      init=lambda _, __: cgto.primitives.exponent
+      init=make_constant_fn(cgto.primitives.exponent)
     )
     coeff = hk.get_parameter(
-      "coeff", cgto.coeff.shape, init=lambda _, __: cgto.coeff
+      "coeff", cgto.coeff.shape, init=make_constant_fn(cgto.coeff)
     )
     primitives = PrimitiveGaussian(
       cgto.primitives.angular, center_rep, exponent

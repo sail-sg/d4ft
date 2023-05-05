@@ -18,6 +18,7 @@ py_library(
     name = "grids",
     srcs = ["grids.py"],
     visibility = ["//visibility:public"],
+    deps = ["//d4ft:types"],
 )
 
 py_library(

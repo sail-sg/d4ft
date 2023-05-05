@@ -30,12 +30,6 @@ py_library(
     deps = [],
 )
 
-py_library(
-    name = "nuclear",
-    srcs = ["nuclear.py"],
-    visibility = ["//visibility:public"],
-    deps = [],
-)
 
 py_library(
     name = "xc",
@@ -118,7 +112,6 @@ py_library(
         ":config",
         ":constants",
         ":logger",
-        ":nuclear",
         ":optimize",
         ":pyscf_wrapper",
         ":scf_solver",

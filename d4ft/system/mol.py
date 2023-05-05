@@ -10,7 +10,6 @@ from d4ft.system.geometry import get_mol_geometry
 from d4ft.system.utils import periodic_hash_table
 from d4ft.types import MoCoeffFlat
 from jaxtyping import Array, Float, Int
-from pyscf.dft import gen_grid
 
 
 def get_atom_from_geometry(geometry: str) -> List[str]:
@@ -76,15 +75,11 @@ class Mol(NamedTuple):
   basis: Dict[str, List[Tuple[int, List[List[float]]]]]
   """CGTO basis parameter in format
   {element: [[shell, [exponenet, coeff], ...], ...]}"""
-  grids: Float[Array, "n_grid_pts 3"]
-  """quadrature grids"""
-  weights: Float[Array, "n_grid_pts"]
-  """quadrature weights"""
   ovlp: Float[Array, "nao nao"]
   """overlap matrix"""
 
   @staticmethod
-  def from_pyscf_mol(mol: pyscf.gto.mole.Mole, quad_level: int) -> Mol:
+  def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> Mol:
     """Builds Mol object from pyscf Mole"""
     tot_electrons = mol.tot_electrons()
     nocc = get_occupation_mask(tot_electrons, mol.nao, mol.spin)
@@ -92,27 +87,20 @@ class Mol(NamedTuple):
     # TODO: how to move this out?
     ovlp = mol.intor('int1e_ovlp_sph')
 
-    g = gen_grid.Grids(mol)
-    g.level = quad_level
-    g.build()
-    grids = jnp.array(g.coords)
-    weights = jnp.array(g.weights)
-
     return Mol(
       tot_electrons, mol.spin, nocc, mol.nao, mol.atom_coords(),
-      mol.atom_charges(), mol.elements, mol._basis, grids, weights, ovlp
+      mol.atom_charges(), mol.elements, mol._basis, ovlp
     )
 
   @staticmethod
   def from_mol_name(
     name: str,
     basis: str,
-    quad_level: int = 1,
-    source: Literal["cccdbd", "pubchem"] = "cccdbd",
+    source: Literal["cccdbd", "pubchem"] = "cccdbd"
   ) -> Mol:
     """Builds Mol object from molecule name"""
     pyscf_mol = get_pyscf_mol(name, basis, source)
-    return Mol.from_pyscf_mol(pyscf_mol, quad_level)
+    return Mol.from_pyscf_mol(pyscf_mol)
 
   # TODO: move this out
   def get_mo_coeff(

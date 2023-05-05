@@ -17,11 +17,11 @@ from d4ft.types import (
 
 
 def sgd_solver(
-  dft_cfg: DFTConfig, optim_cfg: OptimizerConfig, H_fac: HamiltonianHKFactory,
-  key: jax.random.KeyArray
+  dft_cfg: DFTConfig, optim_cfg: OptimizerConfig,
+  H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
 ) -> Tuple[float, Trajectory, Hamiltonian]:
 
-  H_transformed = hk.without_apply_rng(hk.multi_transform(H_fac))
+  H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
   params = H_transformed.init(key)
   H = Hamiltonian(*H_transformed.apply)
 
@@ -40,6 +40,7 @@ def sgd_solver(
     return params, opt_state, energies, mo_grads
 
   # GD loop
+  e_total = 0.
   traj = []
   prev_e_total = 0.
   converged = False
@@ -66,7 +67,5 @@ def sgd_solver(
       prev_e_total = e_total
 
   logging.info(f"Converged: {converged}")
-
-  breakpoint()
 
   return e_total, traj, H
