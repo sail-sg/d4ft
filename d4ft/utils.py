@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Union, Any
+import jax.numpy as jnp
 
 from ml_collections import ConfigDict
 
@@ -11,6 +12,10 @@ def make_constant_fn(val: Any):
 
 def compose(f, g):
   return lambda *a, **kw: f(g(*a, **kw))
+
+
+def inv_softplus(x):
+  return jnp.log(jnp.exp(x) - 1.)
 
 
 def save_cfg(cfg: ConfigDict, save_path: Union[str, Path]):

@@ -25,11 +25,13 @@ from tqdm import tqdm
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto import symmetry, tensorization
 from d4ft.integral.gto.cgto import CGTO
-from d4ft.types import ETensorsIncore
+from d4ft.types import AngularStats, ETensorsIncore
 
 
 def incore_int_sym(
   cgto: CGTO,
+  s2: AngularStats,
+  s4: AngularStats,
   # batch_size: int = 2**25,
   batch_size: int = 2**23,
   prescreen_thresh: float = 1e-8,
@@ -52,9 +54,6 @@ def incore_int_sym(
       jnp.cumsum(jnp.array(cgto.atom_splits)) - 1]
     return jax.vmap(lambda Z, C: Z * ni(C, a, b, static_args, use_horizontal)
                    )(cgto.charge, atom_coords).sum()
-
-  s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
-  s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
 
   # 2c tensors
   ab_idx_counts = symmetry.get_2c_sym_idx(cgto.n_gtos)

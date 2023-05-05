@@ -9,7 +9,7 @@ import numpy as np
 import scipy.special
 from absl import logging
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
-from d4ft.utils import make_constant_fn
+from d4ft.utils import make_constant_fn, inv_softplus
 from d4ft.system.mol import Mol
 from jaxtyping import Array, Float, Int
 
@@ -177,32 +177,36 @@ class CGTO(NamedTuple):
     return jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
 
   @staticmethod
-  def from_mol(mol: Mol, use_hk: bool = True) -> CGTO:
-    """Build CGTO from pyscf mol.
+  def from_mol(mol: Mol) -> CGTO:
+    """Build CGTO from pyscf mol."""
+    return build_cgto_from_mol(mol)
 
-    Args:
-      hk: If true, then construct a function that maps optimizable paramters to
-        CGTO. Note that function must be haiku transformed. Can be used for
-        basis optimization.
+  def to_hk(self) -> CGTO:
+    """Convert optimizable parameters to hk.Params. Must be haiku transformed.
+    Can be used for basis optimization.
     """
-    cgto = build_cgto_from_mol(mol)
-    if not use_hk:
-      return cgto
-
-    center_init: Float[np.ndarray, "n_atoms 3"] = mol.atom_coords
+    center_init = self.atom_coords
     center = hk.get_parameter(
       "center", center_init.shape, init=make_constant_fn(center_init)
     )
-    center_rep = jnp.repeat(center, np.array(cgto.atom_splits), axis=0)
-    exponent = hk.get_parameter(
-      "exponent",
-      cgto.primitives.exponent.shape,
-      init=make_constant_fn(cgto.primitives.exponent)
+    center_rep = jnp.repeat(
+      center,
+      jnp.array(self.atom_splits),
+      axis=0,
+      total_repeat_length=self.n_cgtos
+    )
+    # NOTE: use softplus to make sure that exponent > 0
+    exponent = jax.nn.softplus(
+      hk.get_parameter(
+        "exponent",
+        self.primitives.exponent.shape,
+        init=make_constant_fn(inv_softplus(self.primitives.exponent))
+      )
     )
     coeff = hk.get_parameter(
-      "coeff", cgto.coeff.shape, init=make_constant_fn(cgto.coeff)
+      "coeff", self.coeff.shape, init=make_constant_fn(self.coeff)
     )
     primitives = PrimitiveGaussian(
-      cgto.primitives.angular, center_rep, exponent
+      self.primitives.angular, center_rep, exponent
     )
-    return cgto._replace(primitives=primitives, coeff=coeff)
+    return self._replace(primitives=primitives, coeff=coeff)

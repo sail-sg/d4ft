@@ -9,6 +9,7 @@ from ml_collections.config_flags import config_flags
 from d4ft.hamiltonian.cgto_intors import get_cgto_intor
 from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.ortho import qr_factor
+from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
 from d4ft.integral.quadrature.grids import grids_from_pyscf_mol
@@ -32,17 +33,26 @@ def main(_):
     key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
     pyscf_mol = get_pyscf_mol(cfg.mol_cfg.mol_name, cfg.mol_cfg.basis)
     mol = Mol.from_pyscf_mol(pyscf_mol)
-    cgto = CGTO.from_mol(mol, use_hk=False)
-    incore_energy_tensors = incore_int_sym(cgto)
-    cgto_intor = get_cgto_intor(
-      cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
-    )
-    mo_coeff_fn = partial(
-      mol.get_mo_coeff, rks=cfg.dft_cfg.rks, ortho_fn=qr_factor
-    )
     grids_and_weights = grids_from_pyscf_mol(pyscf_mol, cfg.dft_cfg.quad_level)
-    xc_fn = get_xc_intor(grids_and_weights, cgto, lda_x)
-    H_factory = partial(dft_cgto, cgto, cgto_intor, xc_fn, mo_coeff_fn)
+    cgto = CGTO.from_mol(mol)
+
+    s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
+    s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
+    incore_energy_tensors = incore_int_sym(cgto, s2, s4)
+
+    def H_factory():
+      # TODO: out-of-core + basis optimization
+      # cgto_hk = cgto.to_hk()
+      cgto_hk = cgto
+      cgto_intor = get_cgto_intor(
+        cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
+      )
+      mo_coeff_fn = partial(
+        mol.get_mo_coeff, rks=cfg.dft_cfg.rks, ortho_fn=qr_factor
+      )
+      xc_fn = get_xc_intor(grids_and_weights, cgto_hk, lda_x)
+      return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
+
     sgd_solver(cfg.dft_cfg, cfg.optim_cfg, H_factory, key)
 
   elif FLAGS.run == "pyscf":
@@ -54,22 +64,26 @@ def main(_):
     )
 
     mol = Mol.from_pyscf_mol(pyscf_mol)
-    cgto = CGTO.from_mol(mol, use_hk=False)
-    incore_energy_tensors = incore_int_sym(cgto)
+    cgto = CGTO.from_mol(mol)
+
+    s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
+    s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
+
+    incore_energy_tensors = incore_int_sym(cgto, s2, s4)
     cgto_intor = get_cgto_intor(
       cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
     )
     grids_and_weights = grids_from_pyscf_mol(pyscf_mol, cfg.dft_cfg.quad_level)
     xc_fn = get_xc_intor(grids_and_weights, cgto, lda_x)
 
+    # add spin and apply occupation mask
+    mo_coeff *= mol.nocc[:, :, None]
+    mo_coeff = mo_coeff.reshape(-1, mo_coeff.shape[-1])
+
     # eval with d4ft
     _, H = dft_cgto(
       cgto, cgto_intor, xc_fn, mo_coeff_fn=make_constant_fn(mo_coeff)
     )
-
-    # add spin and apply occupation mask
-    mo_coeff *= mol.nocc[:, :, None]
-    mo_coeff = mo_coeff.reshape(-1, mo_coeff.shape[-1])
 
     _, (energies, _) = H.energy_fn(mo_coeff)
 

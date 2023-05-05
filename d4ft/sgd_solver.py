@@ -23,6 +23,7 @@ def sgd_solver(
 
   H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
   params = H_transformed.init(key)
+
   H = Hamiltonian(*H_transformed.apply)
 
   # init optimizer
