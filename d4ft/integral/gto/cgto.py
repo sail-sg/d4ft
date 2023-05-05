@@ -6,10 +6,10 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
-from d4ft.system.mol import Mol
 import scipy.special
 from absl import logging
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
+from d4ft.system.mol import Mol
 from jaxtyping import Array, Float, Int
 
 _r25 = np.arange(25)
@@ -131,6 +131,10 @@ class CGTO(NamedTuple):
   @property
   def n_cgtos(self):
     return len(self.cgto_splits)
+
+  @property
+  def nao(self):
+    return self.n_cgtos
 
   @property
   def n_atoms(self):

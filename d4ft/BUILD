@@ -23,14 +23,12 @@ py_library(
     deps = [],
 )
 
-
 py_library(
     name = "types",
     srcs = ["types.py"],
     visibility = ["//visibility:public"],
     deps = [],
 )
-
 
 py_library(
     name = "nuclear",
@@ -43,7 +41,12 @@ py_library(
     name = "xc",
     srcs = ["xc.py"],
     visibility = ["//visibility:public"],
-    deps = [":types"],
+    deps = [
+        ":types",
+        "//d4ft/integral/gto:cgto",
+        "//d4ft/integral/quadrature:utils",
+        "//d4ft/system:mol",
+    ],
 )
 
 py_library(

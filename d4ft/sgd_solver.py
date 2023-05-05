@@ -67,4 +67,6 @@ def sgd_solver(
 
   logging.info(f"Converged: {converged}")
 
+  breakpoint()
+
   return e_total, traj, H

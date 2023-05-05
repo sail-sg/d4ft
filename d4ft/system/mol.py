@@ -8,7 +8,7 @@ import pyscf
 from absl import logging
 from d4ft.system.geometry import get_mol_geometry
 from d4ft.system.utils import periodic_hash_table
-from d4ft.types import MoCoeff
+from d4ft.types import MoCoeffFlat
 from jaxtyping import Array, Float, Int
 from pyscf.dft import gen_grid
 
@@ -114,9 +114,10 @@ class Mol(NamedTuple):
     pyscf_mol = get_pyscf_mol(name, basis, source)
     return Mol.from_pyscf_mol(pyscf_mol, quad_level)
 
+  # TODO: move this out
   def get_mo_coeff(
     self, rks: bool, ortho_fn: Optional[Callable] = None
-  ) -> MoCoeff:
+  ) -> MoCoeffFlat:
     """Function to return MO coefficient. Must be haiku transformed."""
     nmo = self.nao
     shape = ([nmo, nmo] if rks else [2, nmo, nmo])

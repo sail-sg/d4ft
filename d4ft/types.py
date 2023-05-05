@@ -13,6 +13,8 @@ IdxCount = Union[IdxCount2C, IdxCount4C]
 
 MoCoeff = Float[Array, "2 nmo nao"]
 """MO coefficient matrix"""
+MoCoeffFlat = Float[Array, "2*nmo nao"]
+"""Flattened MO coefficient matrix"""
 
 ETensorsIncore = Tuple[Float[Array, "ab"], Float[Array, "ab"], Float[Array,
                                                                      "abcd"]]
@@ -63,28 +65,30 @@ class Transition(NamedTuple):
 
 Trajectory = List[Transition]
 
+MoCoeffScalarFn = Callable[[MoCoeffFlat], Float[Array, ""]]
+
 
 # TODO: consider PBC / plane wave
 class Hamiltonian(NamedTuple):
   """CGTO hamiltonian"""
 
-  kin_fn: Callable
+  kin_fn: MoCoeffScalarFn
   """Maps mo_coeff to kinetic energy."""
-  ext_fn: Callable
+  ext_fn: MoCoeffScalarFn
   """Maps mo_coeff to external (nuclera attraction) energy."""
-  eri_fn: Callable
+  eri_fn: MoCoeffScalarFn
   """Maps mo_coeff to electronic repulsion energy."""
-  xc_fn: Callable
+  xc_fn: MoCoeffScalarFn
   """XC functional."""
   nuc_fn: Callable
   """Nuclear repulsion energy fn, which only depends on the geometry."""
+  energy_fn: MoCoeffScalarFn
+  """Function to get total energy. Can be used as the loss function."""
   mo_coeff_fn: Callable
   """Function to get MO coefficient."""
-  energy_fn: Callable
-  """Function to get total energy. Can be used as the loss function."""
 
 
-HamiltonianHKFactory = Callable[[], Tuple[Callable, Hamiltonian]]
+HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]
 
-CGTOIntors = Tuple[Callable, Callable, Callable]
+CGTOIntors = Tuple[MoCoeffScalarFn, MoCoeffScalarFn, MoCoeffScalarFn]
 """intor for kin, ext and eri."""
