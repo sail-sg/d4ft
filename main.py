@@ -1,11 +1,26 @@
+# Copyright 2023 Garena Online Private Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Entrypoint for D4FT."""
 from functools import partial
+from typing import Any, Callable, Tuple
 
 import jax
 from absl import app, flags, logging
 from jax_xc import lda_x
 from ml_collections.config_flags import config_flags
 
+from d4ft.config import D4FTConfig
 from d4ft.hamiltonian.cgto_intors import get_cgto_intor
 from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.ortho import qr_factor
@@ -17,6 +32,7 @@ from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
+from d4ft.types import Hamiltonian
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_xc_intor
 
@@ -25,8 +41,8 @@ flags.DEFINE_enum("run", "dft", ["dft", "pyscf"], "which routine to run")
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
 
-def main(_):
-  cfg = FLAGS.config  # type: ConfigDict
+def main(_: Any) -> None:
+  cfg: D4FTConfig = FLAGS.config
   print(cfg)
 
   if FLAGS.run == "dft":
@@ -43,7 +59,7 @@ def main(_):
     s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
     incore_energy_tensors = incore_int_sym(cgto, s2, s4)
 
-    def H_factory():
+    def H_factory() -> Tuple[Callable, Hamiltonian]:
       # TODO: out-of-core + basis optimization
       # cgto_hk = cgto.to_hk()
       cgto_hk = cgto

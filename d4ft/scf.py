@@ -1,4 +1,4 @@
-# Copyright 2022 Garena Online Private Limited
+# Copyright 2023 Garena Online Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,15 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+# import time
 
-import jax
-import jax.numpy as jnp
-from absl import logging
+# import jax
+# import jax.numpy as jnp
+# from absl import logging
 
-from d4ft.logger import RunLogger
-from d4ft.system.mol import Mol
+# from d4ft.logger import RunLogger
+# from d4ft.system.mol import Mol
 
-
-def scf(mol: Mol):
-  pass
+# def scf(mol: Mol):
+#   pass
