@@ -31,3 +31,11 @@ rules_cuda_dependencies()
 load("@rules_cc//cc:repositories.bzl", "rules_cc_toolchains")
 
 rules_cc_toolchains()
+
+new_git_repository(
+    name = "hemi",
+    branch = "master",
+    build_file = "//third_party:hemi.BUILD",
+    recursive_init_submodules = True,
+    remote = "https://github.com/harrism/hemi.git",
+)

@@ -1,13 +1,9 @@
-#ifndef PLAS_GPU_ERI_UTILITY_H_
-#define PLAS_GPU_ERI_UTILITY_H_
+#ifndef D4FT_NATIVE_OBARA_SAIKA_ERI_H_
+#define D4FT_NATIVE_OBARA_SAIKA_ERI_H_
 
 #include <cstring>
 #include "comb.h"
-#include "gpu/meta.h"
 #include "boys.h"
-
-namespace plas {
-namespace gpu {
 
 #define MAX_XYZ 4 * 6
 #define MAX_YZ 4 * 4
@@ -214,7 +210,4 @@ PLAS_HOST_DEVICE FLOAT eri(int nax, int nay, int naz,
   return out[0] * prefactor * 0.5;
 }
 
-}  // namespace gpu
-}  // namespace plas
-
-#endif
+#endif  // D4FT_NATIVE_OBARA_SAIKA_ERI_H_
