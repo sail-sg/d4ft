@@ -26,12 +26,13 @@ cc_library(
     ],
 )
 
-cc_library(
+cuda_library(
     name = "eri_kernel",
+    srcs = ["eri_kernel.cu"],
     hdrs = ["eri_kernel.h"],
     deps = [
         ":eri",
-        "//gpu",
+        "@hemi",
     ],
 )
 
@@ -40,6 +41,7 @@ cc_binary(
     srcs = ["eri_test.cc"],
     deps = [
         ":eri_kernel",
+        "@hemi",
     ],
 )
 

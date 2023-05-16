@@ -1,3 +1,4 @@
 build --repo_env=CUDA_PATH=/opt/cuda
 build --@rules_cuda//cuda:cuda_targets=sm_61,sm_80
 build --@rules_cuda//cuda:enable_cuda
+build --@rules_cuda//cuda:copts=-std=c++17
