@@ -27,7 +27,7 @@ class OptimizerConfig:
   """Config for the gradient descent DFT solver"""
   epochs: int = 2000
   lr: float = 1e-2
-  lr_decay: Literal["none", "piecewise", "exp"] = "piecewise"
+  lr_decay: Literal["none", "piecewise"] = "piecewise"
   optimizer: Literal["adam", "sgd"] = "adam"
   rng_seed: int = 137
 

@@ -16,27 +16,29 @@ from typing import Callable, List, NamedTuple, Tuple, Union
 
 import numpy as np
 from jaxtyping import Array, Float, Int
+from typing_extensions import TypeAlias
 
-IdxCount2C = Int[Array, "batch 3"]
+IdxCount2C: TypeAlias = Int[Array, "batch 3"]
 """2c GTO index concatenated with the repetition count
  of that idx, e.g. (0,1|2)."""
-IdxCount4C = Int[Array, "batch 5"]
+IdxCount4C: TypeAlias = Int[Array, "batch 5"]
 """4c GTO index concatenated with the repetition count
  of that idx, e.g. (0,0,1,0|4)."""
 IdxCount = Union[IdxCount2C, IdxCount4C]
 
-MoCoeff = Float[Array, "2 nmo nao"]
+MoCoeff: TypeAlias = Float[Array, "2 nmo nao"]
 """MO coefficient matrix"""
-MoCoeffFlat = Float[Array, "2*nmo nao"]
+MoCoeffFlat: TypeAlias = Float[Array, "2*nmo nao"]
 """Flattened MO coefficient matrix"""
 
-ETensorsIncore = Tuple[Float[Array, "ab"], Float[Array, "ab"], Float[Array,
-                                                                     "abcd"]]
+Tensor2C: TypeAlias = Float[Array, "#ab"]
+Tensor4C: TypeAlias = Float[Array, "#abcd"]
+ETensorsIncore: TypeAlias = Tuple[Tensor2C, Tensor2C, Tensor4C]
 """kin, ext and eri tensor incore"""
 
-QuadGrids = Float[Array, "n_grid_pts d"]
+QuadGrids: TypeAlias = Float[Array, "#n_grid_pts"]
 """quadrature grids"""
-QuadWeights = Float[Array, "n_grid_pts"]
+QuadWeights: TypeAlias = Float[Array, "n_grid_pts 1"]
 """quadrature weights"""
 QuadGridsNWeights = Tuple[QuadGrids, QuadWeights]
 

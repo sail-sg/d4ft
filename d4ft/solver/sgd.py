@@ -15,12 +15,12 @@
 
 from typing import Tuple
 
+import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp
 import optax
 from absl import logging
-
 from d4ft.config import DFTConfig, OptimizerConfig
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
@@ -44,7 +44,7 @@ def sgd(
   opt_state = optimizer.init(params)
 
   @jax.jit
-  def update(params, opt_state):
+  def update(params: chex.ArrayTree, opt_state: chex.ArrayTree) -> Tuple:
     """update parameter, and accumulate gradients"""
     val_and_grads_fn = jax.value_and_grad(H.energy_fn, has_aux=True)
     (_, aux), grad = val_and_grads_fn(params)

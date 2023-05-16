@@ -26,10 +26,6 @@ def get_optimizer(cfg: OptimizerConfig) -> optax.GradientTransformation:
         int(cfg.epochs * 0.75): 0.5
       }
     )
-  elif cfg.lr_decay == "exponential":
-    lr = optax.exponential_decay(
-      cfg.lr, cfg.scheduler_step, cfg.scheduler_gamma, staircase=True
-    )
   else:
     lr = cfg.lr
 
