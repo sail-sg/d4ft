@@ -18,6 +18,8 @@ import numpy as np
 from jaxtyping import Array, Float, Int
 from typing_extensions import TypeAlias
 
+Vec3DInt = Int[np.ndarray, "3"]
+
 IdxCount2C: TypeAlias = Int[Array, "batch 3"]
 """2c GTO index concatenated with the repetition count
  of that idx, e.g. (0,1|2)."""

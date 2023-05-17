@@ -13,14 +13,17 @@
 # limitations under the License.
 
 import json
+from numbers import Number
 from pathlib import Path
-from typing import Union, Any
-import jax.numpy as jnp
+from typing import Any, Callable, Iterable, Type, Union
 
+import jax.numpy as jnp
+import numpy as np
+from jaxtyping import Num
 from ml_collections import ConfigDict
 
 
-def make_constant_fn(val: Any):
+def make_constant_fn(val: Any) -> Callable:
   return lambda *a, **kw: val
 
 
@@ -43,3 +46,14 @@ def load_cfg(save_path: Union[str, Path]) -> ConfigDict:
   with Path(save_path).open("r") as f:
     load_cfg = ConfigDict(json.load(f))
   return load_cfg
+
+
+def to_3dvec(val: Any, dtype: Type) -> Num[np.ndarray, "3"]:
+  if isinstance(val, Num[np.ndarray, "3"]):  # already a 3d vector
+    return val
+  elif isinstance(val, Iterable) and len(val) == 3:  # list of 3 numbers
+    return np.array(val, dtype=dtype)
+  elif isinstance(val, Number):  # single number
+    return np.ones(3, dtype=dtype) * np.array(val, dtype=dtype)
+  else:
+    raise TypeError("input should be a scalar, Iterable or np.array.")

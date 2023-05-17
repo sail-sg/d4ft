@@ -14,6 +14,21 @@
 
 load("@rules_python//python:defs.bzl", "py_library")
 
+filegroup(
+    name = "xyz_files",
+    srcs = ["xyz_files/diamond.xyz"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "crystal",
+    srcs = ["crystal.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//d4ft:constants",
+    ],
+)
+
 py_library(
     name = "utils",
     srcs = ["utils.py"],

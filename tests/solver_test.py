@@ -23,7 +23,9 @@ class SolverTest(parameterized.TestCase):
     ("o", (-72., -75.)),
     ("h2o", (-74., -80.)),
   )
-  def test_incore_sgd_dft(self, system, energy_bounds):
+  def test_incore_sgd_dft(
+    self, system: str, energy_bounds: Tuple[float, float]
+  ) -> None:
     basis = '6-31g'
     key = jax.random.PRNGKey(137)
 

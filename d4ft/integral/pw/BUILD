@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,20 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
+load("@rules_python//python:defs.bzl", "py_library")
 
 
-class Shell(Enum):
-  """https://pyscf.org/user/gto.html#basis-set"""
-  s = 0
-  p = 1
-  d = 2
-  f = 3
-
-
-SHELL_TO_ANGULAR_VEC = {
-  Shell.s: [[0, 0, 0]],
-  Shell.p: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-}
-
-ANGSTRONG_TO_BOHR = 1.8897259886
+py_library(
+    name = "pw",
+    srcs = ["pw.py"],
+    visibility = ["//visibility:public"],
+    deps = ["//d4ft:types"],
+)

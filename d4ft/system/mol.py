@@ -72,23 +72,25 @@ def sqrt_root_inv(mat: Float[Array, "a a"]) -> Float[Array, "a a"]:
 class Mol(NamedTuple):
   """Represents a molecular system.
   APIs are mostly consistent with pyscf."""
-  tot_electrons: int
-  """total number of electrons"""
   spin: int
-  """total spin"""
-  nocc: Int[Array, "2 nao"]
-  """occupation mask for alpha and beta spin"""
-  nao: int
-  """number of atomic orbitals"""
+  """the number of unpaired electrons 2S, i.e. the difference between
+  the number of alpha and beta electrons."""
   atom_coords: Float[Array, "n_atoms 3"]
   """atom centers"""
   atom_charges: Int[Array, "n_atoms"]
   """charges for each atoms"""
   elements: List[str]
   """list of atoms"""
+
+  # molecular specific fields
+  nocc: Int[Array, "2 nao"]
+  """occupation mask for alpha and beta spin"""
+  nao: int
+  """number of atomic orbitals"""
   basis: Dict[str, List[Tuple[int, List[List[float]]]]]
   """CGTO basis parameter in format
   {element: [[shell, [exponenet, coeff], ...], ...]}"""
+  # TODO: maybe there's a better place to put this?
   ovlp: Float[Array, "nao nao"]
   """overlap matrix"""
 
@@ -102,8 +104,8 @@ class Mol(NamedTuple):
     ovlp = mol.intor('int1e_ovlp_sph')
 
     return Mol(
-      tot_electrons, mol.spin, nocc, mol.nao, mol.atom_coords(),
-      mol.atom_charges(), mol.elements, mol._basis, ovlp
+      mol.spin, nocc, mol.nao, mol.atom_coords(), mol.atom_charges(),
+      mol.elements, mol._basis, ovlp
     )
 
   @staticmethod
