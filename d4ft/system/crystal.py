@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """
 Crystal unit cell
 Ref: https://pyscf.org/pyscf_api_docs/pyscf.pbc.gto.html
@@ -42,8 +41,9 @@ class Crystal(NamedTuple):
   """list of atoms"""
 
   # crystal specific fields
-  cell: Float[np.ndarray, "3 3"]
-  """real space cell (unit Bohr)"""
+  cell: Float[Array, "3 3"]
+  """real space cell (unit Bohr), which is a 3x3 matrix representing
+  the three 3D lattice vectors."""
   vol: float
   """real space cell volume"""
 
@@ -77,11 +77,11 @@ class Crystal(NamedTuple):
     """Construct crystal from an ase.Atoms object"""
     cell = ase_atoms.cell.array * ANGSTRONG_TO_BOHR
     atom_coords = jnp.array(ase_atoms.get_positions())
-    atom_charges = jnp.array(ase_atoms.get_atomic_numbers())  #1d array
+    atom_charges = jnp.array(ase_atoms.get_atomic_numbers())  # 1d array
     vol = ase_atoms.cell.volume * ANGSTRONG_TO_BOHR**3
     return Crystal(
-      spin, atom_coords, atom_charges, ase_atoms.get_chemical_symbols(), cell,
-      vol
+      spin, atom_coords, atom_charges, ase_atoms.get_chemical_symbols(),
+      jnp.array(cell), vol
     )
 
   @staticmethod

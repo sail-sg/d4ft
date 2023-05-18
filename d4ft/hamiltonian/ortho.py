@@ -17,7 +17,16 @@ from typing import Optional
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array
+from jaxtyping import Array, Float
+
+
+def sqrt_inv(mat: Float[Array, "a a"]) -> Float[Array, "a a"]:
+  """Square root of inverse."""
+  v, u = jnp.linalg.eigh(mat)
+  v = jnp.clip(v, a_min=0)
+  v = jnp.diag(jnp.real(v)**(-1 / 2))
+  ut = jnp.real(u).transpose()
+  return jnp.matmul(v, ut)
 
 
 def qr_factor(

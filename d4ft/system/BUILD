@@ -14,6 +14,13 @@
 
 load("@rules_python//python:defs.bzl", "py_library")
 
+py_library(
+    name = "occupation",
+    srcs = ["occupation.py"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
 filegroup(
     name = "xyz_files",
     srcs = ["xyz_files/diamond.xyz"],
@@ -53,6 +60,8 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         ":geometry",
+        ":occupation",
+        ":utils",
         "//d4ft:types",
     ],
 )

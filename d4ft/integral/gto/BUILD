@@ -27,6 +27,7 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         "//d4ft:constants",
+        "//d4ft:types",
         "//d4ft:utils",
         "//d4ft/system:mol",
     ],

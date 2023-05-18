@@ -33,6 +33,9 @@ MoCoeff: TypeAlias = Float[Array, "2 nmo nao"]
 MoCoeffFlat: TypeAlias = Float[Array, "2*nmo nao"]
 """Flattened MO coefficient matrix"""
 
+PWCoeff = Float[Array, "spin ele k g x y z"]
+"""plane wave coefficients"""
+
 Tensor2C: TypeAlias = Float[Array, "#ab"]
 Tensor4C: TypeAlias = Float[Array, "#abcd"]
 ETensorsIncore: TypeAlias = Tuple[Tensor2C, Tensor2C, Tensor4C]

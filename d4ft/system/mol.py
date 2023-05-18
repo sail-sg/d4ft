@@ -14,15 +14,13 @@
 
 from __future__ import annotations  # forward declaration
 
-from typing import Callable, Dict, List, Literal, NamedTuple, Optional, Tuple
+from typing import Dict, List, Literal, NamedTuple, Tuple
 
-import haiku as hk
-import jax.numpy as jnp
 import pyscf
 from absl import logging
 from d4ft.system.geometry import get_mol_geometry
+from d4ft.system.occupation import get_occupation_mask
 from d4ft.system.utils import periodic_hash_table
-from d4ft.types import MoCoeffFlat
 from jaxtyping import Array, Float, Int
 
 
@@ -50,25 +48,6 @@ def get_pyscf_mol(
   return mol
 
 
-def get_occupation_mask(tot_electron: int, nao: int,
-                        spin: int) -> Int[Array, "2 nao"]:
-  nocc = jnp.zeros([2, nao], dtype=int)
-  nmo_up = (tot_electron + spin) // 2
-  nmo_dn = (tot_electron - spin) // 2
-  nocc = nocc.at[0, :nmo_up].set(1)
-  nocc = nocc.at[1, :nmo_dn].set(1)
-  return nocc.astype(int)
-
-
-def sqrt_root_inv(mat: Float[Array, "a a"]) -> Float[Array, "a a"]:
-  """Square root of inverse."""
-  v, u = jnp.linalg.eigh(mat)
-  v = jnp.clip(v, a_min=0)
-  v = jnp.diag(jnp.real(v)**(-1 / 2))
-  ut = jnp.real(u).transpose()
-  return jnp.matmul(v, ut)
-
-
 class Mol(NamedTuple):
   """Represents a molecular system.
   APIs are mostly consistent with pyscf."""
@@ -90,9 +69,6 @@ class Mol(NamedTuple):
   basis: Dict[str, List[Tuple[int, List[List[float]]]]]
   """CGTO basis parameter in format
   {element: [[shell, [exponenet, coeff], ...], ...]}"""
-  # TODO: maybe there's a better place to put this?
-  ovlp: Float[Array, "nao nao"]
-  """overlap matrix"""
 
   @staticmethod
   def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> Mol:
@@ -100,12 +76,9 @@ class Mol(NamedTuple):
     tot_electrons = mol.tot_electrons()
     nocc = get_occupation_mask(tot_electrons, mol.nao, mol.spin)
 
-    # TODO: how to move this out?
-    ovlp = mol.intor('int1e_ovlp_sph')
-
     return Mol(
-      mol.spin, nocc, mol.nao, mol.atom_coords(), mol.atom_charges(),
-      mol.elements, mol._basis, ovlp
+      mol.spin, mol.atom_coords(), mol.atom_charges(), mol.elements, nocc,
+      mol.nao, mol._basis
     )
 
   @staticmethod
@@ -117,30 +90,3 @@ class Mol(NamedTuple):
     """Builds Mol object from molecule name"""
     pyscf_mol = get_pyscf_mol(name, basis, source)
     return Mol.from_pyscf_mol(pyscf_mol)
-
-  # TODO: move this out
-  def get_mo_coeff(
-    self, rks: bool, ortho_fn: Optional[Callable] = None
-  ) -> MoCoeffFlat:
-    """Function to return MO coefficient. Must be haiku transformed."""
-    nmo = self.nao
-    shape = ([nmo, nmo] if rks else [2, nmo, nmo])
-
-    mo_coeff = hk.get_parameter(
-      "mo_params",
-      shape,
-      init=hk.initializers.RandomNormal(stddev=1 / jnp.sqrt(nmo))
-    )
-
-    if ortho_fn:
-      # ortho_fn provide a parameterization of the generalized Stiefel manifold
-      # where (CSC=I), i.e. overlap matrix in Roothann equations is identity.
-      mo_coeff = ortho_fn(mo_coeff) @ sqrt_root_inv(self.ovlp)
-
-    if rks:  # restrictied mo
-      mo_coeff_spin = jnp.repeat(mo_coeff[None], 2, 0)  # add spin axis
-    else:
-      mo_coeff_spin = mo_coeff
-    mo_coeff_spin *= self.nocc[:, :, None]  # apply spin mask
-    mo_coeff_spin = mo_coeff_spin.reshape(-1, nmo)  # flatten
-    return mo_coeff_spin

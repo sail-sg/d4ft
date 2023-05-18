@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from __future__ import annotations  # forward declaration
 
-from typing import Callable, NamedTuple, Tuple, Union
+import math
+from typing import Callable, NamedTuple, Optional, Tuple, Union
 
 import haiku as hk
 import jax
@@ -23,8 +23,9 @@ import numpy as np
 import scipy.special
 from absl import logging
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
-from d4ft.utils import make_constant_fn, inv_softplus
 from d4ft.system.mol import Mol
+from d4ft.types import MoCoeffFlat
+from d4ft.utils import inv_softplus, make_constant_fn
 from jaxtyping import Array, Float, Int
 
 _r25 = np.arange(25)
@@ -84,7 +85,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
   cgto = CGTO(
     primitives, primitives.normalization_constant(), jnp.array(coeffs),
-    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges
+    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges, mol.nocc
   )
   logging.info(f"there are {sum(cgto_splits)} GTOs")
   return cgto
@@ -140,25 +141,27 @@ class CGTO(NamedTuple):
   Useful for copying atom centers to each GTO when doing basis optimization."""
   charge: Int[Array, "*n_atoms"]
   """charges of the atoms"""
+  nocc: Int[Array, "2 nao"]
+  """occupation mask for alpha and beta spin"""
 
   @property
-  def n_gtos(self):
+  def n_gtos(self) -> int:
     return sum(self.cgto_splits)
 
   @property
-  def n_cgtos(self):
+  def n_cgtos(self) -> int:
     return len(self.cgto_splits)
 
   @property
-  def nao(self):
+  def nao(self) -> int:
     return self.n_cgtos
 
   @property
-  def n_atoms(self):
+  def n_atoms(self) -> int:
     return len(self.atom_splits)
 
   @property
-  def atom_coords(self):
+  def atom_coords(self) -> Float[Array, "n_atoms 3"]:
     return self.primitives.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
 
   def map_params(
@@ -226,3 +229,33 @@ class CGTO(NamedTuple):
       self.primitives.angular, center_rep, exponent
     )
     return self._replace(primitives=primitives, coeff=coeff)
+
+  # TODO: consider rename rks
+  def get_mo_coeff(
+    self,
+    rks: bool,
+    ortho_fn: Optional[Callable] = None,
+    ovlp_sqrt_inv: Optional[Float[Array, "nao nao"]] = None,
+  ) -> MoCoeffFlat:
+    """Function to return MO coefficient. Must be haiku transformed."""
+    nmo = self.nao
+    shape = ([nmo, nmo] if rks else [2, nmo, nmo])
+
+    mo_coeff = hk.get_parameter(
+      "mo_params",
+      shape,
+      init=hk.initializers.RandomNormal(stddev=1. / math.sqrt(nmo))
+    )
+
+    if ortho_fn:
+      # ortho_fn provide a parameterization of the generalized Stiefel manifold
+      # where (CSC=I), i.e. overlap matrix in Roothann equations is identity.
+      mo_coeff = ortho_fn(mo_coeff) @ ovlp_sqrt_inv
+
+    if rks:  # restrictied mo
+      mo_coeff_spin = jnp.repeat(mo_coeff[None], 2, 0)  # add spin axis
+    else:
+      mo_coeff_spin = mo_coeff
+    mo_coeff_spin *= self.nocc[:, :, None]  # apply spin mask
+    mo_coeff_spin = mo_coeff_spin.reshape(-1, nmo)  # flatten
+    return mo_coeff_spin

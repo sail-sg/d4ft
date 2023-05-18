@@ -23,7 +23,7 @@ from ml_collections.config_flags import config_flags
 from d4ft.config import D4FTConfig
 from d4ft.hamiltonian.cgto_intors import get_cgto_intor
 from d4ft.hamiltonian.dft_cgto import dft_cgto
-from d4ft.hamiltonian.ortho import qr_factor
+from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
@@ -48,6 +48,8 @@ def main(_: Any) -> None:
   if FLAGS.run == "dft":
     key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
     pyscf_mol = get_pyscf_mol(cfg.mol_cfg.mol_name, cfg.mol_cfg.basis)
+    # TODO: change this to use obsa
+    ovlp = pyscf_mol.intor('int1e_ovlp_sph')
     mol = Mol.from_pyscf_mol(pyscf_mol)
     grids_and_weights = grids_from_pyscf_mol(
       pyscf_mol, cfg.dft_cfg.quad_level
@@ -67,7 +69,10 @@ def main(_: Any) -> None:
         cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
       )
       mo_coeff_fn = partial(
-        mol.get_mo_coeff, rks=cfg.dft_cfg.rks, ortho_fn=qr_factor
+        cgto_hk.get_mo_coeff,
+        rks=cfg.dft_cfg.rks,
+        ortho_fn=qr_factor,
+        sqrt_inv=sqrt_inv(ovlp),
       )
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, lda_x)
       return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
