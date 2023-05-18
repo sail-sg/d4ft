@@ -23,6 +23,7 @@ cc_library(
     deps = [
         ":boys",
         ":comb",
+        "@hemi",
     ],
 )
 
@@ -30,6 +31,13 @@ cuda_library(
     name = "eri_kernel",
     srcs = ["eri_kernel.cu"],
     hdrs = ["eri_kernel.h"],
+    copts = [
+        "--expt-extended-lambda",
+        "--expt-relaxed-constexpr",
+    ],
+    linkopts = [
+        "-lstdc++",
+    ],
     deps = [
         ":eri",
         "@hemi",
