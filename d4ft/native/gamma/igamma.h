@@ -1,10 +1,10 @@
 #ifndef D4FT_NATIVE_GAMMA_IGAMMA_H_
 #define D4FT_NATIVE_GAMMA_IGAMMA_H_
 
-#include <cmath>
 #include "constants.h"
-#include "lgamma.h"
 #include "digamma.h"
+#include "lgamma.h"
+#include <cmath>
 
 enum kIgammaMode { VALUE, DERIVATIVE, SAMPLE_DERIVATIVE };
 
@@ -43,11 +43,11 @@ FLOAT IgammaSeries(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
   }
   FLOAT dlogax_da = std::log(x) - Digamma(a + 1);
   switch (mode) {
-    case DERIVATIVE:
-      return ax * (ans * dlogax_da + dans_da) / a;
-    case SAMPLE_DERIVATIVE:
-    default:
-      return -(dans_da + ans * dlogax_da) * x / a;
+  case DERIVATIVE:
+    return ax * (ans * dlogax_da + dans_da) / a;
+  case SAMPLE_DERIVATIVE:
+  default:
+    return -(dans_da + ans * dlogax_da) * x / a;
   }
 }
 
@@ -122,31 +122,29 @@ FLOAT IgammacContinuedFraction(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
   }
   FLOAT dlogax_da = std::log(x) - Digamma(a);
   switch (mode) {
-    case DERIVATIVE:
-      return ax * (ans * dlogax_da + dans_da);
-    case SAMPLE_DERIVATIVE:
-    default:
-      return -(dans_da + ans * dlogax_da) * x;
+  case DERIVATIVE:
+    return ax * (ans * dlogax_da + dans_da);
+  case SAMPLE_DERIVATIVE:
+  default:
+    return -(dans_da + ans * dlogax_da) * x;
   }
 }
 
-
-template <typename FLOAT>
-FLOAT Igamma(FLOAT a, FLOAT x) {
-  FLOAT is_nan = std::isnan(a) || std::isnan(x);
+template <typename FLOAT> FLOAT Igamma(FLOAT a, FLOAT x) {
+  bool is_nan = std::isnan(a) || std::isnan(x);
   FLOAT x_is_zero = x == 0;
   FLOAT x_is_infinity = x == std::numeric_limits<float>::infinity();
-  FLOAT domain_error = x < 0 || a <= 0;
+  bool domain_error = x < 0 || a <= 0;
   bool use_igammac = (x > 1) && (x > a);
   FLOAT ax = a * std::log(x) - x - Lgamma(a);
-  FLOAT underflow = ax < -std::log(std::numeric_limits<FLOAT>::max());
+  bool underflow = ax < -std::log(std::numeric_limits<FLOAT>::max());
   ax = std::exp(ax);
   bool enabled = !(x_is_zero || domain_error || underflow || is_nan);
   const double nan = std::numeric_limits<double>::quiet_NaN();
   FLOAT output;
   if (use_igammac) {
-    output = 1 - IgammacContinuedFraction<FLOAT, VALUE>(
-        ax, x, a, enabled && use_igammac);
+    output = 1 - IgammacContinuedFraction<FLOAT, VALUE>(ax, x, a,
+                                                        enabled && use_igammac);
   } else {
     output = IgammaSeries<FLOAT, VALUE>(ax, x, a, enabled && !use_igammac);
   }
@@ -162,27 +160,26 @@ FLOAT Igamma(FLOAT a, FLOAT x) {
   return output;
 }
 
-template <typename FLOAT>
-FLOAT IgammaGradA(FLOAT a, FLOAT x) {
+template <typename FLOAT> FLOAT IgammaGradA(FLOAT a, FLOAT x) {
   bool is_nan = std::isnan(a) || std::isnan(x);
   bool x_is_zero = x == 0;
-  FLOAT domain_error = x < 0 || a <= 0;
+  bool domain_error = x < 0 || a <= 0;
   bool use_igammac = (x > 1) && (x > a);
   FLOAT ax = a * std::log(x) - x - Lgamma(a);
-  FLOAT underflow = ax < -std::log(std::numeric_limits<FLOAT>::max());
+  bool underflow = ax < -std::log(std::numeric_limits<FLOAT>::max());
   ax = std::exp(ax);
   bool enabled = !(x_is_zero || domain_error || underflow || is_nan);
   const double nan = std::numeric_limits<double>::quiet_NaN();
-  FLOAT output = use_igammac ?
-      - IgammacContinuedFraction<DERIVATIVE>(ax, x, a, enabled && use_igammac) :
-      IgammaSeries<DERIVATIVE>(ax, x, a, enabled && !use_igammac);
+  FLOAT output =
+      use_igammac ? -IgammacContinuedFraction<DERIVATIVE>(
+                        ax, x, a, enabled && use_igammac)
+                  : IgammaSeries<DERIVATIVE>(ax, x, a, enabled && !use_igammac);
   output = x_is_zero ? 0 : output;
   output = domain_error || is_nan ? nan : output;
   return output;
 }
 
-template <typename FLOAT>
-FLOAT Igammac(const FLOAT& a, const FLOAT& x) {
+template <typename FLOAT> FLOAT Igammac(const FLOAT &a, const FLOAT &x) {
   FLOAT max_finite_value = std::numeric_limits<FLOAT>::max();
   bool b;
   bool out_of_range = (x <= 0) || (a <= 0);
@@ -192,15 +189,13 @@ FLOAT Igammac(const FLOAT& a, const FLOAT& x) {
   bool enabled = !(out_of_range || underflow);
   ax = std::exp(ax);
   FLOAT result =
-      use_igamma ? (1 - IgammaSeries<FLOAT, VALUE>(
-          ax, x, a, enabled && use_igamma)) :
-      IgammacContinuedFraction<FLOAT, VALUE>(
-          ax, x, a, enabled && !use_igamma);
-  bool x_is_infinity =
-      (x == std::numeric_limits<FLOAT>::infinity());
+      use_igamma
+          ? (1 - IgammaSeries<FLOAT, VALUE>(ax, x, a, enabled && use_igamma))
+          : IgammacContinuedFraction<FLOAT, VALUE>(ax, x, a,
+                                                   enabled && !use_igamma);
+  bool x_is_infinity = (x == std::numeric_limits<FLOAT>::infinity());
   result = x_is_infinity ? 0 : result;
   return out_of_range ? 1 : result;
 }
-
 
 #endif // D4FT_NATIVE_GAMMA_IGAMMA_H_
