@@ -81,3 +81,6 @@ doc-clean:
 lint: buildifier flake8 py-format # docstyle
 
 format: py-format-install buildifier-install addlicense-install py-format-fix buildifier-fix addlicense-fix
+
+bazel-test: bazel-install
+	bazel test --test_output=all //tests/... --config=test --spawn_strategy=local --color=yes
