@@ -4,7 +4,9 @@ on: [push, pull_request]
 
 jobs:
   test:
-    runs-on: [self-hosted, Linux, X64, Test]
+    runs-on: ubuntu-18.04
+    container:
+      image: ghcr.io/sail-sg/jax-xc-image:latest
     steps:
       - name: Cancel previous run
         uses: styfle/cancel-workflow-action@0.11.0
@@ -13,4 +15,6 @@ jobs:
       - uses: actions/checkout@v3
       - name: Test
         run: |
-          make bazel-test
+          eval "$(pyenv init -)" && pyenv global 3.8-dev
+          pip install -r requirements.txt
+          bazel test --test_output=all --remote_cache=http://${{ secrets.BAZEL_CACHE }}:8080 //tests/...
