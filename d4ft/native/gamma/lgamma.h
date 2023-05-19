@@ -1,9 +1,10 @@
 #ifndef D4FT_NATIVE_GAMMA_LGAMMA_H_
 #define D4FT_NATIVE_GAMMA_LGAMMA_H_
 
-#include <cmath>
-#include <array>
 #include "constants.h"
+#include "hemi/hemi.h"
+#include <array>
+#include <cmath>
 
 // Compute the Lgamma function using Lanczos' approximation from "A Precision
 // Approximation of the Gamma Function". SIAM Journal on Numerical Analysis
@@ -11,8 +12,7 @@
 // lgamma(z + 1) = (log(2) + log(pi)) / 2 + (z + 1/2) * log(t(z)) - t(z) + A(z)
 // t(z) = z + kLanczosGamma + 1/2
 // A(z) = kBaseLanczosCoeff + sigma(k = 1, n, kLanczosCoefficients[i] / (z + k))
-template <typename FLOAT>
-FLOAT Lgamma(FLOAT input) {
+template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Lgamma(FLOAT input) {
   FLOAT one_half = 0.5;
   FLOAT one = 1;
   FLOAT pi = M_PI;
@@ -27,8 +27,9 @@ FLOAT Lgamma(FLOAT input) {
   FLOAT need_to_reflect = input < one_half;
   FLOAT z = -input * need_to_reflect + (input - one) * (one - need_to_reflect);
   FLOAT x = base_lanczos_coeff;
-  for (int i = 0, end = kLanczosCoefficients.size(); i < end; ++i) {
-    FLOAT lanczos_coefficient = kLanczosCoefficients[i];
+  for (int i = 0, end = std::size(HEMI_CONSTANT(kLanczosCoefficients)); i < end;
+       ++i) {
+    FLOAT lanczos_coefficient = HEMI_CONSTANT(kLanczosCoefficients)[i];
     FLOAT index = i;
     x = x + lanczos_coefficient / (z + index + one);
   }
@@ -40,7 +41,7 @@ FLOAT Lgamma(FLOAT input) {
   //        = log(kLanczosGamma + 0.5) + log1p(z / (kLanczosGamma + 0.5))
   FLOAT t = lanczos_gamma_plus_one_half + z;
   FLOAT log_t = log_lanczos_gamma_plus_one_half +
-      std::log1p(z / lanczos_gamma_plus_one_half);
+                std::log1p(z / lanczos_gamma_plus_one_half);
 
   // Compute the final result (modulo reflection).  t(z) may be large, and we
   // need to be careful not to overflow to infinity in the first term of
@@ -51,7 +52,8 @@ FLOAT Lgamma(FLOAT input) {
   //
   //   (z + 1/2 - t(z) / log(t(z))) * log(t(z)).
   //
-  FLOAT log_y = log_sqrt_two_pi + (z + one_half - t / log_t) * log_t + std::log(x);
+  FLOAT log_y =
+      log_sqrt_two_pi + (z + one_half - t / log_t) * log_t + std::log(x);
 
   // Compute the reflected value, used when x < 0.5:
   //
@@ -84,7 +86,8 @@ FLOAT Lgamma(FLOAT input) {
   // Convert values of abs_frac_input > 0.5 to (1 - frac_input) to improve
   // precision of pi * abs_frac_input for values of abs_frac_input close to 1.
   // FLOAT abs_frac_input_gt_half = abs_frac_input > 0.5;
-  // FLOAT reduced_frac_input = abs_frac_input_gt_half * (one - abs_frac_input) +
+  // FLOAT reduced_frac_input = abs_frac_input_gt_half * (one - abs_frac_input)
+  // +
   //                            (one - abs_frac_input_gt_half) * abs_frac_input;
   FLOAT reduced_frac_input = std::min(abs_frac_input, one - abs_frac_input);
   FLOAT reflection_denom = std::log(std::sin(pi * reduced_frac_input));
@@ -105,8 +108,8 @@ FLOAT Lgamma(FLOAT input) {
 
   // lgamma(+/-inf) = +inf.
   if (std::isinf(input)) {
-      return std::numeric_limits<FLOAT>::infinity();
-    } else {
+    return std::numeric_limits<FLOAT>::infinity();
+  } else {
     return result;
   }
 }

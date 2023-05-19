@@ -1,11 +1,11 @@
 #ifndef D4FT_NATIVE_GAMMA_DIGAMMA_H_
 #define D4FT_NATIVE_GAMMA_DIGAMMA_H_
 
-#include <cmath>
 #include "constants.h"
+#include "hemi/hemi.h"
+#include <cmath>
 
-template <typename FLOAT>
-FLOAT Digamma(FLOAT input) {
+template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Digamma(FLOAT input) {
   FLOAT zero = 0;
   FLOAT one_half = 0.5;
   FLOAT one = 1;
@@ -26,8 +26,9 @@ FLOAT Digamma(FLOAT input) {
   }
   FLOAT num = zero;
   FLOAT denom = base_lanczos_coeff;
-  for (int i = 0, end = kLanczosCoefficients.size(); i < end; ++i) {
-    FLOAT lanczos_coefficient = kLanczosCoefficients[i];
+  for (int i = 0, end = std::size(HEMI_CONSTANT(kLanczosCoefficients)); i < end;
+       ++i) {
+    FLOAT lanczos_coefficient = HEMI_CONSTANT(kLanczosCoefficients)[i];
     FLOAT index = i;
     num = num - lanczos_coefficient / ((z + index + one) * (z + index + one));
     denom = denom + lanczos_coefficient / (z + index + one);
@@ -40,7 +41,7 @@ FLOAT Digamma(FLOAT input) {
   //        = log(kLanczosGamma + 0.5) + log1p(z / (kLanczosGamma + 0.5))
   FLOAT t = lanczos_gamma_plus_one_half + z;
   FLOAT log_t = log_lanczos_gamma_plus_one_half +
-      std::log1p(z / lanczos_gamma_plus_one_half);
+                std::log1p(z / lanczos_gamma_plus_one_half);
 
   FLOAT y = log_t + num / denom - lanczos_gamma / t;
 

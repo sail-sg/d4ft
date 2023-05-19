@@ -3,6 +3,7 @@
 
 #include "constants.h"
 #include "digamma.h"
+#include "hemi/hemi.h"
 #include "lgamma.h"
 #include <cmath>
 
@@ -10,7 +11,7 @@ enum kIgammaMode { VALUE, DERIVATIVE, SAMPLE_DERIVATIVE };
 
 // Helper function for computing Igamma using a power series.
 template <typename FLOAT, kIgammaMode mode>
-FLOAT IgammaSeries(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
+HEMI_DEV_CALLABLE FLOAT IgammaSeries(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
   // vals: (enabled, r, c, ans, x)
   // 'enabled' is a predication mask that says for which elements we should
   // execute the loop body. Disabled elements have no effect in the loop body.
@@ -31,11 +32,11 @@ FLOAT IgammaSeries(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
     dans_da = dans_da + dc_da;
     c = c * (x / r);
     ans = ans + c;
-    bool conditional;
     if (mode == VALUE) {
-      enabled = enabled && c / ans > eps<FLOAT>;
+      enabled = enabled && c / ans > HEMI_CONSTANT(eps)<FLOAT>;
     } else {
-      enabled = enabled && std::abs(dc_da / dans_da) > eps<FLOAT>;
+      enabled =
+          enabled && std::abs(dc_da / dans_da) > HEMI_CONSTANT(eps)<FLOAT>;
     }
   }
   if (mode == VALUE) {
@@ -53,7 +54,8 @@ FLOAT IgammaSeries(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
 
 // Helper function for computing Igammac using a continued fraction.
 template <typename FLOAT, kIgammaMode mode>
-FLOAT IgammacContinuedFraction(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
+HEMI_DEV_CALLABLE FLOAT IgammacContinuedFraction(FLOAT ax, FLOAT x, FLOAT a,
+                                                 bool enabled) {
   FLOAT y = 1 - a;
   FLOAT z = x + y + 1;
   int c = 0;
@@ -99,22 +101,22 @@ FLOAT IgammacContinuedFraction(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
     dqkm2_da = dqkm1_da;
     dpkm1_da = dpk_da;
     dqkm1_da = dqk_da;
-    bool rescale = std::abs(pk) > 1. / eps<FLOAT>;
+    bool rescale = std::abs(pk) > 1. / HEMI_CONSTANT(eps)<FLOAT>;
     if (rescale) {
-      pkm2 = pkm2 * eps<FLOAT>;
-      pkm1 = pkm1 * eps<FLOAT>;
-      qkm2 = qkm2 * eps<FLOAT>;
-      qkm1 = qkm1 * eps<FLOAT>;
-      dpkm2_da = dpkm2_da * eps<FLOAT>;
-      dpkm1_da = dpkm1_da * eps<FLOAT>;
-      dqkm2_da = dqkm2_da * eps<FLOAT>;
-      dqkm1_da = dqkm1_da * eps<FLOAT>;
+      pkm2 = pkm2 * HEMI_CONSTANT(eps)<FLOAT>;
+      pkm1 = pkm1 * HEMI_CONSTANT(eps)<FLOAT>;
+      qkm2 = qkm2 * HEMI_CONSTANT(eps)<FLOAT>;
+      qkm1 = qkm1 * HEMI_CONSTANT(eps)<FLOAT>;
+      dpkm2_da = dpkm2_da * HEMI_CONSTANT(eps)<FLOAT>;
+      dpkm1_da = dpkm1_da * HEMI_CONSTANT(eps)<FLOAT>;
+      dqkm2_da = dqkm2_da * HEMI_CONSTANT(eps)<FLOAT>;
+      dqkm1_da = dqkm1_da * HEMI_CONSTANT(eps)<FLOAT>;
     }
     FLOAT conditional;
     if (mode == VALUE) {
-      enabled = (enabled && t > eps<FLOAT>);
+      enabled = (enabled && t > HEMI_CONSTANT(eps) < FLOAT >);
     } else {
-      enabled = (enabled && grad_conditional > eps<FLOAT>);
+      enabled = (enabled && grad_conditional > HEMI_CONSTANT(eps) < FLOAT >);
     }
   }
   if (mode == VALUE) {
@@ -130,7 +132,7 @@ FLOAT IgammacContinuedFraction(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
   }
 }
 
-template <typename FLOAT> FLOAT Igamma(FLOAT a, FLOAT x) {
+template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Igamma(FLOAT a, FLOAT x) {
   bool is_nan = std::isnan(a) || std::isnan(x);
   FLOAT x_is_zero = x == 0;
   FLOAT x_is_infinity = x == std::numeric_limits<float>::infinity();
@@ -160,7 +162,8 @@ template <typename FLOAT> FLOAT Igamma(FLOAT a, FLOAT x) {
   return output;
 }
 
-template <typename FLOAT> FLOAT IgammaGradA(FLOAT a, FLOAT x) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT IgammaGradA(FLOAT a, FLOAT x) {
   bool is_nan = std::isnan(a) || std::isnan(x);
   bool x_is_zero = x == 0;
   bool domain_error = x < 0 || a <= 0;
@@ -179,7 +182,8 @@ template <typename FLOAT> FLOAT IgammaGradA(FLOAT a, FLOAT x) {
   return output;
 }
 
-template <typename FLOAT> FLOAT Igammac(const FLOAT &a, const FLOAT &x) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT Igammac(const FLOAT &a, const FLOAT &x) {
   FLOAT max_finite_value = std::numeric_limits<FLOAT>::max();
   bool b;
   bool out_of_range = (x <= 0) || (a <= 0);
