@@ -50,10 +50,11 @@ class PWTest(parameterized.TestCase):
     )
 
     pw_coeff_fn = hk.without_apply_rng(
-      hk.transform(pw.get_pw_coeff(polarized=True, ortho_fn=qr_factor))
+      hk.transform(lambda: pw.get_pw_coeff(polarized=True, ortho_fn=qr_factor))
     )
-    params = pw_coeff_fn.init()
+    params = pw_coeff_fn.init(137)
     pw_coeff = pw_coeff_fn.apply(params)
+    logging.info(pw_coeff.shape)
     nr, nG = pw.eval(pw_coeff)
     logging.info(nr.shape)
     logging.info(nG.shape)

@@ -119,7 +119,7 @@ class PW(NamedTuple):
     # TODO: why e_cut*2?
     g_selected = g_norm**2 <= self.e_cut * 2
     n_g_selected = jnp.sum(g_selected)
-    n_g_selected = jax.device_get(n_g_selected).item  # cast to float
+    n_g_selected = jax.device_get(n_g_selected).item()  # cast to float
     g_select_ratio = n_g_selected / self.tot_g_pts
     logging.info(f"{g_select_ratio*100:.2f}% frequency selected.")
     logging.info(f"G grid: {self.n_g_pts}")
@@ -173,7 +173,7 @@ class PW(NamedTuple):
     )
     nocc = einops.rearrange(self.nocc, "spin ele k -> spin ele k 1 1 1")
     density_r_total = einops.reduce(
-      density_r * nocc, "spin ele k 1 1 1 -> 1 1 1", "sum"
+      density_r * nocc, "spin ele k n_gx n_gy n_gz -> n_gx n_gy n_gz", "sum"
     )
     const = self.tot_electrons / self.vol * self.tot_g_pts
     density_r_total = density_r_total / jnp.sum(density_r_total) * const
