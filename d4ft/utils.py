@@ -57,3 +57,7 @@ def to_3dvec(val: Any, dtype: Type) -> Num[np.ndarray, "3"]:
     return np.ones(3, dtype=dtype) * np.array(val, dtype=dtype)
   else:
     raise TypeError("input should be a scalar, Iterable or np.array.")
+
+
+def vmap_to_3d(func: Callable) -> Callable:
+  return jax.vmap(jax.vmap(jax.vmap(func)))

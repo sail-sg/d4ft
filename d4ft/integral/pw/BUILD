@@ -20,6 +20,17 @@ py_library(
     visibility = ["//visibility:public"],
     deps = [
         "//d4ft:types",
+        "//d4ft:utils",
         "//d4ft/system:occupation",
+    ],
+)
+
+py_library(
+    name = "pw_intors",
+    srcs = ["pw_intors.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//d4ft:types",
+        "//d4ft:utils",
     ],
 )

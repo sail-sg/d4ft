@@ -68,7 +68,7 @@ class Energies(NamedTuple):
   e_total: Float[Array, ""]
   e_kin: Float[Array, ""]
   e_ext: Float[Array, ""]
-  e_eri: Float[Array, ""]
+  e_har: Float[Array, ""]
   e_xc: Float[Array, ""]
   e_nuc: Float[Array, ""]
 
@@ -76,7 +76,7 @@ class Energies(NamedTuple):
 class Grads(NamedTuple):
   kin_grad: Array
   ext_grad: Array
-  eri_grad: Array
+  har_grad: Array
   xc_grad: Array
 
 
@@ -103,7 +103,7 @@ class Hamiltonian(NamedTuple):
   """Maps mo_coeff to kinetic energy."""
   ext_fn: MoCoeffScalarFn
   """Maps mo_coeff to external (nuclera attraction) energy."""
-  eri_fn: MoCoeffScalarFn  # TODO: rename to hartree
+  har_fn: MoCoeffScalarFn  # TODO: rename to hartree
   """Maps mo_coeff to electronic repulsion energy."""
   xc_fn: MoCoeffScalarFn
   """XC functional."""

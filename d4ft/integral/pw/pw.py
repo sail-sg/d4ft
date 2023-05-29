@@ -25,7 +25,8 @@ import jax.numpy as jnp
 from absl import logging
 from d4ft.system.crystal import Crystal
 from d4ft.system.occupation import get_occupation_mask
-from d4ft.types import Vec3DInt, PWCoeff
+from d4ft.types import PWCoeff, Vec3DInt
+from d4ft.utils import vmap_to_3d
 from jaxtyping import Array, Float, Int
 
 
@@ -34,10 +35,6 @@ def cut_half(n: int) -> Int[Array, "n"]:
       [0, 1, ..., n//2, -n//2, -n//2+1, ..., -1]
   """
   return jnp.arange(n).at[(n // 2 + 1):].add(-n)
-
-
-def vmap_to_3d(func: Callable) -> Callable:
-  return jax.vmap(jax.vmap(jax.vmap(func)))
 
 
 def cell_to_vec(cell: Float[Array, "3 3"],
@@ -157,6 +154,16 @@ class PW(NamedTuple):
   def eval(self, pw_coeff: PWCoeff):
     """Get density in real and reciprocal space, i.e. n(r) and n(G).
 
+    The total density in real space over electron index i and k point k is
+    .. math::
+    n(r) = 1/N_k sum_i sum_{k\in Brillouin Zone} f(e_{ik}) |psi_{ik}(r)|^2
+
+    where psi_{ik} is the wave function for electron i at k point k, which
+    is a linear combination of plane waves with wavevector k,
+    using coefficients pw_coeff.
+
+    The total density in the reciproal space can be obtained by Fourier
+
     Args:
         params (_type_): _description_
     Return:
@@ -171,6 +178,7 @@ class PW(NamedTuple):
     density_r /= einops.reduce(
       density_r, "spin ele k n_gx n_gy n_gz -> spin ele k 1 1 1", "sum"
     )
+    # TODO: soft occupancy
     nocc = einops.rearrange(self.nocc, "spin ele k -> spin ele k 1 1 1")
     density_r_total = einops.reduce(
       density_r * nocc, "spin ele k n_gx n_gy n_gz -> n_gx n_gy n_gz", "sum"

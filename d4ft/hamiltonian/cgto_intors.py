@@ -81,14 +81,14 @@ def get_cgto_intor(
       e_ext = jnp.sum(ext * rdm1_2c_ab)
       return e_ext
 
-    def eri_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
       rdm1 = get_rdm1(mo_coeff)
       rdm1_4c_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
       rdm1_4c_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
-      e_eri = jnp.sum(eri * rdm1_4c_ab * rdm1_4c_cd)
-      return e_eri
+      e_har = jnp.sum(eri * rdm1_4c_ab * rdm1_4c_cd)
+      return e_har
 
   else:  # TODO: out-of-core
     pass
 
-  return kin_fn, ext_fn, eri_fn
+  return kin_fn, ext_fn, har_fn

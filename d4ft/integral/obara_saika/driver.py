@@ -81,7 +81,7 @@ def incore_int_sym(
   eri_abab = gto_4c_fn(cgto, abab_idx_count, None, None)
   logging.info(f"block diag (ab|ab) computed, size: {eri_abab.shape}")
 
-  eri_abcd_cgto = 0.
+  eri_abcd_cgto = jnp.zeros(1)
 
   # TODO: contract diag sto first
   # TODO: prescreen
