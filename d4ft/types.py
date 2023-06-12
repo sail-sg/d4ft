@@ -18,7 +18,7 @@ import numpy as np
 from jaxtyping import Array, Float, Int
 from typing_extensions import TypeAlias
 
-Vec3DInt = Int[np.ndarray, "3"]
+Vec3DInt: TypeAlias = Int[np.ndarray, "3"]
 
 IdxCount2C: TypeAlias = Int[Array, "batch 3"]
 """2c GTO index concatenated with the repetition count
@@ -33,7 +33,7 @@ MoCoeff: TypeAlias = Float[Array, "2 nmo nao"]
 MoCoeffFlat: TypeAlias = Float[Array, "2*nmo nao"]
 """Flattened MO coefficient matrix"""
 
-PWCoeff = Float[Array, "spin ele k g x y z"]
+PWCoeff: TypeAlias = Float[Array, "spin ele k g x y z"]
 """plane wave coefficients"""
 
 Tensor2C: TypeAlias = Float[Array, "#ab"]

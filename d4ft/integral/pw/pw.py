@@ -52,9 +52,9 @@ def cell_to_vec(cell: Float[Array, "3 3"],
 class PW(NamedTuple):
   """Plane Wave"""
   n_g_pts: Vec3DInt
-  """number of G points in each spatial direction"""
+  """number of reciprocal lattice vectors in each spatial direction"""
   n_k_pts: Vec3DInt
-  """number of k (reciprocal) points in each spatial direction"""
+  """number of k points (crystal momenta) in each spatial direction"""
   k_pts: Float[Array, "total_n_k_pts 3"]
   """a flat list of k point coordinates in absolute value (unit 1/Bohr)"""
   e_cut: float
@@ -62,9 +62,9 @@ class PW(NamedTuple):
   nocc: Int[Array, "2 ele k"]
   """occupation mask for alpha and beta spin"""
   r_vec: Float[Array, "n_gx, n_gy, n_gz, 3"]
-  """lattice constant vectors in real space"""
+  """lattice constant vectors in real / direct space"""
   g_vec: Float[Array, "n_gx, n_gy, n_gz, 3"]
-  """G points (lattice constant vectors in reciprocal space)"""
+  """G points / reciprocal lattice constant vectors"""
   vol: float
   """real space cell volume"""
 
@@ -96,7 +96,7 @@ class PW(NamedTuple):
     tot_kpts = len(k_pts)
     tot_electrons = crystal.n_electron_in_cell
 
-    # TODO: soft occupancy
+    # TODO: fermi-dirac distribution above zero temp
     nocc = get_occupation_mask(
       tot_electrons, tot_electrons * tot_kpts, crystal.spin
     ).reshape(2, tot_electrons, tot_kpts)

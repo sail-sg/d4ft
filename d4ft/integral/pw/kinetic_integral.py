@@ -1,11 +1,8 @@
-import jax
 import jax.numpy as jnp
-from jax_xc import lda_x, gga_c_pbe
-from typing import Callable
-from d4ft.utils import vmap_to_3d
+from jaxtyping import Array, Float
 
 
-def kinetic_integral(gvec, kpts, _params_w, g_mask, nocc):
+def kinetic_integral(gvec, kpts, _params_w, nocc) -> Float[Array, ""]:
   """Kinetic energy
       E = 1/2 \sum_{G} |k + G|^2 c_{i,k,G}^2
   Args:
@@ -20,7 +17,6 @@ def kinetic_integral(gvec, kpts, _params_w, g_mask, nocc):
   _k = kpts[None, :, None, None, None, :]  # shape [1, nk, 1, 1, 1, 3]
 
   output = jnp.sum((_g + _k)**2, axis=-1)  # [1, nk, M1, M2, M3]
-  # output *= g_mask[None, None, :, :, :]
   output = jnp.expand_dims(output, axis=0)  # [1, 1, nk, M1, M2, M3]
   output = jnp.sum(
     output * jnp.abs(_params_w)**2, axis=(3, 4, 5)
