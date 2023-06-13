@@ -25,6 +25,7 @@ import ase.io
 import jax.numpy as jnp
 import numpy as np
 from d4ft.constants import ANGSTRONG_TO_BOHR
+from d4ft.types import Cell
 from jaxtyping import Array, Float, Int
 
 
@@ -41,14 +42,13 @@ class Crystal(NamedTuple):
   """list of atoms"""
 
   # crystal specific fields
-  cell: Float[Array, "3 3"]
-  """real space cell (unit Bohr), which is a 3x3 matrix representing
-  the three 3D lattice vectors."""
+  cell: Cell
+  """real space cell in Bohr unit"""
   vol: float
-  """real space cell volume"""
+  """real space cell volume, used for normalization"""
 
   @property
-  def reciprocal_cell(self) -> Float[Array, "3 3"]:
+  def reciprocal_cell(self) -> Cell:
     """reciprocal space cell in absolute value (unit 1/Bohr),
     which equals to 2pi * inv(cell)"""
     return 2 * jnp.pi * jnp.linalg.inv(self.cell)
@@ -65,7 +65,7 @@ class Crystal(NamedTuple):
   def from_name_and_lattice(
     crystal_name: str,
     position: Float[np.ndarray, "n_atoms 3"],
-    cell_angstrong: Float[np.ndarray, "3 3"],
+    cell_angstrong: Cell,
     spin: int = 0,
   ) -> Crystal:
     # TODO: calculate position and cell from lattice constant

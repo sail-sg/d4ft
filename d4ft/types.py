@@ -18,7 +18,10 @@ import numpy as np
 from jaxtyping import Array, Float, Int
 from typing_extensions import TypeAlias
 
-Vec3DInt: TypeAlias = Int[np.ndarray, "3"]
+NPArray = Union[np.ndarray, Array]
+
+LatticeDim: TypeAlias = Int[np.ndarray, "3"]
+"""Dimension of 3D lattice, which is a 3D vector of integers."""
 
 IdxCount2C: TypeAlias = Int[Array, "batch 3"]
 """2c GTO index concatenated with the repetition count
@@ -40,6 +43,10 @@ Tensor2C: TypeAlias = Float[Array, "#ab"]
 Tensor4C: TypeAlias = Float[Array, "#abcd"]
 ETensorsIncore: TypeAlias = Tuple[Tensor2C, Tensor2C, Tensor4C]
 """kin, ext and eri tensor incore"""
+
+Cell = Float[NPArray, "3 3"]
+"""real / reciprocal space cell represented by a 3x3 matrix consists of
+the three 3D lattice vectors."""
 
 QuadGrids: TypeAlias = Float[Array, "#n_grid_pts"]
 """quadrature grids"""

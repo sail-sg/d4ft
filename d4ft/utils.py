@@ -17,6 +17,7 @@ from numbers import Number
 from pathlib import Path
 from typing import Any, Callable, Iterable, Type, Union
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 from jaxtyping import Num
@@ -59,5 +60,7 @@ def to_3dvec(val: Any, dtype: Type) -> Num[np.ndarray, "3"]:
     raise TypeError("input should be a scalar, Iterable or np.array.")
 
 
-def vmap_to_3d(func: Callable) -> Callable:
+def vmap_3D_lattice(func: Callable) -> Callable:
+  """vmap a funtion in_shape->out_shape to 3D lattice, i.e. transform it to
+  a function (x_dim y_dim z_dim in_shape)->(x_dim y_dim z_dim out_shape)"""
   return jax.vmap(jax.vmap(jax.vmap(func)))
