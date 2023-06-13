@@ -3,7 +3,7 @@ chex==0.1.5
 distrax>=0.1.2
 dm-haiku>=0.0.9
 jax>=0.3.25
-jax_xc==0.0.3
+jax-xc>=0.0.3
 jaxlib>=0.3.25
 jaxtyping==0.2.15
 matplotlib==3.6.2
