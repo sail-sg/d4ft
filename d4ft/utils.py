@@ -20,23 +20,27 @@ from typing import Any, Callable, Iterable, Type, Union
 import jax
 import jax.numpy as jnp
 import numpy as np
-from jaxtyping import Num
+from jaxtyping import Num, Array
 from ml_collections import ConfigDict
 
 
+def complex_norm_square(x):
+  return jnp.real(jnp.conj(x) * x)
+
+
 def make_constant_fn(val: Any) -> Callable:
-  return lambda *a, **kw: val
+  return lambda *_, **__: val
 
 
-def compose(f, g):
+def compose(f: Callable, g: Callable) -> Callable:
   return lambda *a, **kw: f(g(*a, **kw))
 
 
-def inv_softplus(x):
+def inv_softplus(x: Num[Array, "*s"]) -> Num[Array, "*s"]:
   return jnp.log(jnp.exp(x) - 1.)
 
 
-def save_cfg(cfg: ConfigDict, save_path: Union[str, Path]):
+def save_cfg(cfg: ConfigDict, save_path: Union[str, Path]) -> None:
   with Path(save_path).open("w") as f:
     json.dump(
       json.loads(cfg.to_json_best_effort()), f, sort_keys=True, indent=2

@@ -74,7 +74,7 @@ class PW(NamedTuple):
   reciprocal_lattice_dim: LatticeDim
   """Dimension of the reciprocal lattice, i.e. the number of reciprocal lattice
   vectors in each spatial direction"""
-  k_pts: Float[Array, "total_n_k_pts 3"]
+  k_pts: Float[Array, "k 3"]
   """a flat list of k point coordinates in absolute value (unit 1/Bohr)"""
   energy_cutoff: float
   """kinetic energy (of G points) cutoff for the plane wave basis set"""

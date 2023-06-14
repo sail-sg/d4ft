@@ -1,25 +1,35 @@
+import einops
 import jax.numpy as jnp
-from jaxtyping import Array, Float
+from d4ft.utils import complex_norm_square
+from jaxtyping import Array, Float, Int
 
 
-def kinetic_integral(gvec, kpts, _params_w, nocc) -> Float[Array, ""]:
-  """Kinetic energy
-      E = 1/2 \sum_{G} |k + G|^2 c_{i,k,G}^2
+def kinetic_integral(
+  reciprocal_lattice_vec: Float[Array, "x y z 3"],
+  k_pts: Float[Array, "k 3"],
+  pw_coeff: Float[Array, "spin ele k x y z"],
+  nocc: Int[Array, "2 ele k"],
+) -> Float[Array, ""]:
+  """Kinetic energy.
+
+.. math::
+      E = 1/2 \sum_{G} |k + G|^2 c_{i,k,G}^* c_{i,k,G}
+
   Args:
-      gvec (4D array): G-vector. Shape: [N1, N2, N3, 3]
-      kpts (2D array): k-points. Shape: [nk, 3]
-      _params_w (6D array): whitened model params. Shape: [2, ni, nk, M1, M2, M3]
       nocc (3D array): occupation mask. Shape: [2, ni, nk]
   Returns:
       scalar
   """
-  _g = gvec[None, None, :, :, :, :]  # shape [1, 1, M1, M2, M3, 3]
-  _k = kpts[None, :, None, None, None, :]  # shape [1, nk, 1, 1, 1, 3]
-
-  output = jnp.sum((_g + _k)**2, axis=-1)  # [1, nk, M1, M2, M3]
-  output = jnp.expand_dims(output, axis=0)  # [1, 1, nk, M1, M2, M3]
-  output = jnp.sum(
-    output * jnp.abs(_params_w)**2, axis=(3, 4, 5)
-  )  # Shape: [2, ni, nk]
-
-  return jnp.sum(output * nocc) / 2
+  # add spin, electron and k dimension
+  G = einops.rearrange(reciprocal_lattice_vec, "x y z 3 -> 1 1 1 x y z 3")
+  # add spin, electron and lattice dimensions
+  k = einops.rearrange(k_pts, "k 3 -> 1 1 k 1 1 1 3")
+  kG_norm = einops.reduce(
+    (k + G)**2, "spin ele k x y z 3 -> spin ele k x y z", "sum"
+  )
+  coeff_norm = complex_norm_square(pw_coeff)
+  kin_sik = einops.reduce(
+    kG_norm * coeff_norm, "spin ele k x y z -> spin ele k", "sum"
+  )
+  kin = 0.5 * jnp.sum(kin_sik * nocc)
+  return kin

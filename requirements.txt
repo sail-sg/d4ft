@@ -1,9 +1,11 @@
+ase>=3.22.1
 bs4==0.0.1
 chex==0.1.5
 distrax>=0.1.2
 dm-haiku>=0.0.9
-jax>=0.3.25
+einops>=0.6.1
 jax-xc>=0.0.3
+jax>=0.3.25
 jaxlib>=0.3.25
 jaxtyping==0.2.15
 matplotlib==3.6.2

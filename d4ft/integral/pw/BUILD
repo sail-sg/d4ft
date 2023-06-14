@@ -34,3 +34,12 @@ py_library(
         "//d4ft:utils",
     ],
 )
+
+py_library(
+    name = "kinetic_integral",
+    srcs = ["kinetic_integral.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//d4ft:utils",
+    ],
+)
