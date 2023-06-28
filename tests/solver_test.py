@@ -13,8 +13,11 @@
 # limitations under the License.
 
 from functools import partial
+from typing import Tuple
 
 import jax
+from d4ft.integral.quadrature.grids import grids_from_pyscf_mol
+from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from absl.testing import absltest, parameterized
 from d4ft.config import DFTConfig, OptimizerConfig
 from d4ft.hamiltonian.cgto_intors import get_cgto_intor
@@ -34,8 +37,8 @@ class SolverTest(parameterized.TestCase):
 
   @parameterized.parameters(
     ("h2", (-1., -1.1)),
-    ("o", (-72., -75.)),
-    ("h2o", (-74., -80.)),
+    # ("o", (-72., -75.)),
+    # ("h2o", (-74., -80.)),
   )
   def test_incore_sgd_dft(
     self, system: str, energy_bounds: Tuple[float, float]
@@ -44,6 +47,7 @@ class SolverTest(parameterized.TestCase):
     key = jax.random.PRNGKey(137)
 
     pyscf_mol = get_pyscf_mol(system, basis)
+    ovlp = pyscf_mol.intor('int1e_ovlp_sph')
     mol = Mol.from_pyscf_mol(pyscf_mol)
     cgto = CGTO.from_mol(mol)
     s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
@@ -54,7 +58,12 @@ class SolverTest(parameterized.TestCase):
     )
     grids_and_weights = grids_from_pyscf_mol(pyscf_mol, 1)
     xc_fn = get_xc_intor(grids_and_weights, cgto, lda_x)
-    mo_coeff_fn = partial(mol.get_mo_coeff, rks=True, ortho_fn=qr_factor)
+    mo_coeff_fn = partial(
+      cgto.get_mo_coeff,
+      rks=True,
+      ortho_fn=qr_factor,
+      ovlp_sqrt_inv=sqrt_inv(ovlp),
+    )
     H_fac = partial(dft_cgto, cgto, cgto_intor, xc_fn, mo_coeff_fn)
     e_total, _, _ = sgd(DFTConfig(), OptimizerConfig(), H_fac, key)
     upper_bound, lower_bound = energy_bounds

@@ -72,7 +72,7 @@ def main(_: Any) -> None:
         cgto_hk.get_mo_coeff,
         rks=cfg.dft_cfg.rks,
         ortho_fn=qr_factor,
-        sqrt_inv=sqrt_inv(ovlp),
+        ovlp_sqrt_inv=sqrt_inv(ovlp),
       )
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, lda_x)
       return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)

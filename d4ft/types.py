@@ -109,7 +109,7 @@ class Hamiltonian(NamedTuple):
   kin_fn: MoCoeffScalarFn
   """Maps mo_coeff to kinetic energy."""
   ext_fn: MoCoeffScalarFn
-  """Maps mo_coeff to external (nuclera attraction) energy."""
+  """Maps mo_coeff to external (nuclear attraction) energy."""
   har_fn: MoCoeffScalarFn  # TODO: rename to hartree
   """Maps mo_coeff to electronic repulsion energy."""
   xc_fn: MoCoeffScalarFn

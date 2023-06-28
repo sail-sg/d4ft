@@ -1,6 +1,6 @@
 ase>=3.22.1
 bs4==0.0.1
-chex==0.1.5
+chex==0.1.8
 distrax>=0.1.2
 dm-haiku>=0.0.9
 einops>=0.6.1
@@ -16,7 +16,7 @@ optax>=0.1.4
 pandas==1.5.2
 pandas>=1.5.2
 pubchempy==1.0.4
-pydantic==1.10.2
+pydantic==1.10.9
 pyscf>=2.1.1
 tensorflow>=2.11.0
 tqdm==4.64.1
