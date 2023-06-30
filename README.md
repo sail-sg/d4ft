@@ -100,6 +100,25 @@ I0630 11:00:55.155952 139685586032448 main.py:120] 1e energy:-260.34454345703125
 ```
 where `1e energy` is the sum of kinetic and external potential energy. We see that the energy value agrees up to 5 decimal places, and that direct minimization finds a wavefunction with lower energy.
 
+## Specifying Geometries
+By default, D4FT uses experimental geometries for molecules from [Computational Chemistry Comparison and Benchmark DataBase](https://cccbdb.nist.gov/). Some examples is stored in `d4ft/system/cccdbd.py`, for example:
+``` python
+o2_geometry = """
+O 0.0000 0.0000 0.0000;
+O 0.0000 0.0000 1.2075;
+"""
+```
+For geometries not cached in the above file, D4FT will query the `cccdbd` website, and you shall see the following logs (using `--config.mol_cfg.mol_name ch4` in this example):
+``` shell
+I0630 11:12:49.016396 140705043318592 cccdbd.py:108] **** Posting formula
+I0630 11:12:50.397949 140705043318592 cccdbd.py:116] **** Fetching data
+I0630 11:12:51.625333 140705043318592 mol.py:47] spin: 0, geometry: C  0.0000 0.0000 0.0000
+H  0.6276 0.6276 0.6276
+H  0.6276 -0.6276 -0.6276
+H  -0.6276 0.6276 -0.6276
+H  -0.6276 -0.6276 0.6276
+```
+
 ## Tutorial and Documentation
 
 ### Viewing in the Browser
