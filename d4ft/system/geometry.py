@@ -38,7 +38,7 @@ def get_pubchem_geometry(name: str) -> str:
 
 
 def get_cccdbd_geometry(name: str) -> str:
-  geometry = getattr(d4ft.system.cccdbd, f"{name}_geometry", None)
+  geometry = getattr(d4ft.system.cccdbd, f"{name.lower()}_geometry", None)
   if geometry is None:  # no offline data available
     geometry = query_geometry_from_cccbdb(name)
   return geometry

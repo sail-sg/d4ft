@@ -33,7 +33,7 @@ class OptimizerConfig:
 
 
 @dataclass(config=pydantic_config)
-class DFTConfig:
+class DirectMinimizationConfig:
   """Config for DFT routine"""
   rks: bool = True
   """whether to run RKS, i.e. use the same coefficients for both spins"""
@@ -61,14 +61,14 @@ class MoleculeConfig:
 
 class D4FTConfig(ConfigDict):
   optim_cfg: OptimizerConfig
-  dft_cfg: DFTConfig
+  direct_min_cfg: DirectMinimizationConfig
   mol_cfg: MoleculeConfig
 
   def __init__(self) -> None:
     super().__init__(
       {
         "optim_cfg": OptimizerConfig(),
-        "dft_cfg": DFTConfig(),
+        "direct_min_cfg": DirectMinimizationConfig(),
         "mol_cfg": MoleculeConfig(),
       }
     )

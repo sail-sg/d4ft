@@ -21,7 +21,7 @@ import jax
 import jax.numpy as jnp
 import optax
 from absl import logging
-from d4ft.config import DFTConfig, OptimizerConfig
+from d4ft.config import DirectMinimizationConfig, OptimizerConfig
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
 from d4ft.types import (
@@ -30,7 +30,7 @@ from d4ft.types import (
 
 
 def sgd(
-  dft_cfg: DFTConfig, optim_cfg: OptimizerConfig,
+  direct_min_cfg: DirectMinimizationConfig, optim_cfg: OptimizerConfig,
   H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
 ) -> Tuple[float, Trajectory, Hamiltonian]:
 
@@ -74,7 +74,7 @@ def sgd(
 
     # check convergence
     e_total = energies.e_total
-    if jnp.abs(prev_e_total - e_total) < dft_cfg.converge_threshold:
+    if jnp.abs(prev_e_total - e_total) < direct_min_cfg.converge_threshold:
       converged = True
       break
     else:

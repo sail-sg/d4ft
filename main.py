@@ -37,7 +37,7 @@ from d4ft.utils import make_constant_fn
 from d4ft.xc import get_xc_intor
 
 FLAGS = flags.FLAGS
-flags.DEFINE_enum("run", "dft", ["dft", "pyscf"], "which routine to run")
+flags.DEFINE_enum("run", "direct", ["direct", "pyscf"], "which routine to run")
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
 
@@ -45,14 +45,14 @@ def main(_: Any) -> None:
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
 
-  if FLAGS.run == "dft":
+  if FLAGS.run == "direct":
     key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
     pyscf_mol = get_pyscf_mol(cfg.mol_cfg.mol_name, cfg.mol_cfg.basis)
     # TODO: change this to use obsa
     ovlp = pyscf_mol.intor('int1e_ovlp_sph')
     mol = Mol.from_pyscf_mol(pyscf_mol)
     grids_and_weights = grids_from_pyscf_mol(
-      pyscf_mol, cfg.dft_cfg.quad_level
+      pyscf_mol, cfg.direct_min_cfg.quad_level
     )  # TODO: replace this with differentiable grids
     cgto = CGTO.from_mol(mol)
 
@@ -70,21 +70,22 @@ def main(_: Any) -> None:
       )
       mo_coeff_fn = partial(
         cgto_hk.get_mo_coeff,
-        rks=cfg.dft_cfg.rks,
+        rks=cfg.direct_min_cfg.rks,
         ortho_fn=qr_factor,
         ovlp_sqrt_inv=sqrt_inv(ovlp),
       )
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, lda_x)
       return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
-    sgd(cfg.dft_cfg, cfg.optim_cfg, H_factory, key)
+    sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
 
   elif FLAGS.run == "pyscf":
 
     # solve with pyscf
     pyscf_mol = get_pyscf_mol(cfg.mol_cfg.mol_name, cfg.mol_cfg.basis)
     mo_coeff = pyscf(
-      pyscf_mol, cfg.dft_cfg.rks, cfg.dft_cfg.xc_type, cfg.dft_cfg.quad_level
+      pyscf_mol, cfg.direct_min_cfg.rks, cfg.direct_min_cfg.xc_type,
+      cfg.direct_min_cfg.quad_level
     )
 
     mol = Mol.from_pyscf_mol(pyscf_mol)
@@ -97,7 +98,9 @@ def main(_: Any) -> None:
     cgto_intor = get_cgto_intor(
       cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
     )
-    grids_and_weights = grids_from_pyscf_mol(pyscf_mol, cfg.dft_cfg.quad_level)
+    grids_and_weights = grids_from_pyscf_mol(
+      pyscf_mol, cfg.direct_min_cfg.quad_level
+    )
     xc_fn = get_xc_intor(grids_and_weights, cgto, lda_x)
 
     # add spin and apply occupation mask
