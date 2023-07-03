@@ -165,9 +165,9 @@ def wave2density(orbitals: Callable, polarized=False) -> Callable:
   Transform the wave function into density function.
   Args:
     mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
-        mo only takes one argment, which is the coordinate.
+      mo only takes one argment, which is the coordinate.
     polarized: if True will return a 1D array with two elements indicating
-    the density of each spin
+      the density of each spin
   Return:
     density function: [3] -> float or 1D array.
   """

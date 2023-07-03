@@ -53,7 +53,7 @@ def get_pyscf_mol(
   if spin == -1:
     spin = get_spin(atoms)
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin, charge=charge)
-  logging.info(f"spin: {spin}, geometry: {geometry}")
+  logging.info(f"spin: {spin}, charge: {charge}, geometry: {geometry}")
   return mol
 
 

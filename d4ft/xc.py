@@ -26,7 +26,7 @@ def get_xc_intor(
   grids_and_weights: QuadGridsNWeights,
   cgto: CGTO,
   xc_functional: Callable,
-  polarized: bool = True,
+  polarized: bool = False,
 ) -> Callable:
   """only support quadrature now"""
 

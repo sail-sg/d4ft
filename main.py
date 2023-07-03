@@ -79,7 +79,9 @@ def main(_: Any) -> None:
         ortho_fn=qr_factor,
         ovlp_sqrt_inv=sqrt_inv(ovlp),
       )
-      xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_functional)
+      xc_fn = get_xc_intor(
+        grids_and_weights, cgto_hk, xc_functional, cfg.direct_min_cfg.polarized
+      )
       return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
     sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
@@ -88,7 +90,7 @@ def main(_: Any) -> None:
 
     # solve with pyscf
     pyscf_mol = get_pyscf_mol(
-      cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin,
+      cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin, cfg.mol_cfg.charge,
       cfg.mol_cfg.geometry_source
     )
     mo_coeff = pyscf(
