@@ -50,7 +50,7 @@ def main(_: Any) -> None:
   if FLAGS.run == "direct":
     key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
     pyscf_mol = get_pyscf_mol(
-      cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin,
+      cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin, cfg.mol_cfg.charge,
       cfg.mol_cfg.geometry_source
     )
     # TODO: change this to use obsa

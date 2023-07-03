@@ -65,6 +65,8 @@ class MoleculeConfig:
   spin: int = -1
   """number of unpaired electrons. -1 means all electrons are
   maximally paired, so the spin is 0 or 1."""
+  charge: int = 0
+  """charge multiplicity"""
   geometry_source: Literal["cccdbd", "pubchem"] = "cccdbd"
   """where to query the geometry from."""
 

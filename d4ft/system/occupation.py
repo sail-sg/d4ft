@@ -18,11 +18,11 @@ import jax.numpy as jnp
 from jaxtyping import Array, Int
 
 
-def get_occupation_mask(tot_electron: int, size: int,
-                        spin: int) -> Int[Array, "2 size"]:
+def get_occupation_mask(tot_electron: int, size: int, spin: int,
+                        charge: int) -> Int[Array, "2 size"]:
   nocc = jnp.zeros([2, size], dtype=int)
-  n_up = (tot_electron + spin) // 2
-  n_dn = (tot_electron - spin) // 2
+  n_up = (tot_electron - charge + spin) // 2
+  n_dn = (tot_electron - charge - spin) // 2
   nocc = nocc.at[0, :n_up].set(1)
   nocc = nocc.at[1, :n_dn].set(1)
   return nocc.astype(int)

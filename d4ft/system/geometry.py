@@ -74,7 +74,9 @@ def get_mol_geometry(
   # try to see if there is offline data available
   if geometry is None:
     xyz_path = f"{os.getcwd()}/d4ft/system/xyz_files"
-    offline_xyz = [f for f in os.listdir(xyz_path) if f == f"{name}.xyz"]
+    offline_xyz = [
+      f for f in os.listdir(xyz_path) if f == f"{name.lower()}.xyz"
+    ]
     if len(offline_xyz) == 1:
       geometry = open(f"{xyz_path}/{offline_xyz[0]}", "r").read()
 

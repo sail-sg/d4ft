@@ -40,6 +40,7 @@ def get_pyscf_mol(
   mol: str,
   basis: str,
   spin: int,
+  charge: int,
   source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
   """Construct a pyscf mole object from molecule name and basis name"""
@@ -51,7 +52,7 @@ def get_pyscf_mol(
   atoms = get_atom_from_geometry(geometry)
   if spin == -1:
     spin = get_spin(atoms)
-  mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin)
+  mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin, charge=charge)
   logging.info(f"spin: {spin}, geometry: {geometry}")
   return mol
 
@@ -62,6 +63,8 @@ class Mol(NamedTuple):
   spin: int
   """the number of unpaired electrons 2S, i.e. the difference between
   the number of alpha and beta electrons."""
+  charge: int
+  """charge multiplicity, i.e. number of protons - number of electrons"""
   atom_coords: Float[Array, "n_atoms 3"]
   """atom centers"""
   atom_charges: Int[Array, "n_atoms"]
@@ -82,11 +85,12 @@ class Mol(NamedTuple):
   def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> Mol:
     """Builds Mol object from pyscf Mole"""
     tot_electrons = mol.tot_electrons()
-    nocc = get_occupation_mask(tot_electrons, mol.nao, mol.spin)
+
+    nocc = get_occupation_mask(tot_electrons, mol.nao, mol.spin, mol.charge)
 
     return Mol(
-      mol.spin, mol.atom_coords(), mol.atom_charges(), mol.elements, nocc,
-      mol.nao, mol._basis
+      mol.spin, mol.charge, mol.atom_coords(), mol.atom_charges(), mol.elements,
+      nocc, mol.nao, mol._basis
     )
 
   @staticmethod
