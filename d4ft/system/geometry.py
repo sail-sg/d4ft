@@ -37,13 +37,6 @@ def get_pubchem_geometry(name: str) -> str:
   return geometry
 
 
-def get_cccdbd_geometry(name: str) -> str:
-  geometry = getattr(d4ft.system.cccdbd, f"{name.lower()}_geometry", None)
-  if geometry is None:  # no offline data available
-    geometry = query_geometry_from_cccbdb(name)
-  return geometry
-
-
 def get_fullerene_geometry(name: str) -> Optional[str]:
   """fullerene name are in the form Cxxx-isomer, e.g.
   C60-lh
@@ -72,14 +65,21 @@ def get_fullerene_geometry(name: str) -> Optional[str]:
 def get_mol_geometry(
   name: str, source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> str:
+  geometry: Optional[str]
   if name.capitalize() in periodic_table:  # check if it is a single atom
     geometry = f"{name.capitalize()} 0.0000 0.0000 0.0000"
   else:  # check if it is fullerene
     geometry = get_fullerene_geometry(name)
 
+  # try to see if there is offline data available
+  if geometry is None:
+    geometry = getattr(d4ft.system.cccdbd, f"{name.lower()}_geometry", None)
+
   if geometry is None:
     if source == "cccdbd":
-      geometry = get_cccdbd_geometry(name)
+      geometry = query_geometry_from_cccbdb(name)
     else:
       geometry = get_pubchem_geometry(name)
+
+  assert geometry is not None
   return geometry

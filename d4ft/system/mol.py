@@ -29,20 +29,28 @@ def get_atom_from_geometry(geometry: str) -> List[str]:
 
 
 def get_spin(atoms: List[str]) -> int:
+  """Get the spin of the molecule from the list of atoms.
+  By default, we try to pair all electrons, so spin is either 0 or 1."""
   tot_ele = sum([periodic_hash_table[a] for a in atoms])
   spin = tot_ele % 2
   return spin
 
 
 def get_pyscf_mol(
-  name: str,
+  mol: str,
   basis: str,
+  spin: int,
   source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
   """Construct a pyscf mole object from molecule name and basis name"""
-  geometry = get_mol_geometry(name, source)
+  if "xyz" in mol:
+    with open(mol, "r") as f:
+      geometry = f.read()
+  else:
+    geometry = get_mol_geometry(mol, source)
   atoms = get_atom_from_geometry(geometry)
-  spin = get_spin(atoms)
+  if spin == -1:
+    spin = get_spin(atoms)
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin)
   logging.info(f"spin: {spin}, geometry: {geometry}")
   return mol

@@ -23,7 +23,7 @@ D4FT also provides examples for standard algorithms, similar to the "train" scri
 
 Let's calculate the ground state energy of Oxygen molecule with direct minimization DFT:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol_name O2
+python main.py --run direct --config.mol_cfg.mol O2
 ```
 
 and you should see the following log after the calculation has converged:
@@ -41,8 +41,15 @@ I0629 10:57:29.400142 140645918545728 sgd.py:83] Converged: True
 ```
 where each component of the ground state energy is printed.
 
+## Using custom geometry and spin
+By default D4FT queries the exTo use a custom
+``` shell
+python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.geometry_source h2_xyz
+```
+
+
 ### Using the configuration system of D4FT
-D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage configurations. We have just called the script `main.py` to run the direct minimization, which reads the default configuration file `d4ft/config.py`, and apply overrides to the `mol_name` config via the flag `--config.mol_cfg.mol_name O2`.
+D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage configurations. We have just called the script `main.py` to run the direct minimization, which reads the default configuration file `d4ft/config.py`, and apply overrides to the `mol` config via the flag `--config.mol_cfg.mol O2`.
 
 The configuration used for the calculation will be printed to the console at the start of the run. For example when you run the calculation for Oxygen above using the default configuration, you should see the following:
 ``` shell
@@ -57,7 +64,7 @@ direct_min_cfg: !!python/object:config_config.DirectMinimizationConfig
 mol_cfg: !!python/object:config_config.MoleculeConfig
   __pydantic_initialised__: true
   basis: sto-3g
-  mol_name: o2
+  mol: o2
 optim_cfg: !!python/object:config_config.OptimizerConfig
   __pydantic_initialised__: true
   epochs: 2000
@@ -74,7 +81,7 @@ All configuration stated in `d4ft/config.py` can be overridden by providing an a
 ### Benchmarking against PySCF
 Now let's test the accuracy of the calculated ground state energy against well-established open-source QC library PySCF. D4FT provides a thin wrapper around PySCF's API: to run the same calculation above of the Oxygen molecule but with PySCF, run:
 ``` shell
-python main.py --run pyscf --config.mol_cfg.mol_name O2                             
+python main.py --run pyscf --config.mol_cfg.mol O2                             
 ```
 This will call PySCF to perform SCF calculation with the setting stated in `d4ft/config.py`. Two sets of energy will be printed: 
 1. the energy calculated with PySCF's integral engine `libcint`, which uses Rys quadrature:
@@ -108,7 +115,7 @@ O 0.0000 0.0000 0.0000;
 O 0.0000 0.0000 1.2075;
 """
 ```
-For geometries not cached in the above file, D4FT will query the `cccdbd` website, and you shall see the following logs (using `--config.mol_cfg.mol_name ch4` in this example):
+For geometries not cached in the above file, D4FT will query the `cccdbd` website, and you shall see the following logs (using `--config.mol_cfg.mol ch4` in this example):
 ``` shell
 I0630 11:12:49.016396 140705043318592 cccdbd.py:108] **** Posting formula
 I0630 11:12:50.397949 140705043318592 cccdbd.py:116] **** Fetching data
@@ -117,6 +124,16 @@ H  0.6276 0.6276 0.6276
 H  0.6276 -0.6276 -0.6276
 H  -0.6276 0.6276 -0.6276
 H  -0.6276 -0.6276 0.6276
+```
+To use custom geometries, first create a plain text file with name `<mol_name>.xyz`, for example `h2.xyz`
+``` text
+H 0.0000 0.0000 0.0000;
+H 0.0000 0.0000 0.7414;
+```
+then pass it through the config flag as follows
+
+``` shell
+--config.mol_cfg.geometry_source <path_to_geometry_file>
 ```
 
 ## Tutorial and Documentation
