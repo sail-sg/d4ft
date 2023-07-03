@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Literal, Optional
-
+import os
 import d4ft.system.cccdbd
 import d4ft.system.fake_fullerene
 import pubchempy
@@ -73,7 +73,10 @@ def get_mol_geometry(
 
   # try to see if there is offline data available
   if geometry is None:
-    geometry = getattr(d4ft.system.cccdbd, f"{name.lower()}_geometry", None)
+    xyz_path = f"{os.getcwd()}/d4ft/system/xyz_files"
+    offline_xyz = [f for f in os.listdir(xyz_path) if f == f"{name}.xyz"]
+    if len(offline_xyz) == 1:
+      geometry = open(f"{xyz_path}/{offline_xyz[0]}", "r").read()
 
   if geometry is None:
     if source == "cccdbd":
