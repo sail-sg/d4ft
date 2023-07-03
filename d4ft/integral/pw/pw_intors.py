@@ -1,20 +1,15 @@
 """energy functions"""
-import jax
 import jax.numpy as jnp
-from jax_xc import lda_x, gga_c_pbe
-from typing import Callable
+from d4ft.types import PWCoeff
 from d4ft.utils import vmap_to_3d
-
-from d4ft.types import PWCoeff, Vec3DInt
 
 
 def E_external_pw(
   density_vec_total_ft, atom_coord, atom_charge, gvec, g_mask, vol
 ):
-  """
-    externel energy for plane wave orbitals.
+  """externel energy for plane wave orbitals.
+  .. math::
         E = \sum_G \vert \sum_i s_i(G) v_i(G) \vert n(G)
-    where
         S_i(G) = exp(jG\tau_i)
         v_i(G) = -4 pi q_i / \Vert G \Vert^2
     Args:
@@ -51,9 +46,9 @@ def E_hartree_pw(density_vec_total_ft, gvec, g_mask, vol):
       g_mask (3D array): G point mask, Shape: [N1, N2, N3]
       vol: scalar
   Return:
-      Hartree energy: float.
+      Hartree energy: float
   """
-  g_vec_square = jnp.sum(gvec**2, axis=-1)  #[N1, N2, N3]
+  g_vec_square = jnp.sum(gvec**2, axis=-1)  # [N1, N2, N3]
   output = jnp.abs(density_vec_total_ft)**2
   output /= (g_vec_square + 1e-16)
   output *= g_mask
