@@ -16,8 +16,8 @@ from functools import partial
 from typing import Any, Callable, Tuple
 
 import jax
+import jax_xc
 from absl import app, flags, logging
-from jax_xc import lda_x
 from ml_collections.config_flags import config_flags
 
 from d4ft.config import D4FTConfig
@@ -44,6 +44,8 @@ config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 def main(_: Any) -> None:
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
+
+  xc_functional = getattr(jax_xc, cfg.direct_min_cfg.xc_type)
 
   if FLAGS.run == "direct":
     key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
@@ -77,7 +79,7 @@ def main(_: Any) -> None:
         ortho_fn=qr_factor,
         ovlp_sqrt_inv=sqrt_inv(ovlp),
       )
-      xc_fn = get_xc_intor(grids_and_weights, cgto_hk, lda_x)
+      xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_functional)
       return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
     sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
@@ -85,7 +87,10 @@ def main(_: Any) -> None:
   elif FLAGS.run == "pyscf":
 
     # solve with pyscf
-    pyscf_mol = get_pyscf_mol(cfg.mol_cfg.mol_name, cfg.mol_cfg.basis)
+    pyscf_mol = get_pyscf_mol(
+      cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin,
+      cfg.mol_cfg.geometry_source
+    )
     mo_coeff = pyscf(
       pyscf_mol, cfg.direct_min_cfg.rks, cfg.direct_min_cfg.xc_type,
       cfg.direct_min_cfg.quad_level
@@ -104,7 +109,7 @@ def main(_: Any) -> None:
     grids_and_weights = grids_from_pyscf_mol(
       pyscf_mol, cfg.direct_min_cfg.quad_level
     )
-    xc_fn = get_xc_intor(grids_and_weights, cgto, lda_x)
+    xc_fn = get_xc_intor(grids_and_weights, cgto, xc_functional)
 
     # add spin and apply occupation mask
     mo_coeff *= mol.nocc[:, :, None]

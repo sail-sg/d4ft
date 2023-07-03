@@ -41,12 +41,17 @@ I0629 10:57:29.400142 140645918545728 sgd.py:83] Converged: True
 ```
 where each component of the ground state energy is printed.
 
-## Using custom geometry and spin
-By default D4FT queries the exTo use a custom
+## Specifying spin multiplicity
+By default all electrons are maximally paired, so the spin is 0 or 1. To specify the spin multiplicity, use the flag `--config.mol_cfg.spin`, for example
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.geometry_source h2_xyz
+python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.spin 2
 ```
 
+## Specifying XC functional
+D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.direct_min_cfg.xc_type` to specify XC functional to use, for example:
+``` shell
+python main.py --run direct --config.mol_cfg.mol O2 --config.direct_min_cfg.xc_type lda_x
+```
 
 ### Using the configuration system of D4FT
 D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage configurations. We have just called the script `main.py` to run the direct minimization, which reads the default configuration file `d4ft/config.py`, and apply overrides to the `mol` config via the flag `--config.mol_cfg.mol O2`.
