@@ -170,9 +170,7 @@ class PW(NamedTuple):
     )
 
     if ortho_fn:  # orthogonalize the plane wave coefficients
-      # NOTE: For non-square matrix of size (a,b) where a<b, QR returns
-      # orthogonal column vectors of shape (a,a). Here we transpose the
-      # matrix in order to make k points orthogonal.
+      # vmap over k-axis, and make g points coefficients between different electron orthogonal.
       pw_coeff = einops.rearrange(pw_coeff, "spin ele k g -> spin g k ele")
       pw_coeff = jax.vmap(ortho_fn, in_axes=2, out_axes=2)(pw_coeff)
       pw_coeff = einops.rearrange(pw_coeff, "spin g k ele -> spin ele k g")
@@ -193,7 +191,7 @@ class PW(NamedTuple):
     The total density in real space over electron index i and k point k
     for spin s is
     .. math::
-    n_sik(r) = 1/N_k sum_i sum_{k\in Brillouin Zone} f(e_{ik}) |psi_{sik}(r)|^2
+    n_sik(r) = 1/N_k sum_i sum_{k\\in Brillouin Zone} f(e_{ik}) |psi_{sik}(r)|^2
 
     where psi_{ik} is the wave function for electron i at k point k, which
     is a linear combination of plane waves with wavevector k,

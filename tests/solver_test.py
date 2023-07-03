@@ -16,13 +16,11 @@ from functools import partial
 from typing import Tuple
 
 import jax
-from d4ft.integral.quadrature.grids import grids_from_pyscf_mol
-from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from absl.testing import absltest, parameterized
 from d4ft.config import DFTConfig, OptimizerConfig
 from d4ft.hamiltonian.cgto_intors import get_cgto_intor
 from d4ft.hamiltonian.dft_cgto import dft_cgto
-from d4ft.hamiltonian.ortho import qr_factor
+from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
