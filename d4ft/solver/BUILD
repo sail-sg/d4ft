@@ -17,6 +17,28 @@ load("@rules_python//python:defs.bzl", "py_library")
 package(default_visibility = ["//visibility:public"])
 
 py_library(
+    name = "drivers",
+    srcs = ["drivers.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//d4ft:config",
+        "//d4ft:logger",
+        "//d4ft:optimize",
+        "//d4ft:types",
+        "//d4ft:xc",
+        "//d4ft/hamiltonian:cgto_intors",
+        "//d4ft/hamiltonian:dft_cgto",
+        "//d4ft/hamiltonian:ortho",
+        "//d4ft/integral/gto:cgto",
+        "//d4ft/integral/obara_saika:driver",
+        "//d4ft/integral/quadrature:grids",
+        "//d4ft/solver:pyscf_wrapper",
+        "//d4ft/solver:sgd",
+        "//d4ft/system:mol",
+    ],
+)
+
+py_library(
     name = "sgd",
     srcs = ["sgd.py"],
     visibility = ["//visibility:public"],

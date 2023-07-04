@@ -88,6 +88,6 @@ class D4FTConfig(ConfigDict):
     )
 
 
-def get_config() -> ConfigDict:
+def get_config() -> D4FTConfig:
   cfg = D4FTConfig()
   return cfg

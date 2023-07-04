@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Literal, Optional
 import os
+from typing import Literal, Optional
+
 import d4ft.system.cccdbd
 import d4ft.system.fake_fullerene
 import pubchempy
 import requests
+from absl import logging
 from d4ft.system.cccdbd import query_geometry_from_cccbdb
 from d4ft.system.utils import periodic_table
 
@@ -73,12 +75,15 @@ def get_mol_geometry(
 
   # try to see if there is offline data available
   if geometry is None:
-    xyz_path = f"{os.getcwd()}/d4ft/system/xyz_files"
+    here = os.path.abspath(os.path.dirname(__file__))
+    xyz_path = f"{here}/xyz_files"
     offline_xyz = [
       f for f in os.listdir(xyz_path) if f == f"{name.lower()}.xyz"
     ]
     if len(offline_xyz) == 1:
-      geometry = open(f"{xyz_path}/{offline_xyz[0]}", "r").read()
+      logging.info(f"loading offline geometry from {xyz_path}/{offline_xyz[0]}")
+      with open(f"{xyz_path}/{offline_xyz[0]}", "r") as f:
+        geometry = f.read()
 
   if geometry is None:
     if source == "cccdbd":

@@ -112,7 +112,7 @@ I0630 11:00:55.155952 139685586032448 main.py:120] 1e energy:-260.34454345703125
 ```
 where `1e energy` is the sum of kinetic and external potential energy. We see that the energy value agrees up to 5 decimal places, and that direct minimization finds a wavefunction with lower energy.
 
-## Specifying Geometries
+## Specifying Custom Geometries
 By default, D4FT uses experimental geometries for molecules from [Computational Chemistry Comparison and Benchmark DataBase](https://cccbdb.nist.gov/). Some examples is stored in `d4ft/system/xyz_files`, for example:
 ``` python
 o2_geometry = """
@@ -140,6 +140,29 @@ then pass it through the config flag as follows
 ``` shell
 --config.mol_cfg.geometry_source <path_to_geometry_file>
 ```
+
+## Using the D4FT API directly
+If you want to use D4FT inside your program, it is best to call the APIs directly instead of using the `main.py` script. For example, the following is a minimal example of call
+direct optimization DFT with D4FT:
+``` python
+from absl import logging
+
+from d4ft.config import get_config
+from d4ft.solver.drivers import incore_cgto_direct_opt_dft
+
+# make log visible
+logging.set_verbosity(logging.INFO) 
+
+# load the default configuration, then override it
+cfg = get_config()
+cfg.mol_cfg.mol = 'H2'
+cfg.mol_cfg.basis = '6-31g'
+
+# Calculation
+e_total, _, _ = incore_cgto_direct_opt_dft(cfg)
+print(e_total)
+```
+The `incore_cgto_direct_opt_dft` is just an example of how to use the low level API of `D4FT`, similar to the example models in deep learning libraries. If you want more granular control you should write your function, and you can start by modifying this example.
 
 ## Tutorial and Documentation
 

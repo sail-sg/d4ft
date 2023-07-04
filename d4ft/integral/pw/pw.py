@@ -170,7 +170,8 @@ class PW(NamedTuple):
     )
 
     if ortho_fn:  # orthogonalize the plane wave coefficients
-      # vmap over k-axis, and make g points coefficients between different electron orthogonal.
+      # vmap over k-axis, and make g points coefficients between different
+      # electron orthogonal.
       pw_coeff = einops.rearrange(pw_coeff, "spin ele k g -> spin g k ele")
       pw_coeff = jax.vmap(ortho_fn, in_axes=2, out_axes=2)(pw_coeff)
       pw_coeff = einops.rearrange(pw_coeff, "spin g k ele -> spin ele k g")

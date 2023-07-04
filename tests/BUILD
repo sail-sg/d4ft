@@ -17,15 +17,9 @@ load("@rules_python//python:defs.bzl", "py_test")
 py_test(
     name = "solver_test",
     srcs = ["solver_test.py"],
+    data = ["//d4ft/system:xyz_files"],
     deps = [
-        "//d4ft:xc",
-        "//d4ft/hamiltonian:cgto_intors",
-        "//d4ft/hamiltonian:dft_cgto",
-        "//d4ft/hamiltonian:ortho",
-        "//d4ft/integral/gto:cgto",
-        "//d4ft/integral/obara_saika:driver",
-        "//d4ft/integral/quadrature:grids",
-        "//d4ft/solver:sgd",
-        "//d4ft/system:mol",
+        "//d4ft:config",
+        "//d4ft/solver:drivers",
     ],
 )

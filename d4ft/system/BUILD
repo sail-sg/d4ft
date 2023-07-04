@@ -14,17 +14,17 @@
 
 load("@rules_python//python:defs.bzl", "py_library")
 
+filegroup(
+    name = "xyz_files",
+    srcs = glob(["xyz_files/*.xyz"]),
+    visibility = ["//visibility:public"],
+)
+
 py_library(
     name = "occupation",
     srcs = ["occupation.py"],
     visibility = ["//visibility:public"],
     deps = [],
-)
-
-filegroup(
-    name = "xyz_files",
-    srcs = ["xyz_files/diamond.xyz"],
-    visibility = ["//visibility:public"],
 )
 
 py_library(
