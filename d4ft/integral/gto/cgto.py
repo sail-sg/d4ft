@@ -230,7 +230,6 @@ class CGTO(NamedTuple):
     )
     return self._replace(primitives=primitives, coeff=coeff)
 
-  # TODO: consider rename rks
   def get_mo_coeff(
     self,
     rks: bool,

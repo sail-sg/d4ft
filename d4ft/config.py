@@ -35,7 +35,7 @@ class OptimizerConfig:
 @dataclass(config=pydantic_config)
 class DirectMinimizationConfig:
   """Config for DFT routine"""
-  rks: bool = True
+  rks: bool = False
   """whether to run RKS, i.e. use the same coefficients for both spins"""
   xc_type: str = "lda_x"
   """name of the xc functional to use"""
@@ -87,6 +87,9 @@ class D4FTConfig(ConfigDict):
       }
     )
 
+  def validate(self) -> None:
+    if self.direct_min_cfg.rks:
+      assert self.mol_cfg.spin == 0
 
 def get_config() -> D4FTConfig:
   cfg = D4FTConfig()
