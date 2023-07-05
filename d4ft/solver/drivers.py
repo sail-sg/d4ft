@@ -39,6 +39,7 @@ from jaxtyping import Array, Float
 
 
 def incore_hf_cgto(cfg: D4FTConfig):
+  cfg.validate()
   pyscf_mol = get_pyscf_mol(
     cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin, cfg.mol_cfg.charge,
     cfg.mol_cfg.geometry_source

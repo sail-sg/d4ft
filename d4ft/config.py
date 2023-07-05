@@ -91,6 +91,7 @@ class D4FTConfig(ConfigDict):
     if self.direct_min_cfg.rks:
       assert self.mol_cfg.spin == 0
 
+
 def get_config() -> D4FTConfig:
   cfg = D4FTConfig()
   return cfg
