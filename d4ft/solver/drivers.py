@@ -29,7 +29,7 @@ from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
 from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
-from d4ft.solver.pyscf_wrapper import pyscf
+from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import Hamiltonian, Trajectory
@@ -113,7 +113,7 @@ def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
   )
 
   # solve for ground state with PySCF and get the mo_coeff
-  mo_coeff = pyscf(
+  mo_coeff = pyscf_wrapper(
     pyscf_mol, cfg.direct_min_cfg.rks, cfg.direct_min_cfg.xc_type,
     cfg.direct_min_cfg.quad_level
   )

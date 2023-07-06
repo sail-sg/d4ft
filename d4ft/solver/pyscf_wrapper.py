@@ -24,8 +24,8 @@ from d4ft.types import MoCoeff
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
 
-def pyscf(
-  mol: pyscf.gto.mole.Mole,
+def pyscf_wrapper(
+  mol: pyscf_wrapper.gto.mole.Mole,
   rks: bool,
   xc: str = "lda",
   quad_level: int = 1,

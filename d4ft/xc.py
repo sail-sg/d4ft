@@ -14,6 +14,7 @@
 """Calculate the xc functional with numerical integration"""
 from typing import Callable
 
+import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
 
@@ -40,3 +41,20 @@ def get_xc_intor(
     )
 
   return xc_intor
+
+
+def integrand_vxc_lda(ao: Callable, mo_old):
+  """
+  v_xc = -(3/pi n(r))^(1/3)
+  Return:
+    [2, N, N] array
+
+  Example:
+  vxc = quadrature_integral(integrand_vxc_lda(ao, mo_old), batch1)
+  """
+  density = wave2density(mo_old)
+
+  def g(n):
+    return -(3 / jnp.pi * n)**(1 / 3)
+
+  return lambda r: g(density(r)) * jax.vmap(jnp.outer)(ao(r), ao(r))
