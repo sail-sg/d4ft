@@ -27,7 +27,7 @@ from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
-from d4ft.integral.quadrature.grids import grids_from_pyscf_mol
+from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf
 from d4ft.solver.sgd import sgd
@@ -45,16 +45,13 @@ def incore_hf_cgto(cfg: D4FTConfig):
     cfg.mol_cfg.geometry_source
   )
   mol = Mol.from_pyscf_mol(pyscf_mol)
-  grids_and_weights = grids_from_pyscf_mol(
-    pyscf_mol, cfg.direct_min_cfg.quad_level
-  )  # TODO: replace this with differentiable grids
   cgto = CGTO.from_mol(mol)
 
   # TODO: intor.split() for pmap / batched
   s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
   s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
   incore_energy_tensors = incore_int_sym(cgto, s2, s4)
-  return grids_and_weights, incore_energy_tensors, pyscf_mol, cgto
+  return incore_energy_tensors, pyscf_mol, cgto
 
 
 def incore_cgto_direct_opt_dft(
@@ -65,9 +62,12 @@ def incore_cgto_direct_opt_dft(
   key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
   xc_functional = getattr(jax_xc, cfg.direct_min_cfg.xc_type)
 
-  grids_and_weights, incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(
-    cfg
-  )
+  incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
+
+  dg = DifferentiableGrids(pyscf_mol)
+  dg.level = cfg.direct_min_cfg.quad_level
+  # TODO: test geometry optimization
+  grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   # TODO: change this to use obsa
   ovlp: Float[Array, "a a"] = pyscf_mol.intor('int1e_ovlp_sph')
@@ -97,9 +97,13 @@ def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
   """Call PySCF to solve for ground state of a molecular system with SCF DFT,
   then load the computed MO coefficients from PySCF and redo the energy integral
   with obsa, where the energy tensors are precomputed/incore."""
-  grids_and_weights, incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(
-    cfg
-  )
+  incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
+
+  dg = DifferentiableGrids(pyscf_mol)
+  dg.level = cfg.direct_min_cfg.quad_level
+  # TODO: test geometry optimization
+  grids_and_weights = dg.build(pyscf_mol.atom_coords())
+
   cgto_intor = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
   )
