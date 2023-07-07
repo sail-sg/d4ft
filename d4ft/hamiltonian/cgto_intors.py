@@ -48,6 +48,7 @@ def libcint_incore(
 
 
 def get_rdm1(mo_coeff: MoCoeff):
+  """Return the reduced 1-desnity matrix from MO coefficients."""
   return mo_coeff.T @ mo_coeff
 
 
@@ -55,11 +56,13 @@ def get_cgto_intor(
   cgto: CGTO,
   intor: Literal["obsa", "libcint", "quad"] = "obsa",
   incore_energy_tensors: Optional[ETensorsIncore] = None,
+  keepdims: bool = False,
 ) -> CGTOIntors:
   """
   Args:
     intor: which intor to use
     incore_tensor: if provided, calculate energy incore
+    keepdims: if True, return the fock matrix with shape (nmo, nmo)
   """
   # TODO: test join optimization with hk=True
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs

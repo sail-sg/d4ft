@@ -25,7 +25,7 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
 
 def pyscf_wrapper(
-  mol: pyscf_wrapper.gto.mole.Mole,
+  mol: pyscf.gto.mole.Mole,
   rks: bool,
   xc: str = "lda",
   quad_level: int = 1,
