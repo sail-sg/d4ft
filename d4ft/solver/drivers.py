@@ -64,10 +64,6 @@ def incore_cgto_direct_opt_dft(
 
   incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
 
-  # grids_and_weights = grids_from_pyscf_mol(
-  #   pyscf_mol, cfg.direct_min_cfg.quad_level
-  # )
-
   dg = DifferentiableGrids(pyscf_mol)
   dg.level = cfg.direct_min_cfg.quad_level
   # TODO: test geometry optimization
@@ -78,25 +74,25 @@ def incore_cgto_direct_opt_dft(
 
   cgto_hk = cgto
 
-  cgto_fock_fn = get_cgto_fock_fn(
-    cgto_hk, incore_energy_tensors=incore_energy_tensors
-  )
+  # cgto_fock_fn = get_cgto_fock_fn(
+  #   cgto_hk, incore_energy_tensors=incore_energy_tensors
+  # )
 
-  import numpy as np
-  cgto_fock_fn(np.random.randn(2, 10, 10))
-  breakpoint()
+  # import numpy as np
+  # cgto_fock_fn(np.random.randn(2, 10, 10))
+  # breakpoint()
 
-  cgto_intor = get_cgto_intor(
-    cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
-  )
+  # cgto_intor = get_cgto_intor(
+  #   cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
+  # )
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     # TODO: out-of-core + basis optimization
     # cgto_hk = cgto.to_hk()
-    # cgto_hk = cgto
-    # cgto_intor = get_cgto_intor(
-    #   cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
-    # )
+    cgto_hk = cgto
+    cgto_intor = get_cgto_intor(
+      cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
+    )
     mo_coeff_fn = partial(
       cgto_hk.get_mo_coeff,
       rks=cfg.direct_min_cfg.rks,
