@@ -39,12 +39,12 @@ from jaxtyping import Array, Float
 
 
 def incore_hf_cgto(cfg: D4FTConfig):
-  cfg.validate()
   pyscf_mol = get_pyscf_mol(
     cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin, cfg.mol_cfg.charge,
     cfg.mol_cfg.geometry_source
   )
   mol = Mol.from_pyscf_mol(pyscf_mol)
+  cfg.validate(mol.spin, mol.charge)
   cgto = CGTO.from_mol(mol)
 
   # TODO: intor.split() for pmap / batched
