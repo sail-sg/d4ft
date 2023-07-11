@@ -39,8 +39,6 @@ class DirectMinimizationConfig:
   """whether to run RKS, i.e. use the same coefficients for both spins"""
   xc_type: str = "lda_x"
   """name of the xc functional to use"""
-  polarized: bool = False
-  """whether to use the polarized setting in XC functional"""
   quad_level: int = 1
   """quadrature point level, higher means more points"""
   converge_threshold: float = 1e-4

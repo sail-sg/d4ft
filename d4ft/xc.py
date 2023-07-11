@@ -29,7 +29,11 @@ def get_xc_intor(
   xc_functional: Callable,
   polarized: bool = False,
 ) -> Callable:
-  """only support quadrature now"""
+  """Returns a function that calculates Exc from MO coefficients.
+
+  Args:
+    polarized: whether to use the polarized setting in XC functional
+  """
 
   def xc_intor(mo_coeff: MoCoeffFlat) -> Float[Array, ""]:
     mo_coeff = mo_coeff.reshape(2, cgto.nao, cgto.nao)

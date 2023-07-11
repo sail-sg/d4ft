@@ -104,7 +104,10 @@ def incore_cgto_direct_opt_dft(
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
     xc_fn = get_xc_intor(
-      grids_and_weights, cgto_hk, xc_functional, cfg.direct_min_cfg.polarized
+      grids_and_weights,
+      cgto_hk,
+      xc_functional,
+      polarized=not cfg.direct_min_cfg.rks
     )
     return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
@@ -127,7 +130,10 @@ def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
   )
   xc_functional = getattr(jax_xc, cfg.direct_min_cfg.xc_type)
   xc_fn = get_xc_intor(
-    grids_and_weights, cgto, xc_functional, cfg.direct_min_cfg.polarized
+    grids_and_weights,
+    cgto,
+    xc_functional,
+    polarized=not cfg.direct_min_cfg.rks
   )
 
   # solve for ground state with PySCF and get the mo_coeff
