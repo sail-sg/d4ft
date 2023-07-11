@@ -20,7 +20,7 @@ from jaxtyping import Array, Float
 
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.quadrature.utils import quadrature_integral, wave2density
-from d4ft.types import MoCoeffFlat, QuadGridsNWeights
+from d4ft.types import MoCoeff, QuadGridsNWeights
 
 
 def get_xc_intor(
@@ -35,8 +35,7 @@ def get_xc_intor(
     polarized: whether to use the polarized setting in XC functional
   """
 
-  def xc_intor(mo_coeff: MoCoeffFlat) -> Float[Array, ""]:
-    mo_coeff = mo_coeff.reshape(2, cgto.nao, cgto.nao)
+  def xc_intor(mo_coeff: MoCoeff) -> Float[Array, ""]:
     orbitals = lambda r: mo_coeff @ cgto.eval(r)
     density = wave2density(orbitals, polarized)
     xc_func = xc_functional(density, polarized)
@@ -47,7 +46,7 @@ def get_xc_intor(
   return xc_intor
 
 
-def integrand_vxc_lda(ao: Callable, mo_old):
+def integrand_vxc_lda(ao: Callable, density: Callable):
   """
   v_xc = -(3/pi n(r))^(1/3)
   Return:
@@ -56,9 +55,22 @@ def integrand_vxc_lda(ao: Callable, mo_old):
   Example:
   vxc = quadrature_integral(integrand_vxc_lda(ao, mo_old), batch1)
   """
-  density = wave2density(mo_old)
 
   def g(n):
     return -(3 / jnp.pi * n)**(1 / 3)
 
   return lambda r: g(density(r)) * jax.vmap(jnp.outer)(ao(r), ao(r))
+
+
+def get_lda_vxc(
+  grids_and_weights: QuadGridsNWeights,
+  cgto: CGTO,
+  polarized: bool = False,
+):
+
+  def vxc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    orbitals = lambda r: mo_coeff @ cgto.eval(r)
+    density = wave2density(orbitals, polarized)
+    vxc = quadrature_integral(integrand_vxc_lda(ao, density), batch1)
+
+  return vxc_fn

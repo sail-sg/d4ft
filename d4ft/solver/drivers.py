@@ -21,13 +21,13 @@ import jax
 import jax_xc
 from absl import logging
 from d4ft.config import D4FTConfig
-from d4ft.hamiltonian.cgto_intors import get_cgto_intor, get_cgto_fock_fn
+from d4ft.hamiltonian.cgto_intors import get_cgto_intor
 from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
-from d4ft.integral.quadrature.grids import DifferentiableGrids, grids_from_pyscf_mol
+from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.sgd import sgd
@@ -88,7 +88,7 @@ def incore_cgto_direct_opt_dft(
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     # TODO: out-of-core + basis optimization
-    # cgto_hk = cgto.to_hk()
+    cgto_hk = cgto.to_hk()
     cgto_hk = cgto
     cgto_intor = get_cgto_intor(
       cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors

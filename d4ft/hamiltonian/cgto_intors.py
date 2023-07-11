@@ -115,39 +115,6 @@ def unreduce_symmetry_2c(
   return full_mat
 
 
-def get_j(
-  mo_coeff: MoCoeff,
-  eri: Float[Array, "n_4c"],
-  mo_abcd_idx_counts: IdxCount4C,
-  cd_segment_idx: Int[Array, "n_2c"],
-) -> Float[Array, "2 nao nao"]:
-  """Calculate the J matrix from the MO coefficients and symmetry reduced
-  4c integrals (ab|cd).
-
-  .. math::
-  sum_{cd} rho_{cd} (ab|cd) -> J_{ab}
-
-  where rho is the 1-RDM.
-  """
-  abcd_idx = mo_abcd_idx_counts[:, :4]
-  # j_indices = jnp.split(abcd_idx, ))[:-1]
-
-
-# def get_k(
-#   mo_coeff: MoCoeff,
-#   eri: Float[Array, "n_4c"],
-# ) -> Float[Array, "2 nao nao"]:
-#   """Calculate the K matrix from the MO coefficients and symmetry reduced
-#   4c integrals (pq|rs).
-
-#   .. math::
-#   sum_{rq} rho_{rq} (pq|rs) -> K_{ps}
-
-#   where rho is the 1-RDM.
-#   """
-#   pass
-
-
 def get_cgto_fock_fn(
   cgto: CGTO, incore_energy_tensors: ETensorsIncore
 ) -> Callable[[MoCoeff], Fock]:
@@ -171,7 +138,7 @@ def get_cgto_fock_fn(
   eri_val = eri / mo_abcd_idx_counts[:, 4] * cd_in_block_counts
 
   cd_seg_idx = [
-    jnp.ones(seg_len) * seg_id
+    jnp.ones(seg_len, dtype=jnp.int32) * seg_id
     for seg_id, seg_len in enumerate(reversed(range(1, n_2c_idx + 1)))
   ]
   cd_seg_idx = jnp.hstack(cd_seg_idx)
@@ -200,7 +167,11 @@ def get_cgto_fock_fn(
     j_val_dn = jax.ops.segment_sum(rdm1_cd[1] * eri_val, cd_seg_idx, n_2c_idx)
     j_mat_dn = unreduce_symmetry_2c(j_val_dn, nmo, mo_ab_idx_counts)
     j_mat = jnp.stack((j_mat_up, j_mat_dn))
-    v_eff = j_mat + xc_mat
+    # v_eff = j_mat + xc_mat
+    vxc = quad.utils.quadrature_integral(integrand_vxc_lda(ao, mo_old), batch1)
+    v_eff = j_mat + vxc
+    breakpoint()
+
     return h_core + v_eff
 
   return get_fock

@@ -23,7 +23,8 @@ def get_optimizer(cfg: OptimizerConfig) -> optax.GradientTransformation:
       init_value=cfg.lr,
       boundaries_and_scales={
         int(cfg.epochs * 0.5): 0.5,
-        int(cfg.epochs * 0.75): 0.5
+        int(cfg.epochs * 0.75): 0.25,
+        int(cfg.epochs * 0.825): 0.125,
       }
     )
   else:

@@ -138,7 +138,7 @@ H 0.0000 0.0000 0.7414;
 then pass it through the config flag as follows
 
 ``` shell
---config.mol_cfg.geometry_source <path_to_geometry_file>
+--config.mol_cfg.mol <path_to_geometry_file>
 ```
 
 ## Using the D4FT API directly
