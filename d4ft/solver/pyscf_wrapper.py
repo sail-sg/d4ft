@@ -30,7 +30,7 @@ def pyscf_wrapper(
   xc: str = "lda",
   quad_level: int = 1,
   verbose: int = 2,
-  max_cycle: int = 2
+  max_cycle: int = 50,
 ) -> MoCoeff:
   if rks:
     atom_mf = scf.RKS(mol)

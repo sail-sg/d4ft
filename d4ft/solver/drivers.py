@@ -21,13 +21,13 @@ import jax
 import jax_xc
 from absl import logging
 from d4ft.config import D4FTConfig
-from d4ft.hamiltonian.cgto_intors import get_cgto_intor
+from d4ft.hamiltonian.cgto_intors import get_cgto_intor, get_cgto_fock_fn
 from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import incore_int_sym
-from d4ft.integral.quadrature.grids import DifferentiableGrids
+from d4ft.integral.quadrature.grids import DifferentiableGrids, grids_from_pyscf_mol
 from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.sgd import sgd
@@ -64,6 +64,10 @@ def incore_cgto_direct_opt_dft(
 
   incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
 
+  # grids_and_weights = grids_from_pyscf_mol(
+  #   pyscf_mol, cfg.direct_min_cfg.quad_level
+  # )
+
   dg = DifferentiableGrids(pyscf_mol)
   dg.level = cfg.direct_min_cfg.quad_level
   # TODO: test geometry optimization
@@ -72,13 +76,27 @@ def incore_cgto_direct_opt_dft(
   # TODO: change this to use obsa
   ovlp: Float[Array, "a a"] = pyscf_mol.intor('int1e_ovlp_sph')
 
+  cgto_hk = cgto
+
+  cgto_fock_fn = get_cgto_fock_fn(
+    cgto_hk, incore_energy_tensors=incore_energy_tensors
+  )
+
+  import numpy as np
+  cgto_fock_fn(np.random.randn(2, 10, 10))
+  breakpoint()
+
+  cgto_intor = get_cgto_intor(
+    cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
+  )
+
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     # TODO: out-of-core + basis optimization
     # cgto_hk = cgto.to_hk()
-    cgto_hk = cgto
-    cgto_intor = get_cgto_intor(
-      cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
-    )
+    # cgto_hk = cgto
+    # cgto_intor = get_cgto_intor(
+    #   cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
+    # )
     mo_coeff_fn = partial(
       cgto_hk.get_mo_coeff,
       rks=cfg.direct_min_cfg.rks,
@@ -119,7 +137,6 @@ def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
   )
   # add spin and apply occupation mask
   mo_coeff *= cgto.nocc[:, :, None]
-  mo_coeff = mo_coeff.reshape(-1, mo_coeff.shape[-1])
 
   # eval with d4ft
   _, H = dft_cgto(

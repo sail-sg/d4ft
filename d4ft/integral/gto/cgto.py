@@ -24,7 +24,7 @@ import scipy.special
 from absl import logging
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
 from d4ft.system.mol import Mol
-from d4ft.types import MoCoeffFlat
+from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
 from jaxtyping import Array, Float, Int
 
@@ -235,7 +235,7 @@ class CGTO(NamedTuple):
     rks: bool,
     ortho_fn: Optional[Callable] = None,
     ovlp_sqrt_inv: Optional[Float[Array, "nao nao"]] = None,
-  ) -> MoCoeffFlat:
+  ) -> MoCoeff:
     """Function to return MO coefficient. Must be haiku transformed."""
     nmo = self.nao
     shape = ([nmo, nmo] if rks else [2, nmo, nmo])
@@ -256,5 +256,5 @@ class CGTO(NamedTuple):
     else:
       mo_coeff_spin = mo_coeff
     mo_coeff_spin *= self.nocc[:, :, None]  # apply spin mask
-    mo_coeff_spin = mo_coeff_spin.reshape(-1, nmo)  # flatten
+    # mo_coeff_spin = mo_coeff_spin.reshape(-1, nmo)  # flatten
     return mo_coeff_spin

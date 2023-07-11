@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Literal, Optional
+from typing import Callable, Literal, Optional, List
 
+import einops
 import jax.numpy as jnp
+import jax
 import pyscf
 from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import (
-  CGTOIntors, ETensorsIncore, IdxCount2C, IdxCount4C, MoCoeff
+  CGTOIntors, ETensorsIncore, Fock, FockFlat, IdxCount2C, IdxCount4C, MoCoeff,
+  MoCoeffFlat, RDM1
 )
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, Int
 
 
 def libcint_incore(
@@ -47,22 +50,24 @@ def libcint_incore(
   return kin, ext, eri
 
 
-def get_rdm1(mo_coeff: MoCoeff):
-  """Return the reduced 1-desnity matrix from MO coefficients."""
-  return mo_coeff.T @ mo_coeff
+def get_rdm1(mo_coeff: MoCoeff) -> RDM1:
+  """Calculate the 1-reduced density matrix (1-RDM) from MO coefficients."""
+  # return mo_coeff.transpose(0, 2, 1) @ mo_coeff
+  # return einops.rearrange(mo_coeff, "spin nmo nao -> spin nao nmo") @ mo_coeff
+  return einops.einsum(
+    mo_coeff, mo_coeff, "spin mo ao_i, spin mo ao_j -> spin ao_i ao_j"
+  )
 
 
 def get_cgto_intor(
   cgto: CGTO,
   intor: Literal["obsa", "libcint", "quad"] = "obsa",
   incore_energy_tensors: Optional[ETensorsIncore] = None,
-  keepdims: bool = False,
 ) -> CGTOIntors:
   """
   Args:
     intor: which intor to use
     incore_tensor: if provided, calculate energy incore
-    keepdims: if True, return the fock matrix with shape (nmo, nmo)
   """
   # TODO: test join optimization with hk=True
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
@@ -73,25 +78,129 @@ def get_cgto_intor(
     kin, ext, eri = incore_energy_tensors
 
     def kin_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-      rdm1 = get_rdm1(mo_coeff)
+      rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
       rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
       e_kin = jnp.sum(kin * rdm1_2c_ab)
+
       return e_kin
 
     def ext_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-      rdm1 = get_rdm1(mo_coeff)
+      rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
       rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
       e_ext = jnp.sum(ext * rdm1_2c_ab)
       return e_ext
 
     def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-      rdm1 = get_rdm1(mo_coeff)
-      rdm1_4c_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
-      rdm1_4c_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
-      e_har = jnp.sum(eri * rdm1_4c_ab * rdm1_4c_cd)
+      rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
+      rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
+      rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
+      e_har = jnp.sum(eri * rdm1_ab * rdm1_cd)
       return e_har
 
   else:  # TODO: out-of-core
     pass
 
   return kin_fn, ext_fn, har_fn
+
+
+def unreduce_symmetry_2c(
+  val: Float[Array, "nmo*(nmo+1)//2"], nmo: int, mo_ab_idx_counts: IdxCount2C
+) -> Float[Array, "nmo nmo"]:
+  """Given a symmetry reduce matrix, i.e. a flat array of value of shape
+  (nmo * (nmo + 1) // 2), return the full matrix of shape (nmo, nmo)."""
+  mat = jnp.zeros((nmo, nmo))
+  val = val / mo_ab_idx_counts[:, 2]
+  triu_mat = mat.at[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]].set(val)
+  full_mat = triu_mat + triu_mat.T - jnp.diag(jnp.diag(triu_mat))
+  return full_mat
+
+
+def get_j(
+  mo_coeff: MoCoeff,
+  eri: Float[Array, "n_4c"],
+  mo_abcd_idx_counts: IdxCount4C,
+  cd_segment_idx: Int[Array, "n_2c"],
+) -> Float[Array, "2 nao nao"]:
+  """Calculate the J matrix from the MO coefficients and symmetry reduced
+  4c integrals (ab|cd).
+
+  .. math::
+  sum_{cd} rho_{cd} (ab|cd) -> J_{ab}
+
+  where rho is the 1-RDM.
+  """
+  abcd_idx = mo_abcd_idx_counts[:, :4]
+  # j_indices = jnp.split(abcd_idx, ))[:-1]
+
+
+# def get_k(
+#   mo_coeff: MoCoeff,
+#   eri: Float[Array, "n_4c"],
+# ) -> Float[Array, "2 nao nao"]:
+#   """Calculate the K matrix from the MO coefficients and symmetry reduced
+#   4c integrals (pq|rs).
+
+#   .. math::
+#   sum_{rq} rho_{rq} (pq|rs) -> K_{ps}
+
+#   where rho is the 1-RDM.
+#   """
+#   pass
+
+
+def get_cgto_fock_fn(
+  cgto: CGTO, incore_energy_tensors: ETensorsIncore
+) -> Callable[[MoCoeff], Fock]:
+  """Currently only support incore"""
+  nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
+  mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
+  mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
+
+  kin, ext, eri = incore_energy_tensors
+
+  # unredce 2c integrals into full matrices, which can be precomputed
+  kin_mat = unreduce_symmetry_2c(kin, nmo, mo_ab_idx_counts)
+  ext_mat = unreduce_symmetry_2c(ext, nmo, mo_ab_idx_counts)
+  h_core = kin_mat + ext_mat
+
+  n_2c_idx = len(mo_ab_idx_counts)
+  ab_block_idx = jnp.vstack(jnp.triu_indices(n_2c_idx)).T
+  counts_ab = mo_ab_idx_counts[:, 2]
+  cd_in_block_counts = counts_ab[ab_block_idx[:, 1]]
+  # counts only inblock symmetry in the cd index of (ab|cd)
+  eri_val = eri / mo_abcd_idx_counts[:, 4] * cd_in_block_counts
+
+  cd_seg_idx = [
+    jnp.ones(seg_len) * seg_id
+    for seg_id, seg_len in enumerate(reversed(range(1, n_2c_idx + 1)))
+  ]
+  cd_seg_idx = jnp.hstack(cd_seg_idx)
+
+  def get_fock(mo_coeff: MoCoeff) -> Fock:
+    """Calculate the Fock matrix from the MO coefficients.
+
+    The J matrix can be calculated from the MO coefficients and
+    symmetry reduced 4c integrals (ab|cd).
+
+    .. math::
+    sum_{cd} rho_{cd} (ab|cd) -> J_{ab}
+
+    Note that the K matrix can be computed as
+
+    .. math::
+    sum_{cb} rho_{cb} (ab|cd) -> K_{cb}
+
+    where rho is the 1-RDM.
+    """
+    rdm1 = get_rdm1(mo_coeff)
+    rdm1_cd = rdm1[:, mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
+    # TODO: more efficient way to handle spin here
+    j_val_up = jax.ops.segment_sum(rdm1_cd[0] * eri_val, cd_seg_idx, n_2c_idx)
+    j_mat_up = unreduce_symmetry_2c(j_val_up, nmo, mo_ab_idx_counts)
+    j_val_dn = jax.ops.segment_sum(rdm1_cd[1] * eri_val, cd_seg_idx, n_2c_idx)
+    j_mat_dn = unreduce_symmetry_2c(j_val_dn, nmo, mo_ab_idx_counts)
+    j_mat = jnp.stack((j_mat_up, j_mat_dn))
+    v_eff = j_mat + xc_mat
+    return h_core + v_eff
+
+  return get_fock

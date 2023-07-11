@@ -31,10 +31,19 @@ IdxCount4C: TypeAlias = Int[Array, "batch 5"]
  of that idx, e.g. (0,0,1,0|4)."""
 IdxCount = Union[IdxCount2C, IdxCount4C]
 
+# TODO: consider change shape of MO to Float[Array, "2 nao nmo"] which is more
+# consistent with the convention
 MoCoeff: TypeAlias = Float[Array, "2 nmo nao"]
 """MO coefficient matrix"""
 MoCoeffFlat: TypeAlias = Float[Array, "2*nmo nao"]
 """Flattened MO coefficient matrix"""
+RDM1: TypeAlias = Float[Array, "2 nao nao"]
+"""1-Reduced density matrix, which is the outer product of MO coefficients."""
+
+Fock: TypeAlias = Float[Array, "2 nao nao"]
+"""Fock matrix"""
+FockFlat: TypeAlias = Float[Array, "2*nao nao"]
+"""Flattened Fock matrix"""
 
 PWCoeff: TypeAlias = Float[Array, "spin ele k g x y z"]
 """plane wave coefficients"""

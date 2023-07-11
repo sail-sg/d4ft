@@ -125,7 +125,7 @@ def triu_idx_range(
 
 @partial(jax.jit, static_argnames=['n_gtos'])
 def get_2c_sym_idx(n_gtos: int) -> IdxCount2C:
-  """2-fold symmetry (a|b)"""
+  """2-fold symmetry for 2c integral (a|b)"""
   ab_idx = jnp.vstack(jnp.triu_indices(n_gtos)).T
   offdiag_ab = ab_idx[:, 0] != ab_idx[:, 1]
   counts_ab = offdiag_ab + jnp.ones(len(ab_idx))
@@ -134,7 +134,8 @@ def get_2c_sym_idx(n_gtos: int) -> IdxCount2C:
 
 
 @partial(jax.jit, static_argnames=['n_gtos'])
-def get_4c_sym_idx(n_gtos: int) -> IdxCount4C:
+def get_4c_sym_idx(n_gtos: int, for_j: bool = False) -> IdxCount4C:
+  """8-fold symmetry for 4c integral (ab|cd)"""
   ab_idx_counts = get_2c_sym_idx(n_gtos)
   ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
 
@@ -142,9 +143,9 @@ def get_4c_sym_idx(n_gtos: int) -> IdxCount4C:
   ab_block_idx = jnp.vstack(jnp.triu_indices(len(ab_idx))).T
   offdiag_ab_block = ab_block_idx[:, 0] != ab_block_idx[:, 1]
   counts_ab_block = offdiag_ab_block + jnp.ones(len(ab_block_idx))
-  in_block_counts = (
-    counts_ab[ab_block_idx[:, 0]] * counts_ab[ab_block_idx[:, 1]]
-  )
+  ab_in_block_counts = counts_ab[ab_block_idx[:, 0]]
+  cd_in_block_counts = counts_ab[ab_block_idx[:, 1]]
+  in_block_counts = ab_in_block_counts * cd_in_block_counts
   between_block_counts = counts_ab_block
 
   counts_abcd = in_block_counts * between_block_counts
