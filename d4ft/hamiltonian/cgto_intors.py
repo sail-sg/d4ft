@@ -12,19 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Literal, Optional, List
+from typing import Callable, Literal, Optional
 
-import einops
-import jax.numpy as jnp
 import jax
+import jax.numpy as jnp
 import pyscf
 from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import (
-  CGTOIntors, ETensorsIncore, Fock, FockFlat, IdxCount2C, IdxCount4C, MoCoeff,
-  MoCoeffFlat, RDM1
+  RDM1, CGTOIntors, ETensorsIncore, Fock, FockFlat, IdxCount2C, IdxCount4C,
+  MoCoeff, MoCoeffFlat
 )
-from jaxtyping import Array, Float, Int
+from d4ft.utils import get_rdm1
+from jaxtyping import Array, Float
 
 
 def libcint_incore(
@@ -48,15 +48,6 @@ def libcint_incore(
   ext *= counts_ab
   eri *= counts_abcd
   return kin, ext, eri
-
-
-def get_rdm1(mo_coeff: MoCoeff) -> RDM1:
-  """Calculate the 1-reduced density matrix (1-RDM) from MO coefficients."""
-  # return mo_coeff.transpose(0, 2, 1) @ mo_coeff
-  # return einops.rearrange(mo_coeff, "spin nmo nao -> spin nao nmo") @ mo_coeff
-  return einops.einsum(
-    mo_coeff, mo_coeff, "spin mo ao_i, spin mo ao_j -> spin ao_i ao_j"
-  )
 
 
 def get_cgto_intor(

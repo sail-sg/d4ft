@@ -25,6 +25,7 @@ py_library(
         "//d4ft:logger",
         "//d4ft:optimize",
         "//d4ft:types",
+        "//d4ft:utils",
         "//d4ft:xc",
         "//d4ft/hamiltonian:cgto_intors",
         "//d4ft/hamiltonian:dft_cgto",

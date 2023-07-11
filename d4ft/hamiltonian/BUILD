@@ -32,7 +32,9 @@ py_library(
     name = "cgto_intors",
     srcs = ["cgto_intors.py"],
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        "//d4ft:utils",
+    ],
 )
 
 py_library(

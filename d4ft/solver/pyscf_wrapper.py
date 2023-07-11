@@ -18,8 +18,9 @@ import numpy as np
 import pyscf
 from pyscf import scf
 from pyscf.lib import logger
+from typing import Optional
 
-from d4ft.types import MoCoeff
+from d4ft.types import MoCoeff, RDM1
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
@@ -31,6 +32,7 @@ def pyscf_wrapper(
   quad_level: int = 1,
   verbose: int = 2,
   max_cycle: int = 50,
+  rdm1: Optional[RDM1] = None,
 ) -> MoCoeff:
   if rks:
     atom_mf = scf.RKS(mol)
@@ -43,7 +45,12 @@ def pyscf_wrapper(
   atom_mf.verbose = verbose
   atom_mf.max_cycle = max_cycle
 
-  atom_mf.kernel()
+  if rdm1 is not None:
+    # atom_mf.kernel(dm0=rdm1)
+    atom_mf.mo_coeff = rdm1.T
+    atom_mf.kernel()
+  else:
+    atom_mf.kernel()
 
   atom_mf.analyze(verbose=logger.INFO)
 

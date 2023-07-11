@@ -36,6 +36,7 @@ from d4ft.types import Hamiltonian, Trajectory
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_xc_intor
 from jaxtyping import Array, Float
+from d4ft.utils import get_rdm1
 
 
 def incore_hf_cgto(cfg: D4FTConfig):
@@ -54,9 +55,7 @@ def incore_hf_cgto(cfg: D4FTConfig):
   return incore_energy_tensors, pyscf_mol, cgto
 
 
-def incore_cgto_direct_opt_dft(
-  cfg: D4FTConfig
-) -> Tuple[float, Trajectory, Hamiltonian]:
+def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> None:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
   key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
@@ -107,7 +106,18 @@ def incore_cgto_direct_opt_dft(
     )
     return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
-  return sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
+  e_total, traj, H = sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
+
+  # rdm1 = get_rdm1(traj[-1].mo_coeff)
+  # scf_mo_coeff = pyscf_wrapper(
+  #   pyscf_mol,
+  #   cfg.direct_min_cfg.rks,
+  #   cfg.direct_min_cfg.xc_type,
+  #   cfg.direct_min_cfg.quad_level,
+  #   # rdm1=rdm1,
+  #   rdm1=traj[-1].mo_coeff,
+  # )
+  # breakpoint()
 
 
 def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
@@ -137,6 +147,8 @@ def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
     pyscf_mol, cfg.direct_min_cfg.rks, cfg.direct_min_cfg.xc_type,
     cfg.direct_min_cfg.quad_level
   )
+  breakpoint()
+
   # add spin and apply occupation mask
   mo_coeff *= cgto.nocc[:, :, None]
 
