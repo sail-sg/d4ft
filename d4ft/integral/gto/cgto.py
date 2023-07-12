@@ -230,7 +230,8 @@ class CGTO(NamedTuple):
     )
     return self._replace(primitives=primitives, coeff=coeff)
 
-  # TODO: instead of using occupation mask, we can orthogonalize a non-square matrix directly
+  # TODO: instead of using occupation mask, we can orthogonalize a non-square
+  # matrix directly
   def get_mo_coeff(
     self,
     rks: bool,

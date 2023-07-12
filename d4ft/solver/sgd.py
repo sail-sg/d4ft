@@ -72,7 +72,16 @@ def sgd(
 
     params = new_params
 
+    if step < 100:  # don't check for convergence
+      continue
+
     # check convergence
+    e_total_std = jnp.stack([t.energies.e_total for t in traj[-50:]]).std()
+    logging.info(f"e_total std: {e_total_std}")
+    if e_total_std < direct_min_cfg.converge_threshold:
+      converged = True
+      break
+
     e_total = energies.e_total
     if jnp.abs(prev_e_total - e_total) < direct_min_cfg.converge_threshold:
       converged = True

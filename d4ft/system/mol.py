@@ -45,11 +45,7 @@ def get_pyscf_mol(
   source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
   """Construct a pyscf mole object from molecule name and basis name"""
-  if "xyz" in mol:
-    with open(mol, "r") as f:
-      geometry = f.read()
-  else:
-    geometry = get_mol_geometry(mol, source)
+  geometry = get_mol_geometry(mol, source)
   atoms = get_atom_from_geometry(geometry)
   if spin == -1:
     spin = get_spin(atoms)

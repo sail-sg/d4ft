@@ -68,6 +68,10 @@ def get_mol_geometry(
   name: str, source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> str:
   geometry: Optional[str] = None
+  if ".xyz" in name:
+    with open(name, "r") as f:
+      geometry = f.read()
+
   if name.capitalize() in periodic_table:  # check if it is a single atom
     geometry = f"{name.capitalize()} 0.0000 0.0000 0.0000"
 

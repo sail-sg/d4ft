@@ -89,7 +89,7 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
   breakpoint()
 
 
-def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> None:
+def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
   key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
@@ -129,19 +129,16 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> None:
   e_total, traj, H = sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
   lowest_e = jnp.stack([t.energies.e_total for t in traj]).min()
   logging.info(f"lowest total energy: {lowest_e}")
-  # breakpoint()
+  return lowest_e
 
-  # ovlp_sqrt_inv = sqrt_inv(ovlp)
-  # breakpoint()
-
+  # NOTE: diagonalize the fock matrix gives a different mo_coeff
   # rdm1 = get_rdm1(traj[-1].mo_coeff)
   # scf_mo_coeff = pyscf_wrapper(
   #   pyscf_mol,
   #   cfg.direct_min_cfg.rks,
   #   cfg.direct_min_cfg.xc_type,
   #   cfg.direct_min_cfg.quad_level,
-  #   # rdm1=rdm1,
-  #   rdm1=traj[-1].mo_coeff,
+  #   rdm1=rdm1,
   # )
   # breakpoint()
 

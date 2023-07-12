@@ -14,14 +14,13 @@
 """Calculate the xc functional with numerical integration"""
 from typing import Callable
 
-import jax
+import einops
 import jax.numpy as jnp
 from jaxtyping import Array, Float
-import einops
 
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.quadrature.utils import quadrature_integral, wave2density
-from d4ft.types import MoCoeff, QuadGridsNWeights, Fock
+from d4ft.types import Fock, MoCoeff, QuadGridsNWeights
 
 
 def get_xc_intor(

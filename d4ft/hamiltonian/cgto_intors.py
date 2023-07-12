@@ -19,10 +19,9 @@ import jax.numpy as jnp
 import pyscf
 from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.cgto import CGTO
-from d4ft.integral.quadrature.utils import quadrature_integral
 from d4ft.types import (
-  RDM1, CGTOIntors, ETensorsIncore, Fock, FockFlat, IdxCount2C, IdxCount4C,
-  MoCoeff, MoCoeffFlat, QuadGridsNWeights
+  CGTOIntors, ETensorsIncore, Fock, IdxCount2C, IdxCount4C, MoCoeff,
+  QuadGridsNWeights
 )
 from d4ft.utils import get_rdm1
 from d4ft.xc import get_lda_vxc

@@ -25,7 +25,7 @@ pydantic_config = PydanticConfigDict({"validate_assignment": True})
 @dataclass(config=pydantic_config)
 class OptimizerConfig:
   """Config for the gradient descent DFT solver"""
-  epochs: int = 2000
+  epochs: int = 4000
   lr: float = 1e-2
   lr_decay: Literal["none", "piecewise"] = "piecewise"
   optimizer: Literal["adam", "sgd"] = "adam"
@@ -87,7 +87,8 @@ class D4FTConfig(ConfigDict):
 
   def validate(self, spin: int, charge: int) -> None:
     if self.direct_min_cfg.rks:
-      assert spin == 0 and charge == 0, "RKS only supports closed-shell molecules"
+      assert spin == 0 and charge == 0, \
+        "RKS only supports closed-shell molecules"
 
 
 def get_config() -> D4FTConfig:

@@ -14,11 +14,12 @@
 """Entrypoint for D4FT."""
 from typing import Any
 
-from absl import app, flags
+from absl import app, flags, logging
 from jax.config import config
 from ml_collections.config_flags import config_flags
 
 from d4ft.config import D4FTConfig
+from d4ft.constants import HARTREE_TO_KCALMOL
 from d4ft.solver.drivers import (
   incore_cgto_direct_opt_dft, incore_cgto_pyscf_dft_benchmark,
   incore_cgto_scf_dft
@@ -26,8 +27,10 @@ from d4ft.solver.drivers import (
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
-  "run", "direct", ["direct", "scf", "pyscf"], "which routine to run"
+  "run", "direct", ["direct", "scf", "pyscf", "reaction"],
+  "which routine to run"
 )
+flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
 flags.DEFINE_bool("use_f64", False, "whether to use float64")
 
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
@@ -47,6 +50,22 @@ def main(_: Any) -> None:
 
   elif FLAGS.run == "pyscf":
     incore_cgto_pyscf_dft_benchmark(cfg)
+
+  elif FLAGS.run == "reaction":
+    systems = FLAGS.reaction.split("_")
+
+    e = {}
+    for system in systems:
+      cfg.mol_cfg.mol = f"bh76_{system}"
+      e[system] = incore_cgto_direct_opt_dft(cfg)
+
+    e_barrier = e[systems[2]] - e[systems[1]] - e[systems[0]]
+
+    for system in systems:
+      logging.info(f"e_{system} = {e[system]} Ha")
+    logging.info(
+      f"e_barrier = {e_barrier} Ha = {e_barrier * HARTREE_TO_KCALMOL} kcal/mol"
+    )
 
 
 if __name__ == "__main__":
