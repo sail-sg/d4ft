@@ -17,11 +17,13 @@
 from functools import partial
 from typing import Callable, Tuple
 
+import haiku as hk
 import jax
+import jax.numpy as jnp
 import jax_xc
 from absl import logging
 from d4ft.config import D4FTConfig
-from d4ft.hamiltonian.cgto_intors import get_cgto_intor
+from d4ft.hamiltonian.cgto_intors import get_cgto_fock_fn, get_cgto_intor
 from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
@@ -32,11 +34,10 @@ from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
-from d4ft.types import Hamiltonian, Trajectory
+from d4ft.types import Hamiltonian
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_xc_intor
 from jaxtyping import Array, Float
-from d4ft.utils import get_rdm1
 
 
 def incore_hf_cgto(cfg: D4FTConfig):
@@ -55,6 +56,39 @@ def incore_hf_cgto(cfg: D4FTConfig):
   return incore_energy_tensors, pyscf_mol, cgto
 
 
+def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
+  """Solve for ground state of a molecular system with SCF KS-DFT,
+  where CGTO basis are used and the energy tensors are precomputed/incore.
+
+  NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
+  """
+  key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
+  incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
+
+  dg = DifferentiableGrids(pyscf_mol)
+  dg.level = cfg.direct_min_cfg.quad_level
+  # TODO: test geometry optimization
+  grids_and_weights = dg.build(pyscf_mol.atom_coords())
+
+  cgto_fock_fn = get_cgto_fock_fn(
+    cgto,
+    incore_energy_tensors,
+    grids_and_weights,
+    polarized=not cfg.direct_min_cfg.rks
+  )
+  cgto_fock_jit = jax.jit(cgto_fock_fn)
+
+  # get initial mo_coeff
+  mo_coeff_fn = partial(cgto.get_mo_coeff, rks=cfg.direct_min_cfg.rks)
+  mo_coeff_fn = hk.without_apply_rng(hk.transform(mo_coeff_fn))
+  params = mo_coeff_fn.init(key)
+  mo_coeff = mo_coeff_fn.apply(params)
+
+  fock = cgto_fock_jit(mo_coeff)
+  _, new_mo = jnp.linalg.eigh(fock)
+  breakpoint()
+
+
 def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> None:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
@@ -71,23 +105,9 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> None:
   # TODO: change this to use obsa
   ovlp: Float[Array, "a a"] = pyscf_mol.intor('int1e_ovlp_sph')
 
-  cgto_hk = cgto
-
-  # cgto_fock_fn = get_cgto_fock_fn(
-  #   cgto_hk, incore_energy_tensors=incore_energy_tensors
-  # )
-
-  # import numpy as np
-  # cgto_fock_fn(np.random.randn(2, 10, 10))
-  # breakpoint()
-
-  # cgto_intor = get_cgto_intor(
-  #   cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
-  # )
-
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     # TODO: out-of-core + basis optimization
-    cgto_hk = cgto.to_hk()
+    # cgto_hk = cgto.to_hk()
     cgto_hk = cgto
     cgto_intor = get_cgto_intor(
       cgto_hk, intor="obsa", incore_energy_tensors=incore_energy_tensors
@@ -107,6 +127,12 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> None:
     return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
   e_total, traj, H = sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
+  lowest_e = jnp.stack([t.energies.e_total for t in traj]).min()
+  logging.info(f"lowest total energy: {lowest_e}")
+  # breakpoint()
+
+  # ovlp_sqrt_inv = sqrt_inv(ovlp)
+  # breakpoint()
 
   # rdm1 = get_rdm1(traj[-1].mo_coeff)
   # scf_mo_coeff = pyscf_wrapper(

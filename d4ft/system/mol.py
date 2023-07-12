@@ -21,7 +21,8 @@ from absl import logging
 from d4ft.system.geometry import get_mol_geometry
 from d4ft.system.occupation import get_occupation_mask
 from d4ft.system.utils import periodic_hash_table
-from jaxtyping import Array, Float, Int
+from d4ft.types import AtomCoords
+from jaxtyping import Array, Int
 
 
 def get_atom_from_geometry(geometry: str) -> List[str]:
@@ -65,7 +66,7 @@ class Mol(NamedTuple):
   the number of alpha and beta electrons."""
   charge: int
   """charge multiplicity, i.e. number of protons - number of electrons"""
-  atom_coords: Float[Array, "n_atoms 3"]
+  atom_coords: AtomCoords
   """atom centers"""
   atom_charges: Int[Array, "n_atoms"]
   """charges for each atoms"""

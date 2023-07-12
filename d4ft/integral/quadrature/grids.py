@@ -23,7 +23,7 @@ import jax.numpy as jnp
 from pyscf.data.elements import charge as elements_proton
 from pyscf.dft import gen_grid, radi
 
-from d4ft.types import QuadGridsNWeights
+from d4ft.types import QuadGridsNWeights, AtomCoords
 
 
 def treutler_atomic_radii_adjust(mol, atomic_radii):
@@ -110,7 +110,7 @@ def get_partition(
 class DifferentiableGrids(gen_grid.Grids):
   """Differentiable alternative to the original pyscf.gen_grid.Grids."""
 
-  def build(self, atom_coords):
+  def build(self, atom_coords: AtomCoords) -> QuadGridsNWeights:
     mol = self.mol
     atom_grids_tab = self.gen_atomic_grids(
       mol, self.atom_grid, self.radi_method, self.level, self.prune

@@ -15,24 +15,35 @@
 from typing import Any
 
 from absl import app, flags
+from jax.config import config
 from ml_collections.config_flags import config_flags
 
 from d4ft.config import D4FTConfig
 from d4ft.solver.drivers import (
-  incore_cgto_direct_opt_dft, incore_cgto_pyscf_dft_benchmark
+  incore_cgto_direct_opt_dft, incore_cgto_pyscf_dft_benchmark,
+  incore_cgto_scf_dft
 )
 
 FLAGS = flags.FLAGS
-flags.DEFINE_enum("run", "direct", ["direct", "pyscf"], "which routine to run")
+flags.DEFINE_enum(
+  "run", "direct", ["direct", "scf", "pyscf"], "which routine to run"
+)
+flags.DEFINE_bool("use_f64", False, "whether to use float64")
+
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
 
 def main(_: Any) -> None:
+  config.update("jax_enable_x64", FLAGS.use_f64)
+
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
 
   if FLAGS.run == "direct":
     incore_cgto_direct_opt_dft(cfg)
+
+  elif FLAGS.run == "scf":
+    incore_cgto_scf_dft(cfg)
 
   elif FLAGS.run == "pyscf":
     incore_cgto_pyscf_dft_benchmark(cfg)

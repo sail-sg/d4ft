@@ -19,11 +19,13 @@ import jax.numpy as jnp
 import pyscf
 from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.cgto import CGTO
+from d4ft.integral.quadrature.utils import quadrature_integral
 from d4ft.types import (
   RDM1, CGTOIntors, ETensorsIncore, Fock, FockFlat, IdxCount2C, IdxCount4C,
-  MoCoeff, MoCoeffFlat
+  MoCoeff, MoCoeffFlat, QuadGridsNWeights
 )
 from d4ft.utils import get_rdm1
+from d4ft.xc import get_lda_vxc
 from jaxtyping import Array, Float
 
 
@@ -107,7 +109,10 @@ def unreduce_symmetry_2c(
 
 
 def get_cgto_fock_fn(
-  cgto: CGTO, incore_energy_tensors: ETensorsIncore
+  cgto: CGTO,
+  incore_energy_tensors: ETensorsIncore,
+  grids_and_weights: QuadGridsNWeights,
+  polarized: bool,
 ) -> Callable[[MoCoeff], Fock]:
   """Currently only support incore"""
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
@@ -134,6 +139,9 @@ def get_cgto_fock_fn(
   ]
   cd_seg_idx = jnp.hstack(cd_seg_idx)
 
+  # VXC
+  vxc_fn = get_lda_vxc(grids_and_weights, cgto, polarized)
+
   def get_fock(mo_coeff: MoCoeff) -> Fock:
     """Calculate the Fock matrix from the MO coefficients.
 
@@ -158,10 +166,8 @@ def get_cgto_fock_fn(
     j_val_dn = jax.ops.segment_sum(rdm1_cd[1] * eri_val, cd_seg_idx, n_2c_idx)
     j_mat_dn = unreduce_symmetry_2c(j_val_dn, nmo, mo_ab_idx_counts)
     j_mat = jnp.stack((j_mat_up, j_mat_dn))
-    # v_eff = j_mat + xc_mat
-    vxc = quad.utils.quadrature_integral(integrand_vxc_lda(ao, mo_old), batch1)
+    vxc = vxc_fn(mo_coeff)
     v_eff = j_mat + vxc
-    breakpoint()
 
     return h_core + v_eff
 

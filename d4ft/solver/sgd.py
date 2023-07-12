@@ -66,7 +66,7 @@ def sgd(
     segment_df = logger.get_segment_summary()
     e_total = segment_df.e_total.mean()
 
-    mo_coeff = H.mo_coeff_fn(params)
+    mo_coeff = H.mo_coeff_fn(params, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)
     traj.append(t)
 

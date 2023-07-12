@@ -63,6 +63,9 @@ QuadWeights: TypeAlias = Float[Array, "n_grid_pts 1"]
 """quadrature weights"""
 QuadGridsNWeights = Tuple[QuadGrids, QuadWeights]
 
+AtomCoords: TypeAlias = Float[Array, "n_atoms 3"]
+"""Atom coordinates in real 3D space"""
+
 
 class AngularStats(NamedTuple):
   min_a: Int[np.ndarray, "3"]

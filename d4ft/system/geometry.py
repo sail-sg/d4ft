@@ -67,10 +67,11 @@ def get_fullerene_geometry(name: str) -> Optional[str]:
 def get_mol_geometry(
   name: str, source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> str:
-  geometry: Optional[str]
+  geometry: Optional[str] = None
   if name.capitalize() in periodic_table:  # check if it is a single atom
     geometry = f"{name.capitalize()} 0.0000 0.0000 0.0000"
-  else:  # check if it is fullerene
+
+  if name[0] == "C":  # check if it is fullerene
     geometry = get_fullerene_geometry(name)
 
   # try to see if there is offline data available

@@ -230,17 +230,19 @@ class CGTO(NamedTuple):
     )
     return self._replace(primitives=primitives, coeff=coeff)
 
+  # TODO: instead of using occupation mask, we can orthogonalize a non-square matrix directly
   def get_mo_coeff(
     self,
     rks: bool,
     ortho_fn: Optional[Callable] = None,
     ovlp_sqrt_inv: Optional[Float[Array, "nao nao"]] = None,
+    apply_spin_mask: bool = True,
   ) -> MoCoeff:
     """Function to return MO coefficient. Must be haiku transformed."""
     nmo = self.nao
     shape = ([nmo, nmo] if rks else [2, nmo, nmo])
 
-    mo_coeff = hk.get_parameter(
+    mo_params = hk.get_parameter(
       "mo_params",
       shape,
       init=hk.initializers.RandomNormal(stddev=1. / math.sqrt(nmo))
@@ -249,12 +251,16 @@ class CGTO(NamedTuple):
     if ortho_fn:
       # ortho_fn provide a parameterization of the generalized Stiefel manifold
       # where (CSC=I), i.e. overlap matrix in Roothann equations is identity.
-      mo_coeff = ortho_fn(mo_coeff) @ ovlp_sqrt_inv
+      mo_coeff = ortho_fn(mo_params) @ ovlp_sqrt_inv
+    else:
+      mo_coeff = mo_params
 
     if rks:  # restrictied mo
       mo_coeff_spin = jnp.repeat(mo_coeff[None], 2, 0)  # add spin axis
     else:
       mo_coeff_spin = mo_coeff
-    mo_coeff_spin *= self.nocc[:, :, None]  # apply spin mask
+
+    if apply_spin_mask:
+      mo_coeff_spin *= self.nocc[:, :, None]  # apply spin mask
     # mo_coeff_spin = mo_coeff_spin.reshape(-1, nmo)  # flatten
     return mo_coeff_spin
