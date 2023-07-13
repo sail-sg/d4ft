@@ -29,6 +29,24 @@ from d4ft.types import (
 )
 
 
+def scipy_opt(
+  direct_min_cfg: DirectMinimizationConfig, optim_cfg: OptimizerConfig,
+  H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
+) -> float:
+
+  H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
+  init_params = H_transformed.init(key)
+
+  H = Hamiltonian(*H_transformed.apply)
+
+  energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff)[0])
+
+  import jaxopt
+  solver = jaxopt.BFGS(fun=energy_fn_jit, maxiter=4000)
+  res = solver.run(init_params)
+  return res.state
+
+
 def sgd(
   direct_min_cfg: DirectMinimizationConfig, optim_cfg: OptimizerConfig,
   H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
@@ -49,22 +67,21 @@ def sgd(
     val_and_grads_fn = jax.value_and_grad(H.energy_fn, has_aux=True)
     (_, aux), grad = val_and_grads_fn(params)
     energies, mo_grads = aux
-    updates, opt_state = optimizer.update(grad, opt_state)
+    updates, opt_state = optimizer.update(grad, opt_state, params)
     params = optax.apply_updates(params, updates)
     return params, opt_state, energies, mo_grads
 
   # GD loop
   e_total = 0.
   traj = []
-  prev_e_total = 0.
   converged = False
   logger = RunLogger()
+  # mo_grad_norm_fn = jax.jit(jax.vmap(partial(jnp.linalg.norm, ord=2), 0, 0))
   for step in range(optim_cfg.epochs):
     new_params, opt_state, energies, mo_grads = update(params, opt_state)
 
     logger.log_step(energies, step)
     segment_df = logger.get_segment_summary()
-    e_total = segment_df.e_total.mean()
 
     mo_coeff = H.mo_coeff_fn(params, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)
@@ -72,22 +89,26 @@ def sgd(
 
     params = new_params
 
-    if step < 100:  # don't check for convergence
+    if step < direct_min_cfg.hist_len:  # don't check for convergence
       continue
 
+    # gradient norm for each spin
+    # mo_grad_norm = mo_grad_norm_fn(sum(mo_grads))
+    # logging.info(f"mo grad norm: {mo_grad_norm.mean()}")
+
     # check convergence
-    e_total_std = jnp.stack([t.energies.e_total for t in traj[-50:]]).std()
+    e_total_std = jnp.stack(
+      [t.energies.e_total for t in traj[-direct_min_cfg.hist_len:]]
+    ).std()
     logging.info(f"e_total std: {e_total_std}")
     if e_total_std < direct_min_cfg.converge_threshold:
       converged = True
       break
 
-    e_total = energies.e_total
-    if jnp.abs(prev_e_total - e_total) < direct_min_cfg.converge_threshold:
-      converged = True
-      break
-    else:
-      prev_e_total = e_total
+    # if not improving, stop early
+    # recent_e_min = logger.data_df[-direct_min_cfg.hist_len:].e_total.min()
+    # if recent_e_min > logger.data_df.e_total.min():
+    #   break
 
   logging.info(f"Converged: {converged}")
 

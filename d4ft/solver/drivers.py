@@ -32,7 +32,7 @@ from d4ft.integral.obara_saika.driver import incore_int_sym
 from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
-from d4ft.solver.sgd import sgd
+from d4ft.solver.sgd import sgd, scipy_opt
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import Hamiltonian
 from d4ft.utils import make_constant_fn
@@ -125,6 +125,9 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
       polarized=not cfg.direct_min_cfg.rks
     )
     return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
+
+  # e_total = scipy_opt(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
+  # breakpoint()
 
   e_total, traj, H = sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
   lowest_e = jnp.stack([t.energies.e_total for t in traj]).min()

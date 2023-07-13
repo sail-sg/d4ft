@@ -27,15 +27,26 @@ def get_optimizer(cfg: OptimizerConfig) -> optax.GradientTransformation:
         int(cfg.epochs * 0.825): 0.125,
       }
     )
+  elif cfg.lr_decay == "cosine":
+    lr = optax.warmup_cosine_decay_schedule(
+      init_value=0.0,
+      peak_value=1.0,
+      warmup_steps=50,
+      decay_steps=cfg.epochs - 50,
+      end_value=0.0,
+    )
   else:
     lr = cfg.lr
 
-  optimizer_kwargs = {"learning_rate": lr}
-
   if cfg.optimizer == "sgd":
-    optimizer = optax.sgd(**optimizer_kwargs)
+    optimizer = optax.sgd(learning_rate=lr)
   elif cfg.optimizer == "adam":
-    optimizer = optax.adam(**optimizer_kwargs)
+    optimizer = optax.adam(learning_rate=lr)
+  elif cfg.optimizer == "adamw":
+    optimizer = optax.chain(
+      optax.clip(1.0),
+      optax.adamw(learning_rate=lr),
+    )
   else:
     raise NotImplementedError
 

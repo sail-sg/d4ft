@@ -238,16 +238,22 @@ class CGTO(NamedTuple):
     ortho_fn: Optional[Callable] = None,
     ovlp_sqrt_inv: Optional[Float[Array, "nao nao"]] = None,
     apply_spin_mask: bool = True,
+    use_hk: bool = True,
+    key: Optional[jax.Array] = None,
   ) -> MoCoeff:
     """Function to return MO coefficient. Must be haiku transformed."""
     nmo = self.nao
     shape = ([nmo, nmo] if rks else [2, nmo, nmo])
 
-    mo_params = hk.get_parameter(
-      "mo_params",
-      shape,
-      init=hk.initializers.RandomNormal(stddev=1. / math.sqrt(nmo))
-    )
+    if use_hk:
+      mo_params = hk.get_parameter(
+        "mo_params",
+        shape,
+        init=hk.initializers.RandomNormal(stddev=1. / math.sqrt(nmo))
+      )
+    else:
+      assert key is not None
+      mo_params = jax.random.normal(key, shape) / jnp.sqrt(nmo)
 
     if ortho_fn:
       # ortho_fn provide a parameterization of the generalized Stiefel manifold

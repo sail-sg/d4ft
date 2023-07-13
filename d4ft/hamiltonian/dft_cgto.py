@@ -29,7 +29,8 @@ def dft_cgto(
   cgto: CGTO, cgto_intors: CGTOIntors, xc_fn: Callable,
   mo_coeff_fn: Callable[[], MoCoeffFlat]
 ) -> Tuple[Callable, Hamiltonian]:
-  """Electron Hamiltonian discretized the in GTO basis,
+  """Electron Hamiltonian with single Slater determinant ansatz (Hartree-Fock),
+  discretized the in GTO basis. All energy integral are computed analytically
   except for XC which is integrated numerically with quadrature."""
 
   kin_fn, ext_fn, har_fn = cgto_intors

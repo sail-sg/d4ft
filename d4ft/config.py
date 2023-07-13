@@ -27,8 +27,8 @@ class OptimizerConfig:
   """Config for the gradient descent DFT solver"""
   epochs: int = 4000
   lr: float = 1e-2
-  lr_decay: Literal["none", "piecewise"] = "piecewise"
-  optimizer: Literal["adam", "sgd"] = "adam"
+  lr_decay: Literal["none", "piecewise", "cosine"] = "piecewise"
+  optimizer: Literal["adam", "sgd", "adamw"] = "adam"
   rng_seed: int = 137
 
 
@@ -41,8 +41,11 @@ class DirectMinimizationConfig:
   """name of the xc functional to use"""
   quad_level: int = 1
   """quadrature point level, higher means more points"""
-  converge_threshold: float = 1e-8
+  converge_threshold: float = 1e-4
   """threshold for gradient descent convergence checking"""
+  hist_len: int = 50
+  """number of steps to used for computing standard deviation of totale energy,
+  which is used for gradient descent convergence checking"""
   incore: bool = True
   """Whether to store tensors incore when not optimizing basis.
   If false, tensors are computed on the fly."""

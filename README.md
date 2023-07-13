@@ -16,11 +16,12 @@ pip install -e .
 ./scripts/gpu_setup.sh
 ```
 
-## Quick start: Calculating the ground state energy of Oxygen molecule
+# Quick start: using D4FT as a standalone program
 D4FT aims to provide atomic APIs similar to modern deep learning library like Jax and Pytorch, so that developers can easily write new algorithm by composing existing APIs.
 
 D4FT also provides examples for standard algorithms, similar to the "train" script in deep learning framework, so that users who just want to run existing algorithms can setup the calculation like any other quantum chemistry library.
 
+## Calculating the ground state energy of Oxygen molecule
 Let's calculate the ground state energy of Oxygen molecule with direct minimization DFT:
 ``` shell
 python main.py --run direct --config.mol_cfg.mol O2
@@ -41,19 +42,61 @@ I0629 10:57:29.400142 140645918545728 sgd.py:83] Converged: True
 ```
 where each component of the ground state energy is printed.
 
-## Specifying spin multiplicity
-By default all electrons are maximally paired, so the spin is 0 or 1. To specify the spin multiplicity, use the flag `--config.mol_cfg.spin`, for example
+## Benchmarking against PySCF
+Now let's test the accuracy of the calculated ground state energy against well-established open-source QC library PySCF. D4FT provides a thin wrapper around PySCF's API: to run the same calculation above of the Oxygen molecule but with PySCF, run:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.spin 2
+python main.py --run pyscf --config.mol_cfg.mol O2                             
+```
+This will call PySCF to perform SCF calculation with the setting stated in `d4ft/config.py`. Two sets of energy will be printed: 
+1. the energy calculated with PySCF's integral engine `libcint`, which uses Rys quadrature:
+``` shell
+**** SCF Summaries ****
+Total Energy =                        -145.993023703410159
+Nuclear Repulsion Energy =              28.047487783751553
+One-electron Energy =                 -260.344533053220744
+Two-electron Coulomb Energy =          101.213596609086963
+DFT Exchange-Correlation Energy =      -14.909575043027928
+```
+2. the energy calculated with D4FT's integral engine (where we load the MO coefficients from the PySCF's calculation), which implements the Obara-Saika scheme:
+``` shell
+e_total   -145.993042
+e_kin      146.081512
+e_ext     -406.426056
+e_har      101.213593
+e_xc       -14.909574
+e_nuc       28.047487
+time         0.000974
+dtype: float64
+I0630 11:00:55.155952 139685586032448 main.py:120] 1e energy:-260.34454345703125
+```
+where `1e energy` is the sum of kinetic and external potential energy. We see that the energy value agrees up to 5 decimal places, and that direct minimization finds a wavefunction with lower energy.
+
+## Calculate energy barrier for reaction
+
+``` shell
+python main.py --run reaction --reaction hf_h_hfhts --config.optim_cfg.lr_decay cosine
+```
+This calculate the ground state energy for each system, then compute the energy barrier:
+``` shell
+I0713 14:34:15.694393 140558110832448 main.py:65] e_hf = -97.53069305419922 Ha
+I0713 14:34:15.694551 140558110832448 main.py:65] e_h = -0.4113791286945343 Ha
+I0713 14:34:15.694614 140558110832448 main.py:65] e_hfhts = -97.93412780761719 Ha
+I0713 14:34:15.728916 140558110832448 main.py:66] e_barrier = 0.00794219970703125 Ha = 4.9837541580200195 kcal/mol
 ```
 
-## Specifying XC functional
-D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.direct_min_cfg.xc_type` to specify XC functional to use, for example:
+Another example:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.direct_min_cfg.xc_type lda_x
+python main.py --run reaction --reaction n2o_h_n2ohts
+```
+which should return
+``` shell
+I0713 15:30:42.618415 139621268744000 main.py:65] e_n2o = -179.2051544189453 Ha
+I0713 15:30:42.618541 139621268744000 main.py:65] e_h = -0.4113791286945343 Ha
+I0713 15:30:42.618597 139621268744000 main.py:65] e_n2ohts = -179.59417724609375 Ha
+I0713 15:30:42.644445 139621268744000 main.py:66] e_barrier = 0.0223541259765625 Ha = 14.027280807495117 kcal/mol
 ```
 
-### Using the configuration system of D4FT
+# Using the configuration system of D4FT
 D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage configurations. We have just called the script `main.py` to run the direct minimization, which reads the default configuration file `d4ft/config.py`, and apply overrides to the `mol` config via the flag `--config.mol_cfg.mol O2`.
 
 The configuration used for the calculation will be printed to the console at the start of the run. For example when you run the calculation for Oxygen above using the default configuration, you should see the following:
@@ -82,35 +125,18 @@ optim_cfg: !!python/object:config_config.OptimizerConfig
 All configuration stated in `d4ft/config.py` can be overridden by providing an appropriate flag (of the form `--config.<cfg_field>`). For example, to change the basis set to `6-31g`, use the flag `--config.mol_cfg.basis 6-31g`. You can directly change the 
 `d4ft/config.py` file, or specify a custom config file by supplying the flag `--config <your config file path>`.
 
+## Specifying spin multiplicity
+By default all electrons are maximally paired, so the spin is 0 or 1. To specify the spin multiplicity, use the flag `--config.mol_cfg.spin`, for example
+``` shell
+python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.spin 2
+```
 
-### Benchmarking against PySCF
-Now let's test the accuracy of the calculated ground state energy against well-established open-source QC library PySCF. D4FT provides a thin wrapper around PySCF's API: to run the same calculation above of the Oxygen molecule but with PySCF, run:
+## Specifying XC functional
+D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.direct_min_cfg.xc_type` to specify XC functional to use, for example:
 ``` shell
-python main.py --run pyscf --config.mol_cfg.mol O2                             
+python main.py --run direct --config.mol_cfg.mol O2 --config.direct_min_cfg.xc_type lda_x
 ```
-This will call PySCF to perform SCF calculation with the setting stated in `d4ft/config.py`. Two sets of energy will be printed: 
-1. the energy calculated with PySCF's integral engine `libcint`, which uses Rys quadrature:
-``` shell
-**** SCF Summaries ****
-Total Energy =                        -145.993023703410159
-Nuclear Repulsion Energy =              28.047487783751553
-One-electron Energy =                 -260.344533053220744
-Two-electron Coulomb Energy =          101.213596609086963
-DFT Exchange-Correlation Energy =      -14.909575043027928
-```
-2. the energy calculated with D4FT's integral engine (where we load the MO coefficients from the PySCF's calculation), which implements the Obara-Saika scheme:
-``` shell
-e_total   -145.993042
-e_kin      146.081512
-e_ext     -406.426056
-e_har      101.213593
-e_xc       -14.909574
-e_nuc       28.047487
-time         0.000974
-dtype: float64
-I0630 11:00:55.155952 139685586032448 main.py:120] 1e energy:-260.34454345703125
-```
-where `1e energy` is the sum of kinetic and external potential energy. We see that the energy value agrees up to 5 decimal places, and that direct minimization finds a wavefunction with lower energy.
+
 
 ## Specifying Custom Geometries
 By default, D4FT uses experimental geometries for molecules from [Computational Chemistry Comparison and Benchmark DataBase](https://cccbdb.nist.gov/). Some examples is stored in `d4ft/system/xyz_files`, for example:
@@ -141,7 +167,7 @@ then pass it through the config flag as follows
 --config.mol_cfg.mol <path_to_geometry_file>
 ```
 
-## Using the D4FT API directly
+# Using the D4FT API directly
 If you want to use D4FT inside your program, it is best to call the APIs directly instead of using the `main.py` script. For example, the following is a minimal example of call
 direct optimization DFT with D4FT:
 ``` python
@@ -149,6 +175,10 @@ from absl import logging
 
 from d4ft.config import get_config
 from d4ft.solver.drivers import incore_cgto_direct_opt_dft
+
+# enable float 64
+from jax.config import config
+config.update("jax_enable_x64", True)
 
 # make log visible
 logging.set_verbosity(logging.INFO) 
