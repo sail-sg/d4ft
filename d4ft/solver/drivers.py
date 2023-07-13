@@ -32,7 +32,7 @@ from d4ft.integral.obara_saika.driver import incore_int_sym
 from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
-from d4ft.solver.sgd import sgd, scipy_opt
+from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import Hamiltonian
 from d4ft.utils import make_constant_fn

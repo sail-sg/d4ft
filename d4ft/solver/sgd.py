@@ -81,7 +81,7 @@ def sgd(
     new_params, opt_state, energies, mo_grads = update(params, opt_state)
 
     logger.log_step(energies, step)
-    segment_df = logger.get_segment_summary()
+    logger.get_segment_summary()
 
     mo_coeff = H.mo_coeff_fn(params, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)
