@@ -1,4 +1,4 @@
-# Copyright 2022 Garena Online Private Limited
+# Copyright 2023 Garena Online Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@ from typing import Callable, Generator
 
 import jax
 import jax.numpy as jnp
+from jaxtyping import Array
 
 
 def make_quadrature_points_batches(
-  grids: jnp.array,
-  weights: jnp.array,
+  grids: Array,
+  weights: Array,
   batch_size: int,
   epochs: int,
   num_copies: int,
@@ -56,10 +57,10 @@ def make_quadrature_points_batches(
 
 
 def shuffle_quadrature_points(
-  grids: jnp.array,
-  weights: jnp.array,
+  grids: Array,
+  weights: Array,
   batch_size: int,
-  key: jnp.array,
+  key: Array,
 ):
   """Shuffle all
 
@@ -92,7 +93,7 @@ def shuffle_quadrature_points(
   return list(zip(batched_g, batched_w))
 
 
-def quadrature_integral(integrand: Callable, *coords_and_weights) -> jnp.array:
+def quadrature_integral(integrand: Callable, *coords_and_weights) -> Array:
   """Integrate a multivariate function with quadrature.
 
   - The integral can be computed with a randomly sampled batch of
@@ -147,7 +148,7 @@ def get_integrand(f: Callable, g: Callable, keepdims: bool = False) -> Callable:
   (<f_i|g_j>)_{ij} = \\sum_k w_k \\dot (F(r_k)G(r_k)^T)
   """
 
-  def integrand(r: jnp.array) -> jnp.array:
+  def integrand(r: Array) -> Array:
     F, G = f(r), g(r)
     if keepdims:
       if len(F.shape) == 1:
@@ -159,20 +160,18 @@ def get_integrand(f: Callable, g: Callable, keepdims: bool = False) -> Callable:
   return integrand
 
 
-def wave2density(
-  orbitals: Callable, nocc: float = 1., keep_spin=False
-) -> Callable:
+def wave2density(orbitals: Callable, polarized=False) -> Callable:
   """
   Transform the wave function into density function.
   Args:
     mo: a [3] -> [2, N] function, where N is the number of molecular orbitals.
-        mo only takes one argment, which is the coordinate.
-    keep_spin: if True will return a 1D array with two elements indicating
-    the density of each spin
+      mo only takes one argment, which is the coordinate.
+    polarized: if True will return a 1D array with two elements indicating
+      the density of each spin
   Return:
     density function: [3] -> float or 1D array.
   """
-  if keep_spin:
-    return lambda r: jnp.sum((orbitals(r) * nocc)**2, axis=1)
+  if polarized:
+    return lambda r: jnp.sum((orbitals(r))**2, axis=1)
   else:
-    return lambda r: jnp.sum((orbitals(r) * nocc)**2)
+    return lambda r: jnp.sum((orbitals(r))**2)

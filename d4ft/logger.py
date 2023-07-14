@@ -1,4 +1,4 @@
-# Copyright 2022 Garena Online Private Limited
+# Copyright 2023 Garena Online Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 import pandas as pd
 from absl import logging
@@ -22,20 +23,20 @@ from absl import logging
 
 class RunLogger:
 
-  def __init__(self):
+  def __init__(self) -> None:
     self.data_df = pd.DataFrame()
     self.last_t = 0
     self.start_time = self._time = time.time()
 
-  def reset(self):
-    self.last_t = self.data.index[-1]
+  def reset(self) -> None:
+    self.last_t = self.data_df.index[-1]
 
-  def save_as_csv(self, csv_path: str):
-    csv_path = Path(csv_path)
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    self.data_df.to_csv(csv_path)
+  def save_as_csv(self, csv_path: str) -> None:
+    csv_path_ = Path(csv_path)
+    csv_path_.parent.mkdir(parents=True, exist_ok=True)
+    self.data_df.to_csv(csv_path_)
 
-  def log_step(self, metrics, t: int):
+  def log_step(self, metrics: NamedTuple, t: int) -> None:
     step_df = pd.DataFrame([metrics], index=[t])
     # log step time
     now = time.time()
@@ -43,20 +44,20 @@ class RunLogger:
     self._time = now
     self.data_df = pd.concat([self.data_df, step_df])
 
-  def get_segment_summary(self):
+  def get_segment_summary(self) -> pd.DataFrame:
     segment_df = self.data_df[self.last_t:]
     self.last_t = self.data_df.index[-1]
     logging.info(f"Iter: {self.last_t}\n{segment_df.mean()}")
     return segment_df
 
-  def log_summary(self):
+  def log_summary(self) -> None:
     logging.info(
-      f"Total epochs run: {self.data_df.index[-1]+1}. \n"
+      f"Total epochs run: {self.data_df.index[-1]}. \n"
       f"Training Time: {(time.time() - self.start_time):.3f}s. \n"
     )
     self.get_segment_summary()
 
-  def log_ewm(self, key: str, t: int, span: int = 50):
+  def log_ewm(self, key: str, t: int, span: int = 50) -> None:
     if t < span:
       return
     ewm_df = self.data_df.e_hartree.ewm(span=span).mean()

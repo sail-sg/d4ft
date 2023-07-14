@@ -1,4 +1,4 @@
-# Copyright 2022 Garena Online Private Limited
+# Copyright 2023 Garena Online Private Limited
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,16 +19,16 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from . import utils
-
-USE_CONV = False
+from d4ft.integral.gto.cgto import PrimitiveGaussian
+from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
+from d4ft.types import AngularStats
 
 
 def nuclear_attraction_integral(
   nuclear_center,
-  a: utils.GTO,
-  b: utils.GTO,
-  static_args: Optional[utils.ANGULAR_STATIC_ARGS] = None,
+  a: PrimitiveGaussian,
+  b: PrimitiveGaussian,
+  static_args: Optional[AngularStats] = None,
   use_horizontal: bool = False
 ):
   r"""Nuclear attraction integral using obara saika.
@@ -75,8 +75,8 @@ def nuclear_attraction_integral(
         with `R` denoting `nuclear_center`, `\int a(r1)(1/|r1-R|)b(r1) dr1`.
   """
   (na, _, _), (nb, _, _) = a, b
-  zeta, rp, pa, pb, ab, xi = utils.compute_common_terms(a, b)
-  s = static_args or utils.angular_static_args(na, nb)
+  zeta, rp, pa, pb, ab, xi = terms.compute_common_terms(a, b)
+  s = static_args or angular_stats.angular_static_args(na, nb)
 
   C = nuclear_center
   pc = rp - C
@@ -99,29 +99,9 @@ def nuclear_attraction_integral(
       x = carry
       A_0_bm2, A_0_bm1 = x
 
-      if not USE_CONV:  # DIRECT IMPL
-        A_mp1 = -pc[i] * A_0_bm1 - (bm1 / 2 / zeta) * A_0_bm2
-        A_0_b = pb[i] * A_0_bm1 + (bm1 / 2 / zeta) * A_0_bm2
-        A_0_b = A_0_b.at[:-1].add(A_mp1[1:])
-
-      else:  # CONV BASED IMPL
-        k = jnp.array([  # [2, 2]
-          [
-            bm1 / 2 / zeta,  # (m, b-2)
-            -bm1 / 2 / zeta,  # (m+1, b-2)
-          ],
-          [
-            pb[i],  # (m, b-1)
-            -pc[i],  # (m+1, b-1)
-          ],
-        ])
-        A_0_b = lax.conv_general_dilated(
-          x[None],
-          k[None],
-          [1],
-          padding=[(0, 1)],
-          dimension_numbers=('NCH', 'OIH', 'NCH'),
-        )[0, 0]
+      A_mp1 = -pc[i] * A_0_bm1 - (bm1 / 2 / zeta) * A_0_bm2
+      A_0_b = pb[i] * A_0_bm1 + (bm1 / 2 / zeta) * A_0_bm2
+      A_0_b = A_0_b.at[:-1].add(A_mp1[1:])
 
       return jnp.stack([A_0_bm1, A_0_b], axis=0), A_0_bm1
 
@@ -140,44 +120,12 @@ def nuclear_attraction_integral(
       x = carry
       A_am2, A_am1 = x
 
-      if not USE_CONV:  # DIRECT IMPL
-        A_mp1 = -pc[i] * A_am1 - (am1 / 2 / zeta) * A_am2
-        A_a = pa[i] * A_am1 + (am1 / 2 / zeta) * A_am2
-        A_a = A_a.at[:, :-1].add(A_mp1[:, 1:])
-        A_am1_m_mp1 = A_am1.at[:, :-1].add(-A_am1[:, 1:])
-        b_prefac = jnp.arange(1, A_a.shape[0], dtype=float)[:, None] / 2 / zeta
-        A_a = A_a.at[1:].add(b_prefac * A_am1_m_mp1[:-1])
-
-      else:  # CONV BASED IMPL
-        k = jnp.array([  # [2, 1, 2]
-          [[
-            am1 / 2 / zeta,  # (m, b, a-2)
-            -am1 / 2 / zeta,  # (m+1, b, a-2)
-          ]],
-          [[
-            pa[i],  # (m, b, a-1)
-            -pc[i],  # (m+1, b, a-1)
-          ]],
-        ])
-        A_a = lax.conv_general_dilated(
-          x[None],
-          k[None],
-          [1, 1],
-          padding=[(0, 0), (0, 1)],
-          dimension_numbers=('NCHW', 'OIHW', 'NCHW'),
-        )[0, 0]
-        A_am1_m_mp1 = lax.conv_general_dilated(
-          x[1][None, None],  # [Batch, 1, nb, M]
-          jnp.array([[[[1., -1.]]]]),
-          [1, 1],
-          padding=[(1, 0), (0, 1)],
-          dimension_numbers=('NCHW', 'OIHW', 'NCHW'),
-        )[0, 0]
-
-        A_a = A_a + (
-          jnp.arange(0, A_a.shape[0], dtype=float)[:, None] * A_am1_m_mp1[:-1] /
-          2 / zeta
-        )
+      A_mp1 = -pc[i] * A_am1 - (am1 / 2 / zeta) * A_am2
+      A_a = pa[i] * A_am1 + (am1 / 2 / zeta) * A_am2
+      A_a = A_a.at[:, :-1].add(A_mp1[:, 1:])
+      A_am1_m_mp1 = A_am1.at[:, :-1].add(-A_am1[:, 1:])
+      b_prefac = jnp.arange(1, A_a.shape[0], dtype=float)[:, None] / 2 / zeta
+      A_a = A_a.at[1:].add(b_prefac * A_am1_m_mp1[:-1])
 
       return jnp.stack([A_am1, A_a], axis=0), A_am1
 
@@ -195,7 +143,7 @@ def nuclear_attraction_integral(
     return jnp.einsum("a,am->m", w, A_0[min_b[i]:, :])
 
   prefactor = 2 * (jnp.pi / zeta) * jnp.exp(-xi * jnp.dot(ab, ab))  # Eqn.A20
-  A_0_0 = jax.vmap(utils.Boys, in_axes=(0, None))(jnp.arange(M, dtype=int), U)
+  A_0_0 = jax.vmap(boys.Boys, in_axes=(0, None))(jnp.arange(M, dtype=int), U)
 
   if use_horizontal:
     for i in range(3):
