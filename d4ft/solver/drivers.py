@@ -129,9 +129,10 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
   # e_total = scipy_opt(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
   # breakpoint()
 
-  e_total, traj, H = sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
-  lowest_e = jnp.stack([t.energies.e_total for t in traj]).min()
-  logging.info(f"lowest total energy: {lowest_e}")
+  logger, traj, H = sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
+  min_e_step = logger.data_df.e_total.astype(float).idxmin()
+  logging.info(f"lowest total energy: {logger.data_df.iloc[min_e_step]}")
+  lowest_e = logger.data_df.e_total.astype(float).min()
   return lowest_e
 
   # NOTE: diagonalize the fock matrix gives a different mo_coeff

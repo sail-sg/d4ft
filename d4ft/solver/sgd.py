@@ -50,7 +50,7 @@ def scipy_opt(
 def sgd(
   direct_min_cfg: DirectMinimizationConfig, optim_cfg: OptimizerConfig,
   H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
-) -> Tuple[float, Trajectory, Hamiltonian]:
+) -> Tuple[RunLogger, Trajectory, Hamiltonian]:
 
   H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
   params = H_transformed.init(key)
@@ -112,4 +112,4 @@ def sgd(
 
   logging.info(f"Converged: {converged}")
 
-  return e_total, traj, H
+  return logger, traj, H
