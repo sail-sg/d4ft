@@ -84,7 +84,7 @@ def incore_int_sym(
   eri_abcd_cgto = jnp.zeros(1)
 
   # TODO: contract diag sto first
-  # TODO: prescreen
+  # TODO: prescreen. This requires getting index of off diagonal elements
   n_2c_idx = len(ab_idx_counts)
   num_idx = symmetry.num_unique_ij(n_2c_idx)
   has_remainder = num_idx % batch_size != 0
