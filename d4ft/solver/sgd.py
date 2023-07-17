@@ -72,7 +72,7 @@ def sgd(
     return params, opt_state, energies, mo_grads
 
   # GD loop
-  e_total = 0.
+  # e_total = 0.
   traj = []
   converged = False
   logger = RunLogger()
