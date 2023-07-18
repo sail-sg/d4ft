@@ -22,6 +22,8 @@ import jax
 import jax.numpy as jnp
 import jax_xc
 from absl import logging
+from jaxtyping import Array, Float
+
 from d4ft.config import D4FTConfig
 from d4ft.hamiltonian.cgto_intors import get_cgto_fock_fn, get_cgto_intor
 from d4ft.hamiltonian.dft_cgto import dft_cgto
@@ -37,7 +39,6 @@ from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import Hamiltonian
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_xc_intor
-from jaxtyping import Array, Float
 
 
 def incore_hf_cgto(cfg: D4FTConfig):

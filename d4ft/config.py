@@ -15,9 +15,8 @@
 from typing import Literal
 
 from ml_collections import ConfigDict
-from pydantic.dataclasses import dataclass
-
 from pydantic.config import ConfigDict as PydanticConfigDict
+from pydantic.dataclasses import dataclass
 
 pydantic_config = PydanticConfigDict({"validate_assignment": True})
 

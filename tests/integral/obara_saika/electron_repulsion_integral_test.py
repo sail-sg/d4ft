@@ -22,8 +22,9 @@ import numpy as np
 from absl import logging
 from absl.testing import absltest
 
-from d4ft.integral.obara_saika.electron_repulsion_integral import \
-    electron_repulsion_integral
+from d4ft.integral.obara_saika.electron_repulsion_integral import (
+  electron_repulsion_integral,
+)
 
 
 class _TestElectronRepulsionIntegral(absltest.TestCase):

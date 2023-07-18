@@ -18,11 +18,12 @@ from typing import Dict, List, Literal, NamedTuple, Tuple
 
 import pyscf
 from absl import logging
+from jaxtyping import Array, Int
+
 from d4ft.system.geometry import get_mol_geometry
 from d4ft.system.occupation import get_occupation_mask
 from d4ft.system.utils import periodic_hash_table
 from d4ft.types import AtomCoords
-from jaxtyping import Array, Int
 
 
 def get_atom_from_geometry(geometry: str) -> List[str]:

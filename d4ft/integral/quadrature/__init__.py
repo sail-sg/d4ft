@@ -15,7 +15,8 @@
 
 from . import utils
 from .electron_repulsion_integral import (
-  electron_repulsion_integral, electron_repulsion_integral_scf
+  electron_repulsion_integral,
+  electron_repulsion_integral_scf,
 )
 from .kinetic_integral import kinetic_integral
 from .nuclear_attraction_integral import nuclear_attraction_integral

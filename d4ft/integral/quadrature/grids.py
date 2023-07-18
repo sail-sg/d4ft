@@ -17,13 +17,13 @@ Rewrite of the original PySCF code to make it differentiable wrt
 the atomic coordinates.
 """
 
-import pyscf
 import jax
 import jax.numpy as jnp
+import pyscf
 from pyscf.data.elements import charge as elements_proton
 from pyscf.dft import gen_grid, radi
 
-from d4ft.types import QuadGridsNWeights, AtomCoords
+from d4ft.types import AtomCoords, QuadGridsNWeights
 
 
 def treutler_atomic_radii_adjust(mol, atomic_radii):

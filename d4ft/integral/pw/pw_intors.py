@@ -13,6 +13,7 @@
 # limitations under the License.
 """energy functions"""
 import jax.numpy as jnp
+
 from d4ft.types import PWCoeff
 from d4ft.utils import vmap_to_3d
 

@@ -21,11 +21,13 @@ from absl.testing import absltest
 from obsa.obara_saika import get_coulomb, get_kinetic, get_nuclear, get_overlap
 
 from d4ft.integral.obara_saika.boys import Boys, BoysIgamma
-from d4ft.integral.obara_saika.electron_repulsion_integral import \
-    electron_repulsion_integral
+from d4ft.integral.obara_saika.electron_repulsion_integral import (
+  electron_repulsion_integral,
+)
 from d4ft.integral.obara_saika.kinetic_integral import kinetic_integral
-from d4ft.integral.obara_saika.nuclear_attraction_integral import \
-    nuclear_attraction_integral
+from d4ft.integral.obara_saika.nuclear_attraction_integral import (
+  nuclear_attraction_integral,
+)
 from d4ft.integral.obara_saika.overlap_integral import overlap_integral
 
 

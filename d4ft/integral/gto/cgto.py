@@ -22,11 +22,12 @@ import jax.numpy as jnp
 import numpy as np
 import scipy.special
 from absl import logging
+from jaxtyping import Array, Float, Int
+
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
 from d4ft.system.mol import Mol
 from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
-from jaxtyping import Array, Float, Int
 
 _r25 = np.arange(25)
 perm_2n_n = jnp.array(scipy.special.perm(2 * _r25, _r25))

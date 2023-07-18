@@ -21,12 +21,11 @@ import jax
 import jax.numpy as jnp
 import optax
 from absl import logging
+
 from d4ft.config import DirectMinimizationConfig, OptimizerConfig
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
-from d4ft.types import (
-  Hamiltonian, HamiltonianHKFactory, Trajectory, Transition
-)
+from d4ft.types import Hamiltonian, HamiltonianHKFactory, Trajectory, Transition
 
 
 def scipy_opt(

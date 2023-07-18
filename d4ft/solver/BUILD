@@ -19,7 +19,6 @@ package(default_visibility = ["//visibility:public"])
 py_library(
     name = "drivers",
     srcs = ["drivers.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:config",
         "//d4ft:logger",
@@ -42,7 +41,6 @@ py_library(
 py_library(
     name = "sgd",
     srcs = ["sgd.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:config",
         "//d4ft:logger",
@@ -56,7 +54,6 @@ py_library(
 py_library(
     name = "scf",
     srcs = ["scf.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:config",
         "//d4ft:logger",
@@ -68,6 +65,5 @@ py_library(
 py_library(
     name = "pyscf_wrapper",
     srcs = ["pyscf_wrapper.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )

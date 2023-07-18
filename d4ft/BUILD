@@ -16,24 +16,27 @@ load("@rules_python//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files([
+    "workspace0.bzl",
+    "workspace1.bzl",
+    "workspace2.bzl",
+])
+
 py_library(
     name = "constants",
     srcs = ["constants.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "types",
     srcs = ["types.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "xc",
     srcs = ["xc.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":types",
         "//d4ft/integral/gto:cgto",
@@ -45,41 +48,35 @@ py_library(
 py_library(
     name = "config",
     srcs = ["config.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "optimize",
     srcs = ["optimize.py"],
-    visibility = ["//visibility:public"],
     deps = [":config"],
 )
 
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "logger",
     srcs = ["logger.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "d4ft",
     srcs = ["__init__.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":config",
         ":constants",
         ":logger",
         ":optimize",
-        ":pyscf_wrapper",
         ":types",
         ":utils",
         ":xc",
