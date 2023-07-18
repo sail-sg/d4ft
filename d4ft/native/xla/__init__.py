@@ -12,20 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_python//python:defs.bzl", "py_test")
-load("@pip_requirements//:requirements.bzl", "requirement")
-
-py_test(
-    name = "solver_test",
-    srcs = ["solver_test.py"],
-    data = ["//d4ft/system:xyz_files"],
-    deps = [
-        "//d4ft:config",
-        "//d4ft/solver:drivers",
-        requirement("absl-py"),
-        requirement("ml_collections"),
-        requirement("dm-haiku"),
-        requirement("jax"),
-        requirement("jaxlib"),
-    ],
-)
+"""This module provides template for defining XLA custom call."""
+from .custom_call import *

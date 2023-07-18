@@ -28,6 +28,7 @@ cc_library(
     deps = [
         "//d4ft/native/gamma:igamma",
         "//d4ft/native/gamma:lgamma",
+        "@hemi",
     ],
 )
 

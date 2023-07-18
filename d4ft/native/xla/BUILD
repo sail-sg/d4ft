@@ -12,20 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_python//python:defs.bzl", "py_test")
-load("@pip_requirements//:requirements.bzl", "requirement")
+package(default_visibility = ["//visibility:public"])
 
-py_test(
-    name = "solver_test",
-    srcs = ["solver_test.py"],
-    data = ["//d4ft/system:xyz_files"],
-    deps = [
-        "//d4ft:config",
-        "//d4ft/solver:drivers",
-        requirement("absl-py"),
-        requirement("ml_collections"),
-        requirement("dm-haiku"),
-        requirement("jax"),
-        requirement("jaxlib"),
+cc_library(
+    name = "specs",
+    hdrs = ["specs.h"],
+)
+
+cc_library(
+    name = "custom_call_h",
+    hdrs = ["custom_call.h"],
+    deps = [":specs"],
+)
+
+py_library(
+    name = "custom_call",
+    srcs = [
+        "__init__.py",
+        "custom_call.py",
     ],
 )

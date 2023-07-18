@@ -6,6 +6,7 @@ build --repo_env=CC=gcc-12
 # TODO: check whether both env var are needed
 build --action_env=CUDA_PATH=/opt/cuda
 build --action_env=CC=gcc-12
+# build --python_path=/home/zekun/workspace/d4ft/.venv/bin/python
 
 build --action_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm
 build --action_env=BAZEL_LINKOPTS=-static-libgcc
