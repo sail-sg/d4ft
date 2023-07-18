@@ -1,10 +1,10 @@
 import jax
 import numpy as np
-from absl.testing import absltest
 from absl import logging
-from tests.native.xla.example import Parent, _Example, _ExampleMember
+from absl.testing import absltest
 
 from d4ft.native.xla.custom_call import CustomCallMeta
+from tests.native.xla.example import Parent, _Example, _ExampleMember
 
 Example = CustomCallMeta(
   "Example",
@@ -39,13 +39,16 @@ class _ExampleTest(absltest.TestCase):
   def test_example(self) -> None:
     e = Example()
     out = e(self.a, self.b)
+    out_grad = jax.grad(e)(self.a, self.b)
     logging.info(out)
+    logging.info(out_grad)
     np.testing.assert_array_equal(self.a, out)
 
   def test_example_member(self) -> None:
     p = Parent()
     em = ExampleMember(p)
     out = em(self.a, self.b)
+    out_grad = jax.grad(em)(self.a, self.b)
     logging.info(out)
     np.testing.assert_array_equal(self.a, out)
 
