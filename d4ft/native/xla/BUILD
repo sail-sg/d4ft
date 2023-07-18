@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@pip_requirements//:requirements.bzl", "requirement")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -30,5 +32,7 @@ py_library(
     srcs = [
         "__init__.py",
         "custom_call.py",
+        requirement("jax"),
+        requirement("jaxlib"),
     ],
 )

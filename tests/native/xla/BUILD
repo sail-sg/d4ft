@@ -61,6 +61,7 @@ py_test(
     data = [":example.so"],
     deps = [
         "//d4ft/native/xla:custom_call",
+        requirement("absl-py"),
         requirement("jax"),
         requirement("jaxlib"),
     ],
