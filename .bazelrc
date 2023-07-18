@@ -3,11 +3,16 @@ build --@rules_cuda//cuda:enable_cuda
 build --@rules_cuda//cuda:copts=-std=c++17
 build --repo_env=CUDA_PATH=/opt/cuda
 build --repo_env=CC=gcc-12
+# TODO: check whether both env var are needed
 build --action_env=CUDA_PATH=/opt/cuda
 build --action_env=CC=gcc-12
 
-build:debug --cxxopt=-DENVPOOL_TEST --compilation_mode=dbg -s
-build:test --cxxopt=-DENVPOOL_TEST --copt=-g0 --copt=-O3 --copt=-DNDEBUG --copt=-msse --copt=-msse2 --copt=-mmmx
+build --action_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm
+build --action_env=BAZEL_LINKOPTS=-static-libgcc
+build --incompatible_strict_action_env --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --client_env=BAZEL_CXXOPTS=-std=c++17
+
+build:debug --compilation_mode=dbg -s
+build:test --copt=-g0 --copt=-O3 --copt=-DNDEBUG --copt=-msse --copt=-msse2 --copt=-mmmx
 build:release --copt=-g0 --copt=-O3 --copt=-DNDEBUG --copt=-msse --copt=-msse2 --copt=-mmmx
 
 build:clang-tidy --aspects @bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
