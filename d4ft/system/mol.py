@@ -41,8 +41,8 @@ def get_spin(atoms: List[str]) -> int:
 def get_pyscf_mol(
   mol: str,
   basis: str,
-  spin: int,
-  charge: int,
+  spin: int = -1,
+  charge: int = 0,
   source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
   """Construct a pyscf mole object from molecule name and basis name"""
@@ -98,5 +98,5 @@ class Mol(NamedTuple):
     source: Literal["cccdbd", "pubchem"] = "cccdbd"
   ) -> Mol:
     """Builds Mol object from molecule name"""
-    pyscf_mol = get_pyscf_mol(name, basis, source)
+    pyscf_mol = get_pyscf_mol(name, basis, source=source)
     return Mol.from_pyscf_mol(pyscf_mol)

@@ -5,5 +5,4 @@ cc_library(
         "**/*.hpp",
         "**/*.inl",
     ]),
-    visibility = ["//visibility:public"],
 )

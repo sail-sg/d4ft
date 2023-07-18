@@ -67,3 +67,14 @@ py_library(
     srcs = ["pyscf_wrapper.py"],
     deps = [],
 )
+
+py_library(
+    name = "solver",
+    srcs = ["__init__.py"],
+    deps = [
+        ":drivers",
+        ":pyscf_wrapper",
+        ":scf",
+        ":sgd",
+    ],
+)

@@ -5,16 +5,15 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/sail-sg/jax-xc-image:latest
     steps:
-    - name: Cancel previous run
-      uses: styfle/cancel-workflow-action@0.9.1
-      with:
-        access_token: ${{ github.token }}
-    - uses: actions/checkout@v2
-    - name: Test
-      run: |
-        eval "$(pyenv init -)" && pyenv global 3.8-dev
-        pip install -r requirements.txt
-        bazel test --test_output=all --remote_cache=http://${{ secrets.BAZEL_CACHE }}:8080 //tests/...
+      - name: Cancel previous run
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+      - uses: actions/checkout@v3
+      - name: Test
+        run: |
+          make bazel-test
+      - name: Run clang-tidy
+        run: |
+          make clang-tidy

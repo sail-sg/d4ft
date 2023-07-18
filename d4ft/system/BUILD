@@ -74,3 +74,18 @@ py_library(
     srcs = ["fake_fullerene.py"],
     deps = [],
 )
+
+py_library(
+    name = "system",
+    srcs = ["__init__.py"],
+    data = ["//d4ft/system:xyz_files"],
+    deps = [
+        ":cccdbd",
+        ":crystal",
+        ":fake_fullerene",
+        ":geometry",
+        ":mol",
+        ":occupation",
+        ":utils",
+    ],
+)

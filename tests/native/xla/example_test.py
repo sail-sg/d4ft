@@ -1,16 +1,8 @@
-import os
-
-print('-----------------------')
-print(os.getcwd())
-print(os.environ["PATH"])
-print(os.environ["PYTHONPATH"])
-print('-----------------------')
-
 import jax
 import numpy as np
 import sys
 from absl.testing import absltest
-from custom_call import CustomCallMeta
+from d4ft.native.xla.custom_call import CustomCallMeta
 
 sys.path.append("tests")
 from example import _Example, _ExampleMember, Parent

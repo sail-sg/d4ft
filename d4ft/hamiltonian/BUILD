@@ -44,3 +44,14 @@ py_library(
         ":nuclear",
     ],
 )
+
+py_library(
+    name = "hamiltonian",
+    srcs = ["__init__.py"],
+    deps = [
+        ":cgto_intors",
+        ":dft_cgto",
+        ":nuclear",
+        ":ortho",
+    ],
+)

@@ -14,17 +14,17 @@
 
 load("@rules_python//python:defs.bzl", "py_library")
 
+package(default_visibility = ["//visibility:public"])
+
 py_library(
     name = "contraction",
     srcs = ["contraction.py"],
-    visibility = ["//visibility:public"],
     deps = [":cgto"],
 )
 
 py_library(
     name = "cgto",
     srcs = ["cgto.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:constants",
         "//d4ft:types",
@@ -36,16 +36,23 @@ py_library(
 py_library(
     name = "symmetry",
     srcs = ["symmetry.py"],
-    visibility = ["//visibility:public"],
     deps = ["//d4ft:types"],
 )
 
 py_library(
     name = "tensorization",
     srcs = ["tensorization.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":cgto",
         "//d4ft:types",
+    ],
+)
+
+py_library(
+    name = "gto",
+    srcs = ["__init__.py"],
+    deps = [
+        ":cgto",
+        ":tensorization",
     ],
 )

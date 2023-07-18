@@ -80,5 +80,10 @@ py_library(
         ":types",
         ":utils",
         ":xc",
+        "//d4ft/hamiltonian",
+        "//d4ft/integral",
+        "//d4ft/native/xla:custom_call",
+        "//d4ft/solver",
+        "//d4ft/system",
     ],
 )
