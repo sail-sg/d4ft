@@ -1,11 +1,9 @@
 import jax
 import numpy as np
-import sys
 from absl.testing import absltest
-from d4ft.native.xla.custom_call import CustomCallMeta
+from example import Parent, _Example, _ExampleMember
 
-sys.path.append("tests")
-from example import _Example, _ExampleMember, Parent
+from d4ft.native.xla.custom_call import CustomCallMeta
 
 Example = CustomCallMeta(
   "Example",

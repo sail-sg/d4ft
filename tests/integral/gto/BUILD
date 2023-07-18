@@ -27,8 +27,13 @@ py_test(
     ],
 )
 
-py_library(
+py_test(
     name = "symmetry_test",
     srcs = ["symmetry_test.py"],
-    deps = ["//d4ft/integral/gto:symmetry"],
+    deps = [
+        "//d4ft/integral/gto:symmetry",
+        requirement("absl-py"),
+        requirement("jax"),
+        requirement("jaxlib"),
+    ],
 )
