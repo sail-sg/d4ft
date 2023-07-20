@@ -82,6 +82,9 @@ def sgd(
     logger.log_step(energies, step)
     logger.get_segment_summary()
 
+    # logging.info(mo_grads[-1])
+    # breakpoint()
+
     mo_coeff = H.mo_coeff_fn(params, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)
     traj.append(t)

@@ -17,6 +17,7 @@ from typing import Callable
 import einops
 import jax.numpy as jnp
 from jaxtyping import Array, Float
+import jax
 
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.quadrature.utils import quadrature_integral, wave2density
@@ -38,9 +39,19 @@ def get_xc_intor(
   def xc_intor(mo_coeff: MoCoeff) -> Float[Array, ""]:
     mo = lambda r: mo_coeff @ cgto.eval(r)
     density = wave2density(mo, polarized)
-    xc_func = xc_functional(density, polarized)
+    xc_func = xc_functional(polarized)
+
+    # r = grids_and_weights[0][0]
+    # rho = density
+    # jac, hvp = jax.linearize(jax.jacrev(rho), r)
+    # breakpoint()
+    # out = xc_func(density, r)
+    # breakpoint()
+
     return jnp.sum(
-      quadrature_integral(lambda r: density(r) * xc_func(r), grids_and_weights)
+      quadrature_integral(
+        lambda r: density(r) * xc_func(density, r), grids_and_weights
+      )
     )
 
   return xc_intor

@@ -41,17 +41,26 @@ def shape_with_layout(
 
 
 class CustomCallMeta(ABCMeta):
-  """Create classes that represent a XLA custom call."""
+  """Meta class that creates classes that represent a XLA custom call
+  from the pybind module that implements the CPU and GPU capsules.
+  """
 
   def __new__(cls: Any, name: str, parents: Tuple, attrs: Dict) -> Any:
-    """Check internal config and initialize data format convertion.
+    """Creates a new class that represents a XLA custom call.
 
-    This overrides the default behavior to register CPU and GPU custom call
-    targets for XLA.
+    Args:
+      cls: self.
+      name: name of the custom op.
+      parents: list of parent class. Must be a singleton that contains the
+        pybind module that implements the CPU and GPU capsules.
+      attrs: attributes of the class.
     """
+    # get capsules from the pybind module
+    assert len(parents) == 1
     base = parents[0]
     cpu_capsule, gpu_capsule = base._capsules
 
+    # Register the XLA custom calls
     xla_client.register_cpu_custom_call_target(
       f"{name}_cpu".encode(),
       fn=cpu_capsule,
@@ -63,7 +72,9 @@ class CustomCallMeta(ABCMeta):
     )
 
     def call(self: Any, *args: List[jax.Array]) -> List[jax.Array]:
-      """Checks the data types of input arguments, performs shape inference,
+      """Binded to __call__, which exposes the primitive to user code.
+
+      Checks the data types of input arguments, performs shape inference,
       and binds a primitive operation to the state and arguments"""
       input_dtypes = list(
         map(dtypes.canonicalize_dtype, (arg.dtype for arg in args))
@@ -90,7 +101,8 @@ class CustomCallMeta(ABCMeta):
 
     def abstract(self: Any, *args: List[jax.Array]) -> ShapedArray:
       """Abstract evaluation of the function, which generates the output shapes
-      and data types based on the input shapes and data types."""
+      and data types based on the input shapes and data types.
+      This enables JIT compilation of the function."""
       output_dtypes = self._output_dtypes()
       output_shapes = self._shape_inference(tuple(a.shape for a in args[1:]))
       if base._is_member:
@@ -143,7 +155,7 @@ class CustomCallMeta(ABCMeta):
     subcls = super().__new__(cls, name, parents, attrs)
 
     def init(self: Any, parent: Any = None) -> None:
-      """Create lax prim."""
+      """Binded to __init__. Create lax prim."""
       if base._is_member:
         super(subcls, self).__init__(parent)
         num_outputs = len(self._output_dtypes()) + 1
@@ -151,10 +163,14 @@ class CustomCallMeta(ABCMeta):
         super(subcls, self).__init__()
         num_outputs = len(self._output_dtypes())
 
+      # create the primitive
       self.prim = core.Primitive(name)
       self.prim.multiple_results = (num_outputs > 1)
       self.prim.def_impl(partial(xla.apply_primitive, self.prim))
+
       self.prim.def_abstract_eval(self.abstract)
+
+      # Connect the XLA translation rules for JIT compilation
       xla.backend_specific_translations["cpu"][self.prim] = partial(
         self.translation, platform="cpu"
       )

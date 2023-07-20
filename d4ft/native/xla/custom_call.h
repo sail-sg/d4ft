@@ -133,7 +133,8 @@ decltype(auto) PrepareArray(T** buffers, std::tuple<Specs...>* specs) {
 }
 
 /**
- * @brief wraps around a CustomCall, and provides
+ * @brief Provides CustomCall with methods to encode/decode the input/output
+ * shape into an opaque object.
  * */
 template <typename CustomCall, typename Parent = void>
 class Xla : public CustomCall {
@@ -271,14 +272,19 @@ class Xla : public CustomCall {
   /**
    * @brief CPU version of the custom XLA operation.
    *
+   * Although the opaque API is only required for the Gpu backend, we
+   * choose to use it for the Cpu backend for uniformity.
+   *
+   * The opaque data is stored in the first input buffer (in[0]), which
+   * contains a CustomCall object pointer, InputSpecs, OutputSpecs, and the
+   * length of the opaque data.
+   *
    * @param out pointer to the output buffer
    * @param in pointer to the array of input buffer, which are the encoded
    * opaque data from python side
    */
   static void Cpu(void* out, const void** in) {
-    // The first input buffer (in[0]) is the opaque data that contains a
-    // CustomCall object pointer, InputSpecs, OutputSpecs, and the length of
-    // the opaque data
+    // Parse opaque data from in[0]
     CustomCall* obj;
     InputSpecs input_specs;
     OutputSpecs output_specs;
@@ -324,8 +330,7 @@ class Xla : public CustomCall {
    */
   static void Gpu(cudaStream_t stream, void** buffers, const char* opaque,
                   std::size_t opaque_len) {
-    // Decode the CustomCall object pointer, InputSpecs, OutputSpecs, and the
-    // length of the opaque data (not used)
+    // Parse opaque data
     CustomCall* obj;
     InputSpecs input_specs;
     OutputSpecs output_specs;

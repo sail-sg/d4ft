@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This module provides template for defining XLA custom call."""
+"""This module provides template for defining XLA custom call.
 
-# from .custom_call import CustomCallMeta
+To define a new custom call using this module, you need to:
+1. Define a class which contains 3 static methods: ShapeInference (for abstract
+  evaluation), Cpu and Gpu (the actual ops, where the Cpu method dispatches CUDA
+  kernels)
+2. Pass the class to the REGISTER_XLA_FUNCTION or REGISTER_XLA_MEMBER macro.
+  The macro then creates a subclass with Xla supports and makes it a pybind
+  module.
+"""

@@ -4,7 +4,7 @@ chex==0.1.8
 distrax==0.1.4
 dm-haiku==0.0.9
 einops==0.6.1
-jax_xc>=0.0.3
+jax-xc>=0.0.7
 jax==0.4.13
 # jaxlib>=0.3.25
 jaxtyping==0.2.15

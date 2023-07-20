@@ -18,6 +18,7 @@ from typing import Callable, NamedTuple, Optional, Tuple, Union
 
 import haiku as hk
 import jax
+from jax import lax
 import jax.numpy as jnp
 import numpy as np
 import scipy.special
@@ -80,7 +81,11 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
           coeffs.append(coeff)
     atom_splits.append(n_gtos)
   primitives = PrimitiveGaussian(
-    *[jnp.array(np.stack(a, axis=0)) for a in zip(*primitives)]
+    *[
+      np.array(np.stack(a, axis=0)) if i ==
+      0 else jnp.array(np.stack(a, axis=0))
+      for i, a in enumerate(zip(*primitives))
+    ]
   )
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
@@ -94,12 +99,17 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
 class PrimitiveGaussian(NamedTuple):
   """Batch of Primitive Gaussians / Gaussian-Type Orbitals (GTO)."""
-  angular: Int[Array, "*batch 3"]
-  """angular momentum vector, e.g. (0,1,0)"""
+  angular: Int[np.ndarray, "*batch 3"]
+  """angular momentum vector, e.g. (0,1,0). Note that it is stored as
+  numpy array to avoid tracing error, which is okay since it is not trainable."""
   center: Float[Array, "*batch 3"]
   """atom coordinates for each GTO."""
   exponent: Float[Array, "*batch"]
   """GTO exponent / bandwith"""
+
+  @property
+  def n_orbs(self) -> int:
+    return self.angular.shape[0]
 
   def normalization_constant(self) -> Int[Array, "*batch"]:
     return gto_normalization_constant(self.angular, self.exponent)
@@ -113,7 +123,38 @@ class PrimitiveGaussian(NamedTuple):
     Returns:
       unnormalized gto (x-c_x)^l (y-c_y)^m (z-c_z)^n exp{-alpha |r-c|^2}
     """
-    xyz_lmn = jnp.prod(jnp.power(r - self.center, self.angular), axis=1)
+
+    # xyz_lmn = jnp.ones(self.n_orbs)
+    # for n in range(self.n_orbs):
+    #   for i in range(3):  # x, y, z
+    #     if self.angular[n, i] > 0:
+    #       xyz_lmn.at[n].set(
+    #         xyz_lmn[0] *
+    #         jnp.power(r[i] - self.center[n, i], self.angular[n, i])
+    #       )
+
+    xyz_lmn = []
+    for i in range(self.n_orbs):
+      xyz_lmn_i = 1.0
+      for d in range(3):  # x, y, z
+        if self.angular[i, d] > 0:
+          xyz_lmn_i *= jnp.power(r[d] - self.center[i, d], self.angular[i, d])
+        # xyz_lmn_i *= lax.cond(
+        #   self.angular[i, d] > 0,
+        #   lambda: jnp.power(r[d] - self.center[i, d], self.angular[i, d]),
+        #   lambda: 1.0,
+        # )
+      xyz_lmn.append(xyz_lmn_i)
+    xyz_lmn = jnp.array(xyz_lmn)
+
+    # xyz_lmn = jnp.prod(jnp.power(r - self.center, self.angular), axis=1)
+
+    # xyz_lmn = jnp.where(
+    #   self.angular > 0,
+    #   jnp.prod(jnp.power(r - self.center, self.angular), axis=1),
+    #   1.,
+    # )
+
     exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
     return xyz_lmn * exp
 
