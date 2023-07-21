@@ -18,11 +18,11 @@ from typing import Callable, NamedTuple, Optional, Tuple, Union
 
 import haiku as hk
 import jax
-from jax import lax
 import jax.numpy as jnp
 import numpy as np
 import scipy.special
 from absl import logging
+from jax import lax
 from jaxtyping import Array, Float, Int
 
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell

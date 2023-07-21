@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -48,25 +49,34 @@ py_library(
 py_library(
     name = "config",
     srcs = ["config.py"],
-    deps = [],
+    deps = [
+        requirement("ml_collections"),
+    ],
 )
 
 py_library(
     name = "optimize",
     srcs = ["optimize.py"],
-    deps = [":config"],
+    deps = [
+        ":config",
+        requirement("optax"),
+    ],
 )
 
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    deps = [],
+    deps = [
+        requirement("einops"),
+    ],
 )
 
 py_library(
     name = "logger",
     srcs = ["logger.py"],
-    deps = [],
+    deps = [
+        requirement("pandas"),
+    ],
 )
 
 py_library(

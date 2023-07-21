@@ -15,9 +15,9 @@
 from typing import Callable
 
 import einops
+import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
-import jax
 
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.quadrature.utils import quadrature_integral, wave2density

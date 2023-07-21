@@ -23,9 +23,17 @@ py_test(
         "//d4ft:config",
         "//d4ft/solver:drivers",
         requirement("absl-py"),
-        requirement("ml_collections"),
-        requirement("dm-haiku"),
-        requirement("jax"),
-        requirement("jaxlib"),
+    ],
+)
+
+py_test(
+    name = "xc_test",
+    srcs = ["xc_test.py"],
+    data = ["//d4ft/system:xyz_files"],
+    deps = [
+        "//d4ft:config",
+        "//d4ft/solver:drivers",
+        requirement("absl-py"),
+        requirement("jax-xc"),
     ],
 )
