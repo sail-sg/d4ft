@@ -21,15 +21,15 @@ import jax_xc
 from absl import logging
 from absl.testing import absltest, parameterized
 
-from d4ft.integral.quadrature.utils import wave2density
 from d4ft.config import get_config
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.quadrature.grids import DifferentiableGrids
+from d4ft.integral.quadrature.utils import wave2density
 from d4ft.system.mol import Mol, get_pyscf_mol
+from d4ft.types import Fock, MoCoeff, QuadGridsNWeights
 from d4ft.utils import compose
 from d4ft.xc import get_xc_intor
-from d4ft.types import Fock, MoCoeff, QuadGridsNWeights
 
 
 class XCTest(parameterized.TestCase):
@@ -98,10 +98,25 @@ class XCTest(parameterized.TestCase):
     n_r = mo_density_fn.apply(params)
     logging.info(n_r)
 
+    def density_nabla_fn(mo_coeff: MoCoeff):
+      mo_fn = lambda r: mo_coeff @ cgto.eval(r)
+      density = wave2density(mo_fn, True)
+      return jnp.sum(jax.jacfwd(density)(r1))
+
+    mo_density_nabla_fn = hk.without_apply_rng(
+      hk.transform(compose(density_nabla_fn, mo_coeff_fn))
+    )
+    n_r_nabla = mo_density_nabla_fn.apply(params)
+    logging.info(n_r_nabla)
+
     # test gradient
     n_grads = jax.grad(mo_density_fn.apply)(params)
     logging.info(n_grads)
     self.assertFalse(jnp.isnan(n_grads["~"]["mo_params"]).any())
+
+    nabla_n_grads = jax.grad(mo_density_nabla_fn.apply)(params)
+    logging.info(nabla_n_grads)
+    self.assertFalse(jnp.isnan(nabla_n_grads["~"]["mo_params"]).any())
 
     xc_grads = jax.grad(mo_xc_fn.apply)(params)
     logging.info(xc_grads)
