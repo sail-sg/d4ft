@@ -76,7 +76,9 @@ class Mol(NamedTuple):
   """number of atomic orbitals"""
   basis: Dict[str, List[Tuple[int, List[List[float]]]]]
   """CGTO basis parameter in format
-  {element: [[shell, [exponenet, coeff], ...], ...]}"""
+  {element: [[shell, [exponenet, coeff1, coeff2...], ...], ...]}
+  Basis format: NWchem (https://www.basissetexchange.org/), with Optimize General Contractions and Uncontract General
+  """
 
   @staticmethod
   def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> Mol:

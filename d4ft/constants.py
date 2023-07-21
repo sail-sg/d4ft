@@ -23,9 +23,18 @@ class Shell(Enum):
   f = 3
 
 
+"""
+Angular vectors for shells in cartesian form, computed by the followings:
+for lx in reversed(range(l + 1)):
+    for ly in reversed(range(l + 1 - lx)):
+      lz = l - lx - ly
+      print("[{},{},{}]".format(lx,ly,lz))
+"""
 SHELL_TO_ANGULAR_VEC = {
   Shell.s: [[0, 0, 0]],
   Shell.p: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+  Shell.d: [[2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]],
+  Shell.f: [[3, 0, 0], [2, 1, 0], [2, 0, 1], [1, 2, 0], [1, 1, 1], [1, 0, 2], [0, 3, 0], [0, 2, 1], [0, 1, 2], [0, 0, 3]]
 }
 
 ANGSTRONG_TO_BOHR = 1.8897259886

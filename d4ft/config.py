@@ -56,14 +56,15 @@ class DirectMinimizationConfig:
 @dataclass(config=pydantic_config)
 class MoleculeConfig:
   """Config for molecule"""
-  mol: str = "o2"
+  mol: str = "H2"
   """name of the molecule, or the path to the geometry file, which
   specifies the geometry in the format
   <atom_type> <xyz coordinate in angstrom>.
   For example H2:
   H 0.0000 0.0000 0.0000;
   H 0.0000 0.0000 0.7414;"""
-  basis: str = "sto-3g"
+  basis: str = "cc-pvdz" #"sto-3g"
+  #basis: str = "sto-3g"
   """name of the atomic basis set"""
   spin: int = -1
   """number of unpaired electrons. -1 means all electrons are

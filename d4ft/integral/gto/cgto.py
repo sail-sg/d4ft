@@ -65,6 +65,8 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   atom_splits = []
   cgto_splits = []
   coeffs = []
+  shells = []
+  
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coords[i]
     n_gtos = 0
@@ -72,20 +74,55 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
       shell = Shell(sto[0])
       gtos = sto[1:]
       for angular in SHELL_TO_ANGULAR_VEC[shell]:
-        cgto_splits.append(len(gtos))
-        for exponent, coeff in gtos:
-          n_gtos += 1
-          primitives.append((angular, coord, exponent))
-          coeffs.append(coeff)
+        for _ in range(len(gtos[0][1:])):
+          cgto_splits.append(len(gtos))
+        for cid in range(1,1+len(gtos[0][1:])):
+          for gto in gtos:
+            exponent = gto[0]
+            coeff = gto[cid]
+            #coeff_list = gto[1:]
+            n_gtos += 1
+            primitives.append((angular, coord, exponent))
+            coeffs.append(coeff)
+            shells.append(sto[0])
+
     atom_splits.append(n_gtos)
   primitives = PrimitiveGaussian(
     *[jnp.array(np.stack(a, axis=0)) for a in zip(*primitives)]
   )
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
+
+  cur_ptr = 0
+  cgto_coeffs = jnp.array(coeffs) * primitives.normalization_constant()
+  ncoeff = jnp.array([])
+  for lgto in cgto_splits:
+    angular = jnp.sum(primitives.angular[cur_ptr])
+    gto_coeffs = cgto_coeffs[cur_ptr : cur_ptr+lgto].reshape(-1,1)
+    exponents = primitives.exponent[cur_ptr : cur_ptr+lgto].reshape(-1,1)
+
+    ee = exponents.reshape(-1,1) + exponents.reshape(1,-1)
+      # Apply gaussian_int to ee
+    n = angular*2+2
+    n1 = (n + 1) * .5
+    ee=jax.scipy.special.gamma(n1) / (2. * ee**n1)
+    # Compute s1
+    s1 = 1. / jnp.sqrt(jnp.einsum('pi,pq,qi->i', gto_coeffs, ee, gto_coeffs))
+
+    # From libcint CINTcommon_fac_sp
+    if 0 == shells[cur_ptr]:
+      fac = 0.282094791773878143
+    elif 1 == shells[cur_ptr]:
+      fac = 0.488602511902919921
+    else:
+      fac = 1
+    ncoeff = jnp.concatenate([ncoeff, fac*jnp.einsum('pi,i->pi', gto_coeffs, s1).reshape(1,-1)[0]]) 
+    cur_ptr += lgto
+  ncoeff /= jnp.array(coeffs)
+  
   cgto = CGTO(
-    primitives, primitives.normalization_constant(), jnp.array(coeffs),
-    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges, mol.nocc
+    primitives, ncoeff, primitives.normalization_constant(), jnp.array(coeffs),
+    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
   )
   logging.info(f"there are {sum(cgto_splits)} GTOs")
   return cgto
@@ -116,7 +153,6 @@ class PrimitiveGaussian(NamedTuple):
     exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
     return xyz_lmn * exp
 
-
 class CGTO(NamedTuple):
   """Linear Combination of Contracted Gaussian-Type Orbitals.
   Can be used to represent AO.
@@ -124,7 +160,9 @@ class CGTO(NamedTuple):
   primitives: PrimitiveGaussian
   """GTO basis functions."""
   N: Int[Array, "n_gtos"]
-  """Store computed GTO normalization constant."""
+  """Store computed GTO normalization constant. (cgto normalize)"""
+  N_cn: Int[Array, "n_gtos"]
+  """Store computed GTO normalization constant. (gto normalize)"""
   coeff: Float[Array, "*n_gtos"]
   """CGTO contraction coefficient. n_cgto is usually the number of AO."""
   cgto_splits: Union[Int[Array, "*n_cgtos"], tuple]
@@ -143,6 +181,8 @@ class CGTO(NamedTuple):
   """charges of the atoms"""
   nocc: Int[Array, "2 nao"]
   """occupation mask for alpha and beta spin"""
+  shells: Int[Array, "*n_gtos"]
+  """shell idx for each gto"""
 
   @property
   def n_gtos(self) -> int:
