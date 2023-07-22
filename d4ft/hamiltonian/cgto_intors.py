@@ -32,7 +32,6 @@ from d4ft.types import (
   QuadGridsNWeights,
 )
 from d4ft.utils import get_rdm1
-from d4ft.xc import get_lda_vxc
 
 
 def libcint_incore(
@@ -120,10 +119,7 @@ def unreduce_symmetry_2c(
 
 
 def get_cgto_fock_fn(
-  cgto: CGTO,
-  incore_energy_tensors: ETensorsIncore,
-  grids_and_weights: QuadGridsNWeights,
-  polarized: bool,
+  cgto: CGTO, incore_energy_tensors: ETensorsIncore, vxc_fn: Callable
 ) -> Callable[[MoCoeff], Fock]:
   """Currently only support incore"""
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
@@ -149,9 +145,6 @@ def get_cgto_fock_fn(
     for seg_id, seg_len in enumerate(reversed(range(1, n_2c_idx + 1)))
   ]
   cd_seg_idx = jnp.hstack(cd_seg_idx)
-
-  # VXC
-  vxc_fn = get_lda_vxc(grids_and_weights, cgto, polarized)
 
   def get_fock(mo_coeff: MoCoeff) -> Fock:
     """Calculate the Fock matrix from the MO coefficients.

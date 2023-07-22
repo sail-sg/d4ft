@@ -40,6 +40,15 @@ class GDConfig:
 
 
 @dataclass(config=pydantic_config)
+class SCFConfig:
+  """Config for self-consistent field solver."""
+  momentum: float = 0.5
+  """fock matrix update momentum"""
+  epochs: int = 100
+  """number of updates/iterations"""
+
+
+@dataclass(config=pydantic_config)
 class IntorConfig:
   """Config for Integrations."""
   incore: bool = True
@@ -84,19 +93,20 @@ class DFTConfig:
 
 
 class D4FTConfig(ConfigDict):
-  # optim_cfg: GDConfig
   dft_cfg: DFTConfig
-  gd_cfg: GDConfig
   intor_cfg: IntorConfig
   mol_cfg: MoleculeConfig
+  gd_cfg: GDConfig
+  scf_cfg: SCFConfig
 
-  def __init__(self) -> None:
+  def __init__(self, config_string: str) -> None:
     super().__init__(
       {
         "dft_cfg": DFTConfig(),
-        "gd_cfg": GDConfig(),
         "intor_cfg": IntorConfig(),
         "mol_cfg": MoleculeConfig(),
+        "gd_cfg": GDConfig(),
+        "scf_cfg": SCFConfig(),
       }
     )
 
@@ -106,12 +116,17 @@ class D4FTConfig(ConfigDict):
         "RKS only supports closed-shell molecules"
 
 
-def get_config() -> D4FTConfig:
-  """
+def get_config(config_string: str = "") -> D4FTConfig:
+  """Return the default configurations.
+
+  Args:
+    config_string: currently only set the type of algorithm. Available values:
+      "gd", "scf".
+
   NOTE: for distributed setup, might need to move the dataclass definition
   into this function.
   ref. https://github.com/google/ml_collections\
   #config-files-and-pickling-config_files_and_pickling
   """
-  cfg = D4FTConfig()
+  cfg = D4FTConfig(config_string)
   return cfg

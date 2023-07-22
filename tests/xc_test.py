@@ -98,7 +98,9 @@ class XCTest(parameterized.TestCase):
     def density_nabla_fn(mo_coeff: MoCoeff):
       mo_fn = lambda r: mo_coeff @ cgto.eval(r)
       density = wave2density(mo_fn, True)
-      return jnp.sum(jax.jacfwd(density)(r1))
+      jac, hvp = jax.linearize(jax.jacrev(density), r1)
+      return jnp.sum(jac)
+      # return jnp.sum(jax.jacfwd(density)(r1))
 
     mo_density_nabla_fn = hk.without_apply_rng(
       hk.transform(compose(density_nabla_fn, mo_coeff_fn))

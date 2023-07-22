@@ -36,9 +36,11 @@ from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
-from d4ft.types import Hamiltonian
+from d4ft.types import Hamiltonian, Energies
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_xc_intor
+from d4ft.xc import get_lda_vxc
+from d4ft.hamiltonian.nuclear import e_nuclear
 
 
 def incore_hf_cgto(cfg: D4FTConfig):
@@ -71,23 +73,52 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
   # TODO: test geometry optimization
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
-  cgto_fock_fn = get_cgto_fock_fn(
-    cgto,
-    incore_energy_tensors,
-    grids_and_weights,
-    polarized=not cfg.dft_cfg.rks
-  )
+  vxc_fn = get_lda_vxc(grids_and_weights, cgto, polarized=not cfg.dft_cfg.rks)
+  cgto_fock_fn = get_cgto_fock_fn(cgto, incore_energy_tensors, vxc_fn)
   cgto_fock_jit = jax.jit(cgto_fock_fn)
 
   # get initial mo_coeff
   mo_coeff_fn = partial(cgto.get_mo_coeff, rks=cfg.dft_cfg.rks)
   mo_coeff_fn = hk.without_apply_rng(hk.transform(mo_coeff_fn))
   params = mo_coeff_fn.init(key)
-  mo_coeff = mo_coeff_fn.apply(params)
+  mo_coeff = mo_coeff_fn.apply(params, apply_spin_mask=False)
 
-  fock = cgto_fock_jit(mo_coeff)
-  _, new_mo = jnp.linalg.eigh(fock)
-  breakpoint()
+  xc_functional = getattr(jax_xc, cfg.dft_cfg.xc_type)
+  xc_fn = get_xc_intor(
+    grids_and_weights, cgto, xc_functional, polarized=not cfg.dft_cfg.rks
+  )
+  kin_fn, ext_fn, har_fn = get_cgto_intor(
+    cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
+  )
+  e_nuc = e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
+
+  @jax.jit
+  def energy_fn(mo_coeff):
+    e_kin = kin_fn(mo_coeff)
+    e_ext = ext_fn(mo_coeff)
+    e_har = har_fn(mo_coeff)
+    e_xc = xc_fn(mo_coeff)
+    e_total = e_kin + e_ext + e_har + e_xc + e_nuc
+    energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
+    return energies
+
+  transpose_axis = (1, 0) if cfg.dft_cfg.rks else (0, 2, 1)
+
+  @jax.jit
+  def update(mo_coeff, fock):
+    _, mo_coeff = jnp.linalg.eigh(fock)
+    mo_coeff = jnp.transpose(mo_coeff, transpose_axis)
+    return mo_coeff
+
+  fock = jnp.eye(cgto.nao)  # initial guess
+  logger = RunLogger()
+  for step in range(cfg.scf_cfg.epochs):
+    new_fock = cgto_fock_jit(mo_coeff)
+    fock = (1 - cfg.scf_cfg.momentum) * new_fock + cfg.scf_cfg.momentum * fock
+    mo_coeff = update(mo_coeff, fock)
+    energies = energy_fn(mo_coeff * cgto.nocc[:, :, None])
+    logger.log_step(energies, step)
+    logger.get_segment_summary()
 
 
 def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
