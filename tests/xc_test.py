@@ -42,7 +42,7 @@ class XCTest(parameterized.TestCase):
     xc_functional = getattr(jax_xc, xc_name)
 
     cfg = get_config()
-    key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
+    key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
     cfg.mol_cfg.mol = "h2"
     cfg.mol_cfg.basis = "sto-3g"
 
@@ -56,7 +56,7 @@ class XCTest(parameterized.TestCase):
 
     # build quadrature grids
     dg = DifferentiableGrids(pyscf_mol)
-    dg.level = cfg.direct_min_cfg.quad_level
+    dg.level = cfg.intor_cfg.quad_level
     # TODO: test geometry optimization
     grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
@@ -66,15 +66,12 @@ class XCTest(parameterized.TestCase):
     # function maps mo coefficients to xc energy
     mo_coeff_fn = partial(
       cgto.get_mo_coeff,
-      rks=cfg.direct_min_cfg.rks,
+      rks=cfg.dft_cfg.rks,
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
     xc_fn = get_xc_intor(
-      grids_and_weights,
-      cgto,
-      xc_functional,
-      polarized=not cfg.direct_min_cfg.rks
+      grids_and_weights, cgto, xc_functional, polarized=not cfg.dft_cfg.rks
     )
 
     mo_xc_fn = hk.without_apply_rng(hk.transform(compose(xc_fn, mo_coeff_fn)))

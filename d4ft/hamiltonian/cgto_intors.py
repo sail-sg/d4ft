@@ -14,6 +14,7 @@
 
 from typing import Callable, Literal, Optional
 
+import haiku as hk
 import jax
 import jax.numpy as jnp
 import pyscf
@@ -88,10 +89,15 @@ def get_cgto_intor(
       e_ext = jnp.sum(ext * rdm1_2c_ab)
       return e_ext
 
+    # rate = 0.5
+
     def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
       rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
       rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
       rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
+      # key = hk.next_rng_key()
+      # mask = jax.random.bernoulli(key, rate, shape=eri.shape)
+      # e_har = jnp.sum(eri * mask * rdm1_ab * rdm1_cd) / rate
       e_har = jnp.sum(eri * rdm1_ab * rdm1_cd)
       return e_har
 

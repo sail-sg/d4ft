@@ -74,7 +74,7 @@ where `1e energy` is the sum of kinetic and external potential energy. We see th
 ## Calculate energy barrier for reaction
 
 ``` shell
-python main.py --run reaction --reaction hf_h_hfhts --config.optim_cfg.lr_decay cosine
+python main.py --run reaction --reaction hf_h_hfhts --config.gd_cfg.gd_cfg.lr_decay cosine
 ```
 This calculate the ground state energy for each system, then compute the energy barrier:
 ``` shell
@@ -101,25 +101,31 @@ D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage c
 
 The configuration used for the calculation will be printed to the console at the start of the run. For example when you run the calculation for Oxygen above using the default configuration, you should see the following:
 ``` shell
-direct_min_cfg: !!python/object:config_config.DirectMinimizationConfig
+dft_cfg: !!python/object:config_config.DFTConfig
+  __pydantic_initialised__: true
+  rks: false
+  rng_seed: 137
+  xc_type: lda_x
+gd_cfg: !!python/object:config_config.GDConfig
   __pydantic_initialised__: true
   converge_threshold: 0.0001
-  incore: true
-  intor: obsa
-  quad_level: 1
-  rks: true
-  xc_type: lda
-mol_cfg: !!python/object:config_config.MoleculeConfig
-  __pydantic_initialised__: true
-  basis: sto-3g
-  mol: o2
-optim_cfg: !!python/object:config_config.OptimizerConfig
-  __pydantic_initialised__: true
-  epochs: 2000
+  epochs: 4000
+  hist_len: 50
   lr: 0.01
   lr_decay: piecewise
   optimizer: adam
-  rng_seed: 137
+intor_cfg: !!python/object:config_config.IntorConfig
+  __pydantic_initialised__: true
+  incore: true
+  intor: obsa
+  quad_level: 1
+mol_cfg: !!python/object:config_config.MoleculeConfig
+  __pydantic_initialised__: true
+  basis: sto-3g
+  charge: 0
+  geometry_source: cccdbd
+  mol: O2
+  spin: -1
 ```
 
 All configuration stated in `d4ft/config.py` can be overridden by providing an appropriate flag (of the form `--config.<cfg_field>`). For example, to change the basis set to `6-31g`, use the flag `--config.mol_cfg.basis 6-31g`. You can directly change the 
@@ -132,9 +138,9 @@ python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.spin 2
 ```
 
 ## Specifying XC functional
-D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.direct_min_cfg.xc_type` to specify XC functional to use, for example:
+D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.dft_cfg.xc_type` to specify XC functional to use, for example:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.direct_min_cfg.xc_type lda_x
+python main.py --run direct --config.mol_cfg.mol O2 --config.dft_cfg.xc_type lda_x
 ```
 
 

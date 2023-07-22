@@ -63,11 +63,11 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
 
   NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
   """
-  key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
+  key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
   incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
 
   dg = DifferentiableGrids(pyscf_mol)
-  dg.level = cfg.direct_min_cfg.quad_level
+  dg.level = cfg.intor_cfg.quad_level
   # TODO: test geometry optimization
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
@@ -75,12 +75,12 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
     cgto,
     incore_energy_tensors,
     grids_and_weights,
-    polarized=not cfg.direct_min_cfg.rks
+    polarized=not cfg.dft_cfg.rks
   )
   cgto_fock_jit = jax.jit(cgto_fock_fn)
 
   # get initial mo_coeff
-  mo_coeff_fn = partial(cgto.get_mo_coeff, rks=cfg.direct_min_cfg.rks)
+  mo_coeff_fn = partial(cgto.get_mo_coeff, rks=cfg.dft_cfg.rks)
   mo_coeff_fn = hk.without_apply_rng(hk.transform(mo_coeff_fn))
   params = mo_coeff_fn.init(key)
   mo_coeff = mo_coeff_fn.apply(params)
@@ -93,13 +93,13 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
 def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
-  key = jax.random.PRNGKey(cfg.optim_cfg.rng_seed)
-  xc_functional = getattr(jax_xc, cfg.direct_min_cfg.xc_type)
+  key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
+  xc_functional = getattr(jax_xc, cfg.dft_cfg.xc_type)
 
   incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
 
   dg = DifferentiableGrids(pyscf_mol)
-  dg.level = cfg.direct_min_cfg.quad_level
+  dg.level = cfg.intor_cfg.quad_level
   # TODO: test geometry optimization
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
@@ -115,24 +115,21 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
     )
     mo_coeff_fn = partial(
       cgto_hk.get_mo_coeff,
-      rks=cfg.direct_min_cfg.rks,
+      rks=cfg.dft_cfg.rks,
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
     xc_fn = get_xc_intor(
-      grids_and_weights,
-      cgto_hk,
-      xc_functional,
-      polarized=not cfg.direct_min_cfg.rks
+      grids_and_weights, cgto_hk, xc_functional, polarized=not cfg.dft_cfg.rks
     )
     return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
-  # e_total = scipy_opt(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
+  # e_total = scipy_opt(cfg.gd_cfg, H_factory, key)
   # breakpoint()
 
-  logger, traj, H = sgd(cfg.direct_min_cfg, cfg.optim_cfg, H_factory, key)
+  logger, traj, H = sgd(cfg.gd_cfg, H_factory, key)
   min_e_step = logger.data_df.e_total.astype(float).idxmin()
-  logging.info(f"lowest total energy: {logger.data_df.iloc[min_e_step]}")
+  logging.info(f"lowest total energy: \n {logger.data_df.iloc[min_e_step]}")
   lowest_e = logger.data_df.e_total.astype(float).min()
   return lowest_e
 
@@ -140,9 +137,9 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
   # rdm1 = get_rdm1(traj[-1].mo_coeff)
   # scf_mo_coeff = pyscf_wrapper(
   #   pyscf_mol,
-  #   cfg.direct_min_cfg.rks,
-  #   cfg.direct_min_cfg.xc_type,
-  #   cfg.direct_min_cfg.quad_level,
+  #   cfg.dft_cfg.rks,
+  #   cfg.dft_cfg.xc_type,
+  #   cfg.intor_cfg.quad_level,
   #   rdm1=rdm1,
   # )
   # breakpoint()
@@ -155,25 +152,21 @@ def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
   incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
 
   dg = DifferentiableGrids(pyscf_mol)
-  dg.level = cfg.direct_min_cfg.quad_level
+  dg.level = cfg.intor_cfg.quad_level
   # TODO: test geometry optimization
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   cgto_intor = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
   )
-  xc_functional = getattr(jax_xc, cfg.direct_min_cfg.xc_type)
+  xc_functional = getattr(jax_xc, cfg.dft_cfg.xc_type)
   xc_fn = get_xc_intor(
-    grids_and_weights,
-    cgto,
-    xc_functional,
-    polarized=not cfg.direct_min_cfg.rks
+    grids_and_weights, cgto, xc_functional, polarized=not cfg.dft_cfg.rks
   )
 
   # solve for ground state with PySCF and get the mo_coeff
   mo_coeff = pyscf_wrapper(
-    pyscf_mol, cfg.direct_min_cfg.rks, cfg.direct_min_cfg.xc_type,
-    cfg.direct_min_cfg.quad_level
+    pyscf_mol, cfg.dft_cfg.rks, cfg.dft_cfg.xc_type, cfg.intor_cfg.quad_level
   )
   breakpoint()
 

@@ -123,38 +123,14 @@ class PrimitiveGaussian(NamedTuple):
     Returns:
       unnormalized gto (x-c_x)^l (y-c_y)^m (z-c_z)^n exp{-alpha |r-c|^2}
     """
-
-    # xyz_lmn = jnp.ones(self.n_orbs)
-    # for n in range(self.n_orbs):
-    #   for i in range(3):  # x, y, z
-    #     if self.angular[n, i] > 0:
-    #       xyz_lmn.at[n].set(
-    #         xyz_lmn[0] *
-    #         jnp.power(r[i] - self.center[n, i], self.angular[n, i])
-    #       )
-
     xyz_lmn = []
     for i in range(self.n_orbs):
       xyz_lmn_i = 1.0
       for d in range(3):  # x, y, z
         if self.angular[i, d] > 0:
           xyz_lmn_i *= jnp.power(r[d] - self.center[i, d], self.angular[i, d])
-        # xyz_lmn_i *= lax.cond(
-        #   self.angular[i, d] > 0,
-        #   lambda: jnp.power(r[d] - self.center[i, d], self.angular[i, d]),
-        #   lambda: 1.0,
-        # )
       xyz_lmn.append(xyz_lmn_i)
     xyz_lmn = jnp.array(xyz_lmn)
-
-    # xyz_lmn = jnp.prod(jnp.power(r - self.center, self.angular), axis=1)
-
-    # xyz_lmn = jnp.where(
-    #   self.angular > 0,
-    #   jnp.prod(jnp.power(r - self.center, self.angular), axis=1),
-    #   1.,
-    # )
-
     exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
     return xyz_lmn * exp
 

@@ -14,10 +14,10 @@
 
 import optax
 
-from d4ft.config import OptimizerConfig
+from d4ft.config import GDConfig
 
 
-def get_optimizer(cfg: OptimizerConfig) -> optax.GradientTransformation:
+def get_optimizer(cfg: GDConfig) -> optax.GradientTransformation:
   if cfg.lr_decay == "piecewise":
     lr = optax.piecewise_constant_schedule(
       init_value=cfg.lr,
