@@ -39,8 +39,6 @@ class XCTest(parameterized.TestCase):
     ("gga_x_pbe",),
   )
   def test_xc_grad(self, xc_name: str) -> None:
-    xc_functional = getattr(jax_xc, xc_name)
-
     cfg = get_config()
     key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
     cfg.mol_cfg.mol = "h2"
