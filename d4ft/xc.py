@@ -16,13 +16,12 @@ from typing import Callable
 
 import einops
 import jax.numpy as jnp
+import jax_xc
 from jaxtyping import Array, Float
 
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.quadrature.utils import quadrature_integral, wave2density
 from d4ft.types import Fock, MoCoeff, QuadGridsNWeights
-
-import jax_xc
 
 
 def get_xc_functional(xc_type: str, polarized: bool) -> Callable:

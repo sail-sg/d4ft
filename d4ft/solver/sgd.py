@@ -18,6 +18,7 @@ from typing import NamedTuple, Tuple
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 from absl import logging
 
@@ -58,8 +59,6 @@ def sgd(
   H_transformed = hk.multi_transform(H_factory)
   H = Hamiltonian(*H_transformed.apply)
 
-  optimizer = get_optimizer(gd_cfg)
-
   @jax.jit
   def update(state: TrainingState) -> Tuple:
     """update parameter, and accumulate gradients"""
@@ -71,8 +70,49 @@ def sgd(
     params = optax.apply_updates(state.params, updates)
     return TrainingState(params, opt_state, next_rng_key), energies, mo_grads
 
+  @jax.jit
+  def meta_loss(
+    meta_params: hk.Params,
+    params: hk.Params,
+    opt_state: optax.OptState,
+    rng_key: jax.Array,
+  ):
+    opt_state.hyperparams["learning_rate"] = jax.nn.sigmoid(meta_params)
+    state = TrainingState(params, opt_state, rng_key)
+
+    # for _ in range(10):
+    new_state, energies, mo_grads = update(state)
+    # state = new_state
+
+    loss = H.energy_fn(new_state.params, new_state.rng_key)[0]
+
+    return loss, (new_state, energies, mo_grads)
+
+  @jax.jit
+  def meta_step(state: TrainingState, meta_params, meta_state):
+    grad, (new_state, energies, mo_grads) = jax.grad(
+      meta_loss, has_aux=True
+    )(meta_params, state.params, state.opt_state, state.rng_key)
+    meta_updates, meta_state = meta_opt.update(grad, meta_state)
+    new_meta_params = optax.apply_updates(meta_params, meta_updates)
+
+    return new_meta_params, meta_state, new_state, energies, mo_grads
+
   # init state
   params = H_transformed.init(key)
+
+  if gd_cfg.meta_opt == "none":
+    optimizer = get_optimizer(gd_cfg)
+  else:
+    init_lr = jnp.array(gd_cfg.lr)
+    meta_lr = jnp.array(gd_cfg.meta_lr)
+    optimizer = optax.inject_hyperparams(getattr(optax, gd_cfg.optimizer))(
+      learning_rate=init_lr
+    )
+    meta_opt = getattr(optax, gd_cfg.meta_opt)(learning_rate=meta_lr)
+    meta_params = -np.log(1. / init_lr - 1)
+    meta_state = meta_opt.init(meta_params)
+
   opt_state = optimizer.init(params)
   state = TrainingState(params, opt_state, key)
 
@@ -82,7 +122,14 @@ def sgd(
   logger = RunLogger()
   # mo_grad_norm_fn = jax.jit(jax.vmap(partial(jnp.linalg.norm, ord=2), 0, 0))
   for step in range(gd_cfg.epochs):
-    new_state, energies, mo_grads = update(state)
+
+    if gd_cfg.meta_opt == "none":
+      new_state, energies, mo_grads = update(state)
+    else:
+      meta_params, meta_state, new_state, energies, mo_grads = meta_step(
+        state, meta_params, meta_state
+      )
+      logging.info(f"cur lr: {jax.nn.sigmoid(meta_params):.4f}")
 
     logger.log_step(energies, step)
     logger.get_segment_summary()

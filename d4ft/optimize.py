@@ -38,16 +38,6 @@ def get_optimizer(cfg: GDConfig) -> optax.GradientTransformation:
   else:
     lr = cfg.lr
 
-  if cfg.optimizer == "sgd":
-    optimizer = optax.sgd(learning_rate=lr)
-  elif cfg.optimizer == "adam":
-    optimizer = optax.adam(learning_rate=lr)
-  elif cfg.optimizer == "adamw":
-    optimizer = optax.chain(
-      optax.clip(1.0),
-      optax.adamw(learning_rate=lr),
-    )
-  else:
-    raise NotImplementedError
+  optimizer = getattr(optax, cfg.optimizer)(learning_rate=lr)
 
   return optimizer
