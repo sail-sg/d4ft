@@ -17,7 +17,6 @@ from functools import partial
 import haiku as hk
 import jax
 import jax.numpy as jnp
-import jax_xc
 from absl import logging
 from absl.testing import absltest, parameterized
 
