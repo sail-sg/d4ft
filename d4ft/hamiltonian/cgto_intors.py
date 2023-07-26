@@ -14,7 +14,6 @@
 
 from typing import Callable, Literal, Optional
 
-import haiku as hk
 import jax
 import jax.numpy as jnp
 import pyscf
@@ -29,7 +28,6 @@ from d4ft.types import (
   IdxCount2C,
   IdxCount4C,
   MoCoeff,
-  QuadGridsNWeights,
 )
 from d4ft.utils import get_rdm1
 

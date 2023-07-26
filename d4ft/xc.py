@@ -15,7 +15,6 @@
 from typing import Callable
 
 import einops
-import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
 

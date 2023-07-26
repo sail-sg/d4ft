@@ -15,7 +15,6 @@
 
 from typing import NamedTuple, Tuple
 
-import chex
 import haiku as hk
 import jax
 import jax.numpy as jnp

@@ -2,21 +2,20 @@ import jax
 import numpy as np
 from absl import logging
 from absl.testing import absltest
-from jax.interpreters import ad, batching, mlir, xla
 
 from d4ft.native.xla.custom_call import CustomCallMeta
 from tests.native.xla.example import Parent, _Example, _ExampleMember
 
+# from jax.interpreters import ad, batching, mlir, xla
+
 Example = CustomCallMeta("Example", (_Example,), {})
 example_fn = Example()
 
-
 # TODO
-def _example_batch_rule(args, axes):
-  return example_fn(args[1:]), axes
+# def _example_batch_rule(args, axes):
+#   return example_fn(args[1:]), axes
 
-
-batching.primitive_batchers[example_fn.prim] = _example_batch_rule
+# batching.primitive_batchers[example_fn.prim] = _example_batch_rule
 
 ExampleMember = CustomCallMeta("ExampleMember", (_ExampleMember,), {})
 
