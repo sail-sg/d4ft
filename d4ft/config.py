@@ -85,9 +85,10 @@ class MoleculeConfig:
 class DFTConfig:
   """Config for DFT."""
   rks: bool = False
-  """whether to run RKS, i.e. use the same coefficients for both spins"""
+  """Whether to run RKS, i.e. use the same coefficients for both spins"""
   xc_type: str = "lda_x"
-  """name of the xc functional to use"""
+  """Name of the xc functional to use. To mix two XC functional, use the
+  syntax a*xc_name_1+b*xc_name_2 where a, b are numbers."""
   rng_seed: int = 137
   """PRNG seed"""
 

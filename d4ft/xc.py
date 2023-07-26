@@ -22,11 +22,37 @@ from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.quadrature.utils import quadrature_integral, wave2density
 from d4ft.types import Fock, MoCoeff, QuadGridsNWeights
 
+import jax_xc
+
+
+def get_xc_functional(xc_type: str, polarized: bool) -> Callable:
+  """Returns (a linear combination of) xc functional.
+
+  Args:
+    xc_type: Name of the xc functional to use. To mix two XC functional, use the
+      syntax a*xc_name_1+b*xc_name_2 where a, b are numbers.
+  """
+  if "+" in xc_type:
+    weights, xc_names = zip(*(map(lambda x: x.split("*"), xc_type.split("+"))))
+    weights = list(map(float, weights))
+    xc_funcs = [getattr(jax_xc, xc_name)(polarized) for xc_name in xc_names]
+  else:
+    xc_funcs = [getattr(jax_xc, xc_type)(polarized)]
+    weights = [1.0]
+
+  def xc_func(density: Callable, r: Float[Array, "3"]) -> float:
+    ret = 0.
+    for w, xc_func in zip(weights, xc_funcs):
+      ret += w * xc_func(density, r)
+    return ret
+
+  return xc_func
+
 
 def get_xc_intor(
   grids_and_weights: QuadGridsNWeights,
   cgto: CGTO,
-  xc_functional: Callable,
+  xc_func: Callable,
   polarized: bool = False,
 ) -> Callable:
   """Returns a function that calculates Exc from MO coefficients.
@@ -38,15 +64,6 @@ def get_xc_intor(
   def xc_intor(mo_coeff: MoCoeff) -> Float[Array, ""]:
     mo = lambda r: mo_coeff @ cgto.eval(r)
     density = wave2density(mo, polarized)
-    xc_func = xc_functional(polarized)
-
-    # r = grids_and_weights[0][0]
-    # rho = density
-    # jac, hvp = jax.linearize(jax.jacrev(rho), r)
-    # breakpoint()
-    # out = xc_func(density, r)
-    # breakpoint()
-
     return jnp.sum(
       quadrature_integral(
         lambda r: density(r) * xc_func(density, r), grids_and_weights

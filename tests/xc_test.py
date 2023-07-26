@@ -29,7 +29,7 @@ from d4ft.integral.quadrature.utils import wave2density
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import MoCoeff
 from d4ft.utils import compose
-from d4ft.xc import get_xc_intor
+from d4ft.xc import get_xc_functional, get_xc_intor
 
 
 class XCTest(parameterized.TestCase):
@@ -70,9 +70,9 @@ class XCTest(parameterized.TestCase):
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
-    xc_fn = get_xc_intor(
-      grids_and_weights, cgto, xc_functional, polarized=not cfg.dft_cfg.rks
-    )
+    polarized = not cfg.dft_cfg.rks
+    xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+    xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
 
     mo_xc_fn = hk.without_apply_rng(hk.transform(compose(xc_fn, mo_coeff_fn)))
     params = mo_xc_fn.init(key)

@@ -100,7 +100,8 @@ class PrimitiveGaussian(NamedTuple):
   """Batch of Primitive Gaussians / Gaussian-Type Orbitals (GTO)."""
   angular: Int[np.ndarray, "*batch 3"]
   """angular momentum vector, e.g. (0,1,0). Note that it is stored as
-  numpy array to avoid tracing error, which is okay since it is not trainable."""
+  numpy array to avoid tracing error, which is okay since it is not
+  trainable."""
   center: Float[Array, "*batch 3"]
   """atom coordinates for each GTO."""
   exponent: Float[Array, "*batch"]

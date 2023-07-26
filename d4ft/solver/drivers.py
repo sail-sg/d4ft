@@ -20,7 +20,6 @@ from typing import Callable, Tuple
 import haiku as hk
 import jax
 import jax.numpy as jnp
-import jax_xc
 from absl import logging
 from jaxtyping import Array, Float
 
@@ -39,7 +38,7 @@ from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import Energies, Hamiltonian
 from d4ft.utils import make_constant_fn
-from d4ft.xc import get_lda_vxc, get_xc_intor
+from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
 
 
 def incore_hf_cgto(cfg: D4FTConfig):
@@ -82,10 +81,9 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
   params = mo_coeff_fn.init(key)
   mo_coeff = mo_coeff_fn.apply(params, apply_spin_mask=False)
 
-  xc_functional = getattr(jax_xc, cfg.dft_cfg.xc_type)
-  xc_fn = get_xc_intor(
-    grids_and_weights, cgto, xc_functional, polarized=not cfg.dft_cfg.rks
-  )
+  polarized = not cfg.dft_cfg.rks
+  xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+  xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
   kin_fn, ext_fn, har_fn = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
   )
@@ -124,7 +122,9 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
   key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
-  xc_functional = getattr(jax_xc, cfg.dft_cfg.xc_type)
+
+  polarized = not cfg.dft_cfg.rks
+  xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
 
   incore_energy_tensors, pyscf_mol, cgto = incore_hf_cgto(cfg)
 
@@ -149,9 +149,7 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
-    xc_fn = get_xc_intor(
-      grids_and_weights, cgto_hk, xc_functional, polarized=not cfg.dft_cfg.rks
-    )
+    xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
     return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
   # e_total = scipy_opt(cfg.gd_cfg, H_factory, key)
@@ -189,10 +187,9 @@ def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> None:
   cgto_intor = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_energy_tensors
   )
-  xc_functional = getattr(jax_xc, cfg.dft_cfg.xc_type)
-  xc_fn = get_xc_intor(
-    grids_and_weights, cgto, xc_functional, polarized=not cfg.dft_cfg.rks
-  )
+  polarized = not cfg.dft_cfg.rks
+  xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+  xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
 
   # solve for ground state with PySCF and get the mo_coeff
   mo_coeff = pyscf_wrapper(
