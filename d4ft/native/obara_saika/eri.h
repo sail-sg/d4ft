@@ -17,10 +17,11 @@
 #ifndef D4FT_NATIVE_OBARA_SAIKA_ERI_H_
 #define D4FT_NATIVE_OBARA_SAIKA_ERI_H_
 
+#include <cstring>
+
 #include "boys.h"
 #include "comb.h"
 #include "hemi/hemi.h"
-#include <cstring>
 
 #define MAX_XYZ 4 * 6
 #define MAX_YZ 4 * 4
@@ -29,16 +30,17 @@
 #define MAX_AB 4
 
 template <typename FLOAT>
-HEMI_DEV_CALLABLE void
-vertical_0_0_c_0(size_t i, const FLOAT *pq, const FLOAT *qc,
-                 FLOAT I[][MAX_XYZ + 1], FLOAT rho, FLOAT eta,
-                 const size_t *max_cd, const size_t *Ms) {
-  FLOAT *I_0_cm2 = I[MAX_CD];
-  FLOAT *I_0_cm1 = I[0];
+HEMI_DEV_CALLABLE void vertical_0_0_c_0(size_t i, const FLOAT* pq,
+                                        const FLOAT* qc, FLOAT I[][MAX_XYZ + 1],
+                                        FLOAT rho, FLOAT eta,
+                                        const size_t* max_cd,
+                                        const size_t* Ms) {
+  FLOAT* I_0_cm2 = I[MAX_CD];
+  FLOAT* I_0_cm1 = I[0];
   FLOAT wq_i = rho * pq[i] / eta;
   for (size_t j = 0; j < max_cd[i]; ++j) {
     FLOAT cm1 = (FLOAT)j;
-    FLOAT *I_0_c = I[j + 1];
+    FLOAT* I_0_c = I[j + 1];
     for (size_t k = 0; k <= Ms[i]; ++k) {
       FLOAT I_mp1_k =
           wq_i * I_0_cm1[k] + (-cm1 / 2 / eta * rho / eta) * I_0_cm2[k];
@@ -53,13 +55,12 @@ vertical_0_0_c_0(size_t i, const FLOAT *pq, const FLOAT *qc,
 }
 
 template <typename FLOAT>
-HEMI_DEV_CALLABLE void
-vertical_a_0_c_0(size_t i, FLOAT I[][MAX_XYZ + 1], const FLOAT *ab,
-                 const FLOAT *cd, const FLOAT *pa, const FLOAT *pq, FLOAT rho,
-                 FLOAT zeta, FLOAT eta, const size_t *na, const size_t *nb,
-                 const size_t *nc, const size_t *nd, const size_t *Ms,
-                 const size_t *min_a, const size_t *min_c, const size_t *max_ab,
-                 const size_t *max_cd, FLOAT *out) {
+HEMI_DEV_CALLABLE void vertical_a_0_c_0(
+    size_t i, FLOAT I[][MAX_XYZ + 1], const FLOAT* ab, const FLOAT* cd,
+    const FLOAT* pa, const FLOAT* pq, FLOAT rho, FLOAT zeta, FLOAT eta,
+    const size_t* na, const size_t* nb, const size_t* nc, const size_t* nd,
+    const size_t* Ms, const size_t* min_a, const size_t* min_c,
+    const size_t* max_ab, const size_t* max_cd, FLOAT* out) {
   FLOAT cache[MAX_CD + 1][MAX_XYZ + 1] = {0};
   FLOAT wa[MAX_AB + 1], wc[MAX_CD + 1];
   for (size_t j = 0; j <= max_ab[i]; ++j) {
@@ -108,11 +109,13 @@ vertical_a_0_c_0(size_t i, FLOAT I[][MAX_XYZ + 1], const FLOAT *ab,
   }
 }
 
-template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT zeta(FLOAT za, FLOAT zb) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT zeta(FLOAT za, FLOAT zb) {
   return za + zb;
 }
 
-template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT xi(FLOAT za, FLOAT zb) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT xi(FLOAT za, FLOAT zb) {
   return za * zb / zeta(za, zb);
 }
 
@@ -121,17 +124,19 @@ HEMI_DEV_CALLABLE FLOAT rp(FLOAT ra, FLOAT rb, FLOAT za, FLOAT zb) {
   return (za * ra + zb * rb) / (za + zb);
 }
 
-template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT rho(FLOAT zeta, FLOAT eta) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT rho(FLOAT zeta, FLOAT eta) {
   return zeta * eta / (zeta + eta);
 }
 
-template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT T(FLOAT rho, FLOAT *pq) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT T(FLOAT rho, FLOAT* pq) {
   return rho * (pq[0] * pq[0] + pq[1] * pq[1] + pq[2] * pq[2]);
 }
 
 // translate above python code into C code
 template <typename FLOAT>
-HEMI_DEV_CALLABLE FLOAT K(FLOAT z1, FLOAT z2, FLOAT *r1, FLOAT *r2) {
+HEMI_DEV_CALLABLE FLOAT K(FLOAT z1, FLOAT z2, FLOAT* r1, FLOAT* r2) {
   FLOAT d_squared = 0;
   for (size_t i = 0; i < 3; ++i) {
     d_squared += (r1[i] - r2[i]) * (r1[i] - r2[i]);
@@ -146,8 +151,8 @@ eri(size_t nax, size_t nay, size_t naz, size_t nbx, size_t nby, size_t nbz,
     size_t ncx, size_t ncy, size_t ncz, size_t ndx, size_t ndy, size_t ndz,
     FLOAT rax, FLOAT ray, FLOAT raz, FLOAT rbx, FLOAT rby, FLOAT rbz, FLOAT rcx,
     FLOAT rcy, FLOAT rcz, FLOAT rdx, FLOAT rdy, FLOAT rdz, FLOAT za, FLOAT zb,
-    FLOAT zc, FLOAT zd, const size_t *min_a, const size_t *min_c,
-    const size_t *max_ab, const size_t *max_cd, const size_t *Ms) {
+    FLOAT zc, FLOAT zd, const size_t* min_a, const size_t* min_c,
+    const size_t* max_ab, const size_t* max_cd, const size_t* Ms) {
   size_t na[3] = {nax, nay, naz};
   size_t nb[3] = {nbx, nby, nbz};
   size_t nc[3] = {ncx, ncy, ncz};
@@ -211,4 +216,4 @@ eri(size_t nax, size_t nay, size_t naz, size_t nbx, size_t nby, size_t nbz,
   return out[0] * prefactor * 0.5;
 }
 
-#endif // D4FT_NATIVE_OBARA_SAIKA_ERI_H_
+#endif  // D4FT_NATIVE_OBARA_SAIKA_ERI_H_

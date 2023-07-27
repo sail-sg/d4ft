@@ -13,8 +13,9 @@
 // limitations under the License.
 
 #include <math.h>
-#include <iostream>
+
 #include <array>
+#include <iostream>
 
 #define FLOAT double
 

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef SPECS_H_
-#define SPECS_H_
+#ifndef D4FT_NATIVE_XLA_SPECS_H_
+#define D4FT_NATIVE_XLA_SPECS_H_
 
 #include <algorithm>
 #include <functional>
@@ -24,6 +24,7 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 using Shape = std::vector<int>;
@@ -51,7 +52,7 @@ class Spec {
   // constructors
   explicit Spec(std::vector<int>&& shape) : shape(std::move(shape)) {}
   explicit Spec(const std::vector<int>& shape) : shape(shape) {}
-  explicit Spec() = default;
+  Spec() = default;
 
   // total number of elements
   int Size() { return Prod(shape.data(), shape.size()); }
@@ -67,4 +68,4 @@ struct Array {
   // NOTE: decay_t is used here to remove type transformations
 };
 
-#endif  // SPECS_H_
+#endif  // D4FT_NATIVE_XLA_SPECS_H_

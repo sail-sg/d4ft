@@ -17,10 +17,11 @@
 #ifndef D4FT_NATIVE_GAMMA_LGAMMA_H_
 #define D4FT_NATIVE_GAMMA_LGAMMA_H_
 
-#include "constants.h"
-#include "hemi/hemi.h"
 #include <array>
 #include <cmath>
+
+#include "constants.h"
+#include "hemi/hemi.h"
 
 // Compute the Lgamma function using Lanczos' approximation from "A Precision
 // Approximation of the Gamma Function". SIAM Journal on Numerical Analysis
@@ -28,7 +29,8 @@
 // lgamma(z + 1) = (log(2) + log(pi)) / 2 + (z + 1/2) * log(t(z)) - t(z) + A(z)
 // t(z) = z + kLanczosGamma + 1/2
 // A(z) = kBaseLanczosCoeff + sigma(k = 1, n, kLanczosCoefficients[i] / (z + k))
-template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Lgamma(FLOAT input) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT Lgamma(FLOAT input) {
   FLOAT one_half = 0.5;
   FLOAT one = 1;
   FLOAT pi = M_PI;
@@ -130,4 +132,4 @@ template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Lgamma(FLOAT input) {
   }
 }
 
-#endif // D4FT_NATIVE_GAMMA_LGAMMA_H_
+#endif  // D4FT_NATIVE_GAMMA_LGAMMA_H_

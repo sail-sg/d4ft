@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef D4FT_NATIVE_OBARA_SAIKA_OBARA_SAIKA_H_
+#define D4FT_NATIVE_OBARA_SAIKA_OBARA_SAIKA_H_
+
 #include <cuda_runtime_api.h>
 
 class Eri4CS8 {
@@ -32,9 +35,9 @@ class Eri4CS8 {
   }
   static void Cpu(Array<const int>& angular, Array<const float>& center,
                   Array<const float>& exponent, Array<float>& out);
-  static void Gpu(cudaStream_t stream,
-                  Array<const int>& angular, Array<const float>& center,
-                  Array<const float>& exponent, Array<float>& out);
+  static void Gpu(cudaStream_t stream, Array<const int>& angular,
+                  Array<const float>& center, Array<const float>& exponent,
+                  Array<float>& out);
 };
 
 class Hartree {
@@ -54,9 +57,9 @@ class Hartree {
   }
   static void Cpu(Array<const int>& angular, Array<const float>& center,
                   Array<const float>& exponent, Array<float>& out);
-  static void Gpu(cudaStream_t stream,
-                  Array<const int>& angular, Array<const float>& center,
-                  Array<const float>& exponent, Array<float>& out);
+  static void Gpu(cudaStream_t stream, Array<const int>& angular,
+                  Array<const float>& center, Array<const float>& exponent,
+                  Array<float>& out);
 };
 
 class Exchange {
@@ -76,7 +79,9 @@ class Exchange {
   }
   static void Cpu(Array<const int>& angular, Array<const float>& center,
                   Array<const float>& exponent, Array<float>& out);
-  static void Gpu(cudaStream_t stream,
-                  Array<const int>& angular, Array<const float>& center,
-                  Array<const float>& exponent, Array<float>& out);
+  static void Gpu(cudaStream_t stream, Array<const int>& angular,
+                  Array<const float>& center, Array<const float>& exponent,
+                  Array<float>& out);
 };
+
+#endif  // D4FT_NATIVE_OBARA_SAIKA_OBARA_SAIKA_H_

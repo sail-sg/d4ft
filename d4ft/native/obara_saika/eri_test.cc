@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <iostream>
+
 #include "eri_kernel.h"
 #include "hemi/array.h"
 #include "hemi/device_api.h"
 #include "hemi/hemi.h"
 #include "hemi/parallel_for.h"
-#include <iostream>
 
-void constant_init(size_t *ptr, size_t size, size_t constant) {
+void constant_init(size_t* ptr, size_t size, size_t constant) {
   for (size_t i = 0; i < size; ++i) {
     ptr[i] = constant;
   }

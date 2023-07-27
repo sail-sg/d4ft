@@ -38,6 +38,7 @@ cuda_library(
     ],
     deps = [
         ":example_h",
+        "@cuda//:cudart_static",
     ],
 )
 
@@ -58,7 +59,10 @@ pybind_extension(
 py_test(
     name = "example_test",
     srcs = ["example_test.py"],
-    data = [":example.so"],
+    data = [
+        ":example.so",
+        "@cuda//:bin",
+    ],
     deps = [
         "//d4ft/native/xla:custom_call",
         requirement("absl-py"),

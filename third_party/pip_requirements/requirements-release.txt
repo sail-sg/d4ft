@@ -1,11 +1,10 @@
 ase==3.22.1
 bs4==0.0.1
-chex==0.1.8
-distrax==0.1.4
 dm-haiku==0.0.9
 einops==0.6.1
 jax-xc>=0.0.7
-jax==0.4.13
+--find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+jax[cuda12_local]==0.4.13
 # jaxlib>=0.3.25
 jaxtyping==0.2.15
 matplotlib==3.7.2

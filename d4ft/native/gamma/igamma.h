@@ -17,11 +17,12 @@
 #ifndef D4FT_NATIVE_GAMMA_IGAMMA_H_
 #define D4FT_NATIVE_GAMMA_IGAMMA_H_
 
+#include <cmath>
+
 #include "constants.h"
 #include "digamma.h"
 #include "hemi/hemi.h"
 #include "lgamma.h"
-#include <cmath>
 
 enum kIgammaMode { VALUE, DERIVATIVE, SAMPLE_DERIVATIVE };
 
@@ -60,11 +61,11 @@ HEMI_DEV_CALLABLE FLOAT IgammaSeries(FLOAT ax, FLOAT x, FLOAT a, bool enabled) {
   }
   FLOAT dlogax_da = std::log(x) - Digamma(a + 1);
   switch (mode) {
-  case DERIVATIVE:
-    return ax * (ans * dlogax_da + dans_da) / a;
-  case SAMPLE_DERIVATIVE:
-  default:
-    return -(dans_da + ans * dlogax_da) * x / a;
+    case DERIVATIVE:
+      return ax * (ans * dlogax_da + dans_da) / a;
+    case SAMPLE_DERIVATIVE:
+    default:
+      return -(dans_da + ans * dlogax_da) * x / a;
   }
 }
 
@@ -140,15 +141,16 @@ HEMI_DEV_CALLABLE FLOAT IgammacContinuedFraction(FLOAT ax, FLOAT x, FLOAT a,
   }
   FLOAT dlogax_da = std::log(x) - Digamma(a);
   switch (mode) {
-  case DERIVATIVE:
-    return ax * (ans * dlogax_da + dans_da);
-  case SAMPLE_DERIVATIVE:
-  default:
-    return -(dans_da + ans * dlogax_da) * x;
+    case DERIVATIVE:
+      return ax * (ans * dlogax_da + dans_da);
+    case SAMPLE_DERIVATIVE:
+    default:
+      return -(dans_da + ans * dlogax_da) * x;
   }
 }
 
-template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Igamma(FLOAT a, FLOAT x) {
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT Igamma(FLOAT a, FLOAT x) {
   bool is_nan = std::isnan(a) || std::isnan(x);
   FLOAT x_is_zero = x == 0;
   FLOAT x_is_infinity = x == std::numeric_limits<float>::infinity();
@@ -199,7 +201,7 @@ HEMI_DEV_CALLABLE FLOAT IgammaGradA(FLOAT a, FLOAT x) {
 }
 
 template <typename FLOAT>
-HEMI_DEV_CALLABLE FLOAT Igammac(const FLOAT &a, const FLOAT &x) {
+HEMI_DEV_CALLABLE FLOAT Igammac(const FLOAT& a, const FLOAT& x) {
   FLOAT max_finite_value = std::numeric_limits<FLOAT>::max();
   bool b;
   bool out_of_range = (x <= 0) || (a <= 0);
@@ -218,4 +220,4 @@ HEMI_DEV_CALLABLE FLOAT Igammac(const FLOAT &a, const FLOAT &x) {
   return out_of_range ? 1 : result;
 }
 
-#endif // D4FT_NATIVE_GAMMA_IGAMMA_H_
+#endif  // D4FT_NATIVE_GAMMA_IGAMMA_H_

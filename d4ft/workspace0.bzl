@@ -17,6 +17,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+load("//third_party/cuda:cuda.bzl", "cuda_configure")
 
 def workspace():
     """Load requested packages."""
@@ -82,3 +83,10 @@ def workspace():
         strip_prefix = "pybind11-{}".format(pybind11_version),
         urls = ["https://github.com/pybind/pybind11/archive/v{}.tar.gz".format(pybind11_version)],
     )
+
+    maybe(
+        cuda_configure,
+        name = "cuda",
+    )
+
+workspace0 = workspace

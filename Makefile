@@ -2,7 +2,7 @@ SHELL          = /bin/bash
 PROJECT_NAME   = d4ft
 PROJECT_FOLDER = $(PROJECT_NAME) third_party
 PYTHON_FILES   = $(shell find . -type f -name "*.py" -not -path '*/.venv/*' -not -path './d4ft/integral/obara_saika/boys_table.py')
-CPP_FILES      = $(shell find $(PROJECT_NAME) -type f -name "*.h" -o -name "*.cc" -not -path '*/.venv/*')
+CPP_FILES      = $(shell find $(PROJECT_NAME) -type f \( -name "*.h" -o -name "*.cc" \) -not -name "comb.h" -not -path '*/.venv/*')
 BAZEL_FILES    = $(shell find . -type f -name "*BUILD" -o -name "*.bzl" -not -path '*/.venv/*')
 COMMIT_HASH    = $(shell git log -1 --format=%h)
 COPYRIGHT      = "Garena Online Private Limited"

@@ -1037,4 +1037,4 @@ typedef float comb_t[50][50];
 
 HEMI_DEFINE_CONSTANT(comb_t comb, COMB);
 
-#endif // COMB_H_
+#endif  // COMB_H_

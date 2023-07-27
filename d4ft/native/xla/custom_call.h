@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef D4FT_NATIVE_XLA_CUSTOM_CALL_H_
+#define D4FT_NATIVE_XLA_CUSTOM_CALL_H_
 
 #include <cuda_runtime_api.h>
 #include <pybind11/functional.h>
@@ -168,7 +170,7 @@ class Xla : public CustomCall {
    * constructors for non-member functions
    * */
   template <bool IM = IsMember, std::enable_if_t<!IM, bool> = true>
-  explicit Xla() {}
+  Xla() = default;
 
   /**
    * constructors for member functions
@@ -405,3 +407,5 @@ py::object abc_meta = py::module::import("abc").attr("ABCMeta");
       .def("_input_dtypes", &Xla<CustomCall, Parent>::InputDtypes)           \
       .def("_output_dtypes", &Xla<CustomCall, Parent>::OutputDtypes)         \
       .def("_shape_inference", &Xla<CustomCall, Parent>::ShapeInference);
+
+#endif  // D4FT_NATIVE_XLA_CUSTOM_CALL_H_

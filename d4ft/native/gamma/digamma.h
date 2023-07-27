@@ -17,11 +17,13 @@
 #ifndef D4FT_NATIVE_GAMMA_DIGAMMA_H_
 #define D4FT_NATIVE_GAMMA_DIGAMMA_H_
 
-#include "constants.h"
-#include "hemi/hemi.h"
 #include <cmath>
 
-template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Digamma(FLOAT input) {
+#include "constants.h"
+#include "hemi/hemi.h"
+
+template <typename FLOAT>
+HEMI_DEV_CALLABLE FLOAT Digamma(FLOAT input) {
   FLOAT zero = 0;
   FLOAT one_half = 0.5;
   FLOAT one = 1;
@@ -85,4 +87,4 @@ template <typename FLOAT> HEMI_DEV_CALLABLE FLOAT Digamma(FLOAT input) {
   }
 }
 
-#endif // D4FT_NATIVE_GAMMA_DIGAMMA_H_
+#endif  // D4FT_NATIVE_GAMMA_DIGAMMA_H_

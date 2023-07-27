@@ -14,11 +14,8 @@
 
 #include "obara_saika.h"
 
-void Eri4CS8::Cpu() {
-}
+void Eri4CS8::Cpu() {}
 
-void Hartree::Cpu() {
-}
+void Hartree::Cpu() {}
 
-void Exchange::Cpu() {
-}
+void Exchange::Cpu() {}

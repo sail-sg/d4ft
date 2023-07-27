@@ -24,7 +24,10 @@ cc_library(
 cc_library(
     name = "custom_call_h",
     hdrs = ["custom_call.h"],
-    deps = [":specs"],
+    deps = [
+        ":specs",
+        "@cuda//:cudart_static",
+    ],
 )
 
 py_library(

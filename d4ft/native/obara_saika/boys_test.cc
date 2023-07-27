@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
 #include "boys.h"
 
-int main() {
-  std::cout << BoysIgamma(1., 2.) << std::endl;
-}
+#include <iostream>
+
+int main() { std::cout << BoysIgamma(1., 2.) << std::endl; }
