@@ -12,42 +12,61 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import haiku as hk
+import jax
+import jax.numpy as jnp
+import numpy as np
 import optax
 
-from d4ft.config import OptimizerConfig
+from d4ft.config import GDConfig
+from d4ft.types import TrainingState
+
+from typing import Dict, Tuple
 
 
-def get_optimizer(cfg: OptimizerConfig) -> optax.GradientTransformation:
-  if cfg.lr_decay == "piecewise":
-    lr = optax.piecewise_constant_schedule(
-      init_value=cfg.lr,
-      boundaries_and_scales={
-        int(cfg.epochs * 0.5): 0.5,
-        int(cfg.epochs * 0.75): 0.25,
-        int(cfg.epochs * 0.825): 0.125,
-      }
+def get_optimizer(
+  cfg: GDConfig,
+  params: hk.Params,
+  rng_key: jax.Array,
+) -> Dict[str, Tuple[optax.GradientTransformation, TrainingState]]:
+  opt_states = dict()
+  if cfg.meta_opt == "none":  # load schedule
+    if cfg.lr_decay == "piecewise":
+      lr = optax.piecewise_constant_schedule(
+        init_value=cfg.lr,
+        boundaries_and_scales={
+          int(cfg.epochs * 0.5): 0.5,
+          int(cfg.epochs * 0.75): 0.25,
+          int(cfg.epochs * 0.825): 0.125,
+        }
+      )
+    elif cfg.lr_decay == "cosine":
+      lr = optax.warmup_cosine_decay_schedule(
+        init_value=0.0,
+        peak_value=1.0,
+        warmup_steps=50,
+        decay_steps=cfg.epochs - 50,
+        end_value=0.0,
+      )
+    else:
+      lr = cfg.lr
+    optimizer = getattr(optax, cfg.optimizer)(learning_rate=lr)
+
+  else:  # meta learns the learning rate
+    init_lr = jnp.array(cfg.lr)
+    meta_lr = jnp.array(cfg.meta_lr)
+    optimizer = optax.inject_hyperparams(getattr(optax, cfg.optimizer))(
+      learning_rate=init_lr
     )
-  elif cfg.lr_decay == "cosine":
-    lr = optax.warmup_cosine_decay_schedule(
-      init_value=0.0,
-      peak_value=1.0,
-      warmup_steps=50,
-      decay_steps=cfg.epochs - 50,
-      end_value=0.0,
-    )
-  else:
-    lr = cfg.lr
+    meta_opt = getattr(optax, cfg.meta_opt)(learning_rate=meta_lr)
+    meta_params = -np.log(1. / init_lr - 1)
+    meta_opt_state = meta_opt.init(meta_params)
+    meta_state = TrainingState(meta_params, meta_opt_state, rng_key)
+    opt_states["meta"] = (meta_opt, meta_state)
 
-  if cfg.optimizer == "sgd":
-    optimizer = optax.sgd(learning_rate=lr)
-  elif cfg.optimizer == "adam":
-    optimizer = optax.adam(learning_rate=lr)
-  elif cfg.optimizer == "adamw":
-    optimizer = optax.chain(
-      optax.clip(1.0),
-      optax.adamw(learning_rate=lr),
-    )
-  else:
-    raise NotImplementedError
+  opt_state = optimizer.init(params)
+  state = TrainingState(params, opt_state, rng_key)
 
-  return optimizer
+  opt_states["main"] = (optimizer, state)
+
+  return opt_states

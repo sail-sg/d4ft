@@ -21,8 +21,9 @@ from ml_collections.config_flags import config_flags
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCALMOL
 from d4ft.solver.drivers import (
-  incore_cgto_direct_opt_dft, incore_cgto_pyscf_dft_benchmark,
-  incore_cgto_scf_dft
+  incore_cgto_direct_opt_dft,
+  incore_cgto_pyscf_dft_benchmark,
+  incore_cgto_scf_dft,
 )
 
 FLAGS = flags.FLAGS

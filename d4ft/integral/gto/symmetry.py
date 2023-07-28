@@ -21,9 +21,10 @@ from typing import Tuple
 import jax
 import jax.numpy as jnp
 import numpy as np
-from d4ft.types import IdxCount, IdxCount2C, IdxCount4C
 from jax import lax
 from jaxtyping import Array, Float, Int
+
+from d4ft.types import IdxCount, IdxCount2C, IdxCount4C
 
 # TODO: An idea, can we use API like
 # sym_2c = Sym2C(n_gtos)

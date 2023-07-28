@@ -13,13 +13,13 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
 py_library(
     name = "drivers",
     srcs = ["drivers.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:config",
         "//d4ft:logger",
@@ -36,13 +36,17 @@ py_library(
         "//d4ft/solver:pyscf_wrapper",
         "//d4ft/solver:sgd",
         "//d4ft/system:mol",
+        requirement("dm-haiku"),
+        requirement("jax"),
+        requirement("jaxlib"),
+        requirement("jax-xc"),
+        requirement("jaxtyping"),
     ],
 )
 
 py_library(
     name = "sgd",
     srcs = ["sgd.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:config",
         "//d4ft:logger",
@@ -50,13 +54,14 @@ py_library(
         "//d4ft:types",
         "//d4ft:utils",
         "//d4ft/system:mol",
+        requirement("chex"),
+        requirement("optax"),
     ],
 )
 
 py_library(
     name = "scf",
     srcs = ["scf.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:config",
         "//d4ft:logger",
@@ -68,6 +73,16 @@ py_library(
 py_library(
     name = "pyscf_wrapper",
     srcs = ["pyscf_wrapper.py"],
-    visibility = ["//visibility:public"],
     deps = [],
+)
+
+py_library(
+    name = "solver",
+    srcs = ["__init__.py"],
+    deps = [
+        ":drivers",
+        ":pyscf_wrapper",
+        ":scf",
+        ":sgd",
+    ],
 )

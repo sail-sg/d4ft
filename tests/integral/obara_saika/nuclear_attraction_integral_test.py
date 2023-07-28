@@ -19,8 +19,9 @@ import jax.numpy as jnp
 import numpy as np
 from absl.testing import absltest
 
-from d4ft.integral.obara_saika.nuclear_attraction_integral import \
-    nuclear_attraction_integral
+from d4ft.integral.obara_saika.nuclear_attraction_integral import (
+  nuclear_attraction_integral,
+)
 
 
 class _TestNuclearAttractionIntegral(absltest.TestCase):

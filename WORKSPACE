@@ -1,16 +1,17 @@
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+workspace(name = "d4ft")
 
-http_archive(
-    name = "rules_python",
-    sha256 = "8c8fe44ef0a9afc256d1e75ad5f448bb59b81aba149b8958f02f7b3a98f5d9b4",
-    strip_prefix = "rules_python-0.13.0",
-    url = "https://github.com/bazelbuild/rules_python/archive/refs/tags/0.13.0.tar.gz",
-)
+load("//d4ft:workspace0.bzl", workspace0 = "workspace")
 
-new_git_repository(
-    name = "obsa",
-    branch = "master",
-    build_file = "//third_party:obsa.BUILD",
-    remote = "https://github.com/bast/obara-saika.git",
-)
+workspace0()
+
+load("//d4ft:workspace1.bzl", workspace1 = "workspace")
+
+workspace1()
+
+load("//d4ft:workspace2.bzl", workspace2 = "workspace")
+
+workspace2()
+
+load("//d4ft:pip.bzl", pip_workspace = "workspace")
+
+pip_workspace()

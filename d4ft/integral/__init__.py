@@ -21,7 +21,6 @@ at least the three 3 types of integrals:
 """
 
 __all__ = [
-  "basis",
   "obara_saika",
   "quadrature",
 ]

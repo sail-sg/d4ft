@@ -11,3 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+load("@rules_python//python:defs.bzl", "py_library")
+
+package(default_visibility = ["//visibility:public"])
+
+py_library(
+    name = "integral",
+    srcs = ["__init__.py"],
+    deps = [
+        "//d4ft/integral/gto",
+        "//d4ft/integral/obara_saika",
+        "//d4ft/integral/pw",
+        "//d4ft/integral/quadrature",
+    ],
+)

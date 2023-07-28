@@ -23,11 +23,12 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 from absl import logging
+from jaxtyping import Array, Float, Int
+
 from d4ft.system.crystal import Crystal
 from d4ft.system.occupation import get_occupation_mask
 from d4ft.types import Cell, LatticeDim, PWCoeff
 from d4ft.utils import vmap_3D_lattice
-from jaxtyping import Array, Float, Int
 
 
 def canonical_period(n: int) -> Int[Array, "n"]:

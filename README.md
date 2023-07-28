@@ -1,5 +1,7 @@
 # D4FT: Differentiable Density Functional Theory
 
+Joint work with [i-fim](https://ifim.nus.edu.sg/).
+
 ## Installation
 
 1. Create a `virtualenv` with `python3.9`: 
@@ -29,16 +31,17 @@ python main.py --run direct --config.mol_cfg.mol O2
 
 and you should see the following log after the calculation has converged:
 ``` shell
-I0629 10:57:29.393578 140645918545728 logger.py:50] Iter: 395
-e_total   -145.984650
-e_kin      146.055756
-e_ext     -406.366943
-e_har      101.187576
-e_xc       -14.908516
+I0728 23:26:17.428046 140634023188288 sgd.py:141] e_total std: 5.535387390409596e-05
+I0728 23:26:17.428330 140634023188288 sgd.py:151] Converged: True
+I0728 23:26:17.478279 140634023188288 drivers.py:160] lowest total energy: 
+ e_total    -146.04742
+e_kin       146.03822
+e_ext      -406.35187
+e_har         101.126
+e_xc       -14.907249
 e_nuc       28.047487
-time         0.009397
-dtype: float64
-I0629 10:57:29.400142 140645918545728 sgd.py:83] Converged: True
+time         0.010077
+Name: 778, dtype: object
 ```
 where each component of the ground state energy is printed.
 
@@ -74,7 +77,7 @@ where `1e energy` is the sum of kinetic and external potential energy. We see th
 ## Calculate energy barrier for reaction
 
 ``` shell
-python main.py --run reaction --reaction hf_h_hfhts --config.optim_cfg.lr_decay cosine
+python main.py --run reaction --reaction hf_h_hfhts --config.gd_cfg.gd_cfg.lr_decay cosine
 ```
 This calculate the ground state energy for each system, then compute the energy barrier:
 ``` shell
@@ -101,25 +104,37 @@ D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage c
 
 The configuration used for the calculation will be printed to the console at the start of the run. For example when you run the calculation for Oxygen above using the default configuration, you should see the following:
 ``` shell
-direct_min_cfg: !!python/object:config_config.DirectMinimizationConfig
+dft_cfg: !!python/object:config_config.DFTConfig
+  __pydantic_initialised__: true
+  rks: false
+  rng_seed: 137
+  xc_type: lda_x
+gd_cfg: !!python/object:config_config.GDConfig
   __pydantic_initialised__: true
   converge_threshold: 0.0001
+  epochs: 4000
+  hist_len: 50
+  lr: 0.01
+  lr_decay: piecewise
+  meta_lr: 0.03
+  meta_opt: none
+  optimizer: adam
+intor_cfg: !!python/object:config_config.IntorConfig
+  __pydantic_initialised__: true
   incore: true
   intor: obsa
   quad_level: 1
-  rks: true
-  xc_type: lda
 mol_cfg: !!python/object:config_config.MoleculeConfig
   __pydantic_initialised__: true
   basis: sto-3g
+  charge: 0
+  geometry_source: cccdbd
   mol: o2
-optim_cfg: !!python/object:config_config.OptimizerConfig
+  spin: -1
+scf_cfg: !!python/object:config_config.SCFConfig
   __pydantic_initialised__: true
-  epochs: 2000
-  lr: 0.01
-  lr_decay: piecewise
-  optimizer: adam
-  rng_seed: 137
+  epochs: 100
+  momentum: 0.5
 ```
 
 All configuration stated in `d4ft/config.py` can be overridden by providing an appropriate flag (of the form `--config.<cfg_field>`). For example, to change the basis set to `6-31g`, use the flag `--config.mol_cfg.basis 6-31g`. You can directly change the 
@@ -132,9 +147,9 @@ python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.spin 2
 ```
 
 ## Specifying XC functional
-D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.direct_min_cfg.xc_type` to specify XC functional to use, for example:
+D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.dft_cfg.xc_type` to specify XC functional to use, for example:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.direct_min_cfg.xc_type lda_x
+python main.py --run direct --config.mol_cfg.mol O2 --config.dft_cfg.xc_type lda_x
 ```
 
 
@@ -193,6 +208,124 @@ e_total, _, _ = incore_cgto_direct_opt_dft(cfg)
 print(e_total)
 ```
 The `incore_cgto_direct_opt_dft` is just an example of how to use the low level API of `D4FT`, similar to the example models in deep learning libraries. If you want more granular control you should write your function, and you can start by modifying this example.
+
+# Benchmark Against Psi4 and PySCF
+
+We have benchmarked the calculation against well known open-sourced quantum chemsitry libraries: [Psi4](https://psicode.org/) and [PySCF](https://pyscf.org/). 
+As shown below, currently D4FT aligns well under the `lda+sto-3g` setting, but it align less well for more complex basis set and / or XC functional. 
+D4FT is still undergoing intensive development, so expect these number to improve quite a lot! 
+
+| Reaction          | Basis / XC                    | System     | Psi4 Energy       |                        | Pyscf Energy      |                        | D4FT Energy       |                        | D4FT Setting       |
+|-------------------|-------------------------------|------------|-------------------|------------------------|-------------------|------------------------|-------------------|------------------------|--------------------|
+|                   |                               |            | Total Energy (Ha) | RXN Energy  (kcal/mol) | Total Energy (Ha) | RXN Energy  (kcal/mol) | Total Energy (Ha) | RXN Energy  (kcal/mol) |                    |
+| HF+H->HFH         | LDA_x STO-3G                  | HF         | -97.531437        |                        | -97.530932        |                        | -97.530720        |                        | cosine             |
+|                   |                               | H          | -0.411526         |                        | -0.411379         |                        | -0.411379         |                        | cosine             |
+|                   |                               | HFH        | -97.934861        |                        | -97.934411        |                        | -97.934166        |                        | cosine             |
+|                   |                               | Calculated |                   | 5.084029               |                   | 4.957480               |                   | 4.978091               |                    |
+|                   |                               | Reference  |                   | 42.100000              |                   | 42.100000              |                   | 42.100000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE STO-3G | HF         | -98.819667        |                        | -98.819196        |                        | -98.819200        |                        | cosine             |
+|                   |                               | H          | -0.464523         |                        | -0.464376         |                        | -0.464376         |                        | cosine             |
+|                   |                               | HFH        | -99.274052        |                        | -99.273604        |                        | -99.273606        |                        | cosine             |
+|                   |                               | Calculated |                   | 6.361625               |                   | 6.254693               |                   | 6.255669               |                    |
+|                   |                               | Reference  |                   | 42.100000              |                   | 42.100000              |                   | 42.100000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE 6-31G  | HF         | -100.302074       |                        | -100.302025       |                        | -100.062894       |                        | cosine             |
+|                   |                               | H          | -0.497432         |                        | -0.497432         |                        |                   |                        | cosine             |
+|                   |                               | HFH        | -100.765751       |                        | -100.765697       |                        | -100.294316       |                        | cosine             |
+|                   |                               | Calculated |                   | 21.181364              |                   | 21.184356              |                   |                        |                    |
+|                   |                               | Reference  |                   | 42.100000              |                   | 42.100000              |                   | 42.100000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | LDA_X  6-31G                  | HF         | -99.041733        |                        | -99.041700        |                        | -98.524870        |                        | cosine             |
+|                   |                               | H          | -0.454028         |                        | -0.454027         |                        |                   |                        | cosine             |
+|                   |                               | HFH        | -99.465905        |                        | -99.465891        |                        | -99.107428        |                        | cosine             |
+|                   |                               | Calculated |                   | 18.734730              |                   | 18.722108              |                   |                        |                    |
+|                   |                               | Reference  |                   | 42.100000              |                   | 42.100000              |                   | 42.100000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | LDA_X cc-pVDZ                 | HF         | -97.531400        |                        |                   |                        |                   |                        |                    |
+|                   |                               | H          | -0.411500         |                        |                   |                        |                   |                        |                    |
+|                   |                               | HFH        | -97.934900        |                        |                   |                        |                   |                        |                    |
+|                   |                               | Calculated | 5.020024          | 5.084231               |                   |                        |                   |                        |                    |
+|                   |                               | Reference  |                   | 42.100000              |                   | 42.100000              |                   | 42.100000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+| N2O + H -> N2OH   | LDA_x STO-3G                  | N2O        | -179.206198       |                        | -179.205101       |                        | -179.205154       |                        |                    |
+|                   |                               | H          | -0.411526         |                        | -0.411379         |                        | -0.411379         |                        |                    |
+|                   |                               | N2OH       | -179.626057       |                        | -179.624908       |                        | -179.624660       |                        | meta opt           |
+|                   |                               | Calculated |                   | -5.228982              |                   | -5.288409              |                   | -5.099372              |                    |
+|                   |                               | Reference  |                   | 17.700000              |                   | 17.700000              |                   | 17.700000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE STO-3G | N2O        | -181.958308       |                        | -181.957218       |                        | -181.928330       |                        |                    |
+|                   |                               | H          | -0.464523         |                        | -0.464376         |                        | -0.464376         |                        |                    |
+|                   |                               | N2OH       | -182.434221       |                        | -182.433079       |                        | -182.412757       |                        | meta opt           |
+|                   |                               | Calculated |                   | -7.147259              |                   | -7.207038              |                   | -12.582266             |                    |
+|                   |                               | Reference  |                   | 17.700000              |                   | 17.700000              |                   | 17.700000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE 6-31G  | N2O        | -184.404091       |                        | -184.404097       |                        | -184.086108       |                        | meta opt           |
+|                   |                               | H          | -0.497432         |                        | -0.497432         |                        |                   |                        |                    |
+|                   |                               | N2OH       | -184.891896       |                        | -184.891893       |                        | -183.679929       |                        | meta opt           |
+|                   |                               | Calculated |                   | 6.040971               |                   | 6.046698               |                   |                        |                    |
+|                   |                               | Reference  |                   | 17.700000              |                   | 17.700000              |                   | 17.700000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | LDA_X  6-31G                  | N2O        | -181.679859       |                        | -181.679841       |                        | -181.405700       |                        | meta opt           |
+|                   |                               | H          | -0.454028         |                        | -0.454027         |                        |                   |                        |                    |
+|                   |                               | N2OH       | -182.121173       |                        | -182.121144       |                        | -181.369140       |                        | meta opt + rmsprop |
+|                   |                               | Calculated |                   | 7.978073               |                   | 7.984961               |                   |                        |                    |
+|                   |                               | Reference  |                   | 17.700000              |                   | 17.700000              |                   | 17.700000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | LDA_X cc-pVDZ                 | N2O        | -181.780800       |                        |                   |                        |                   |                        |                    |
+|                   |                               | H          | -0.455700         |                        |                   |                        |                   |                        |                    |
+|                   |                               | N2OH       | -182.216900       |                        |                   |                        |                   |                        |                    |
+|                   |                               | Calculated | 12.299059         | 12.273645              |                   |                        |                   |                        |                    |
+|                   |                               | Reference  |                   | 17.700000              |                   | 17.700000              |                   | 17.700000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+| CH3F + F -> FCH3F | LDA_x STO-3G                  | CH3F       | -135.539359       |                        | -135.538595       |                        | -135.534880       |                        | meta opt           |
+|                   |                               | F-         | -96.526882        |                        | -96.526450        |                        | -96.526490        |                        |                    |
+|                   |                               | FCH3F-     | -232.230600       |                        | -232.229238       |                        | -232.200530       |                        | meta opt           |
+|                   |                               | Calculated |                   | -103.135766            |                   | -103.031653            |                   | -87.323317             |                    |
+|                   |                               | Reference  |                   | -0.600000              |                   | -0.600000              |                   | -0.600000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE STO-3G | CH3F       | -137.641154       |                        | -137.640409       |                        | -137.637472       |                        | meta opt           |
+|                   |                               | F-         | -97.831416        |                        | -97.831044        |                        | -97.831048        |                        |                    |
+|                   |                               | FCH3F-     | -235.628004       |                        | -235.626794       |                        | -235.626722       |                        | meta opt           |
+|                   |                               | Calculated |                   | -97.535301             |                   | -97.476559             | -99.271803        |                        |                    |
+|                   |                               | Reference  |                   | -0.600000              |                   | -0.600000              |                   | -0.600000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE 6-31G  | CH3F       | -139.546241       |                        | -139.546151       |                        | -138.604462       |                        | meta opt           |
+|                   |                               | F-         | -99.648544        |                        | -99.648526        |                        | -99.648494        |                        | meta opt           |
+|                   |                               | FCH3F-     | -239.251196       |                        | -239.251149       |                        | -238.261548       |                        | meta opt           |
+|                   |                               | Calculated |                   | -35.398072             |                   | -35.436043             | -5.391784         |                        |                    |
+|                   |                               | Reference  |                   | -0.600000              |                   | -0.600000              |                   | -0.600000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | LDA_X  6-31G                  | CH3F       | -137.471347       |                        | -137.471275       |                        | -137.367613       |                        | meta opt + rmsprop |
+|                   |                               | F-         | -98.394822        |                        | -98.394824        |                        | -98.394621        |                        | meta opt           |
+|                   |                               | FCH3F-     | -235.930094       |                        | -235.930108       |                        | -235.320157       |                        | meta opt + rmsprop |
+|                   |                               | Calculated |                   | -40.113129             |                   | -40.165756             | 277.404618        |                        |                    |
+|                   |                               | Reference  |                   | -0.600000              |                   | -0.600000              |                   | -0.600000              |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+| H + C2H4 -> C2H5  | LDA_x STO-3G                  | H          | -0.411526         |                        | -0.411379         |                        | -0.411379         |                        |                    |
+|                   |                               | C2H4       | -75.864870        |                        | -75.864238        |                        | -75.853440        |                        |                    |
+|                   |                               | C2H5       | -76.277131        |                        | -76.276379        |                        | -76.265090        |                        | meta opt+rmsprop   |
+|                   |                               | Calculated |                   | -0.461215              |                   | -0.478267              |                   | -0.169972              |                    |
+|                   |                               | Reference  |                   | 2.000000               |                   | 2.000000               |                   | 2.000000               |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE STO-3G | H          | -0.464523         |                        | -0.464376         |                        | -0.464376         |                        |                    |
+|                   |                               | C2H4       | -77.508220        |                        | -77.507583        |                        | -77.505231        |                        |                    |
+|                   |                               | C2H5       | -77.973545        |                        | -77.972783        |                        | -77.948069        |                        | meta opt+rmsprop   |
+|                   |                               | Calculated |                   | -0.503257              |                   | -0.517457              |                   | 13.514625              |                    |
+|                   |                               | Reference  |                   | 2.000000               |                   | 2.000000               |                   | 2.000000               |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | 1GGA_X_PBE +1GGA_C_PBE 6-31G  | H          | -0.497432         |                        | -0.497432         |                        |                   |                        |                    |
+|                   |                               | C2H4       | -78.452847        |                        | -78.452852        |                        | -78.345467        |                        | meta opt+rmsprop   |
+|                   |                               | C2H5       | -78.950867        |                        | -78.950855        |                        | -78.656912        |                        | meta opt+rmsprop   |
+|                   |                               | Calculated |                   | -0.368972              |                   | -0.358943              |                   |                        |                    |
+|                   |                               | Reference  |                   | 2.000000               |                   | 2.000000               |                   | 2.000000               |                    |
+|                   |                               |            |                   |                        |                   |                        |                   |                        |                    |
+|                   | LDA_X  6-31G                  | H          | -0.454028         |                        | -0.454027         |                        |                   |                        |                    |
+|                   |                               | C2H4       | -76.815174        |                        | -76.815163        |                        | -76.756140        |                        | meta opt+rmsprop   |
+|                   |                               | C2H5       | -77.268031        |                        | -77.268001        |                        | -77.076185        |                        | meta opt+rmsprop   |
+|                   |                               | Calculated |                   | 0.734806               |                   | 0.746521               |                   |                        |                    |
+|                   |                               | Reference  |                   | 2.000000               |                   | 2.000000               |                   | 2.000000               |                    |
+
 
 ## Tutorial and Documentation
 

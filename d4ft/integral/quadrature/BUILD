@@ -14,51 +14,46 @@
 
 load("@rules_python//python:defs.bzl", "py_library")
 
+package(default_visibility = ["//visibility:public"])
+
 py_library(
     name = "grids",
     srcs = ["grids.py"],
-    visibility = ["//visibility:public"],
     deps = ["//d4ft:types"],
 )
 
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    visibility = ["//visibility:public"],
 )
 
 py_library(
     name = "overlap_integral",
     srcs = ["overlap_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [":utils"],
 )
 
 py_library(
     name = "kinetic_integral",
     srcs = ["kinetic_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [":utils"],
 )
 
 py_library(
     name = "nuclear_attraction_integral",
     srcs = ["nuclear_attraction_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [":utils"],
 )
 
 py_library(
     name = "electron_repulsion_integral",
     srcs = ["electron_repulsion_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [":utils"],
 )
 
 py_library(
     name = "quadrature",
     srcs = ["__init__.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":electron_repulsion_integral",
         ":kinetic_integral",

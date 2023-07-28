@@ -18,37 +18,38 @@ from typing import Dict, List, Literal, NamedTuple, Tuple
 
 import pyscf
 from absl import logging
+from jaxtyping import Array, Int
+
 from d4ft.system.geometry import get_mol_geometry
 from d4ft.system.occupation import get_occupation_mask
 from d4ft.system.utils import periodic_hash_table
 from d4ft.types import AtomCoords
-from jaxtyping import Array, Int
 
 
 def get_atom_from_geometry(geometry: str) -> List[str]:
   return [s.strip().split(' ')[0] for s in geometry.strip().split('\n')]
 
 
-def get_spin(atoms: List[str]) -> int:
+def get_spin(atoms: List[str], charge: int) -> int:
   """Get the spin of the molecule from the list of atoms.
   By default, we try to pair all electrons, so spin is either 0 or 1."""
   tot_ele = sum([periodic_hash_table[a] for a in atoms])
-  spin = tot_ele % 2
+  spin = (tot_ele - charge) % 2
   return spin
 
 
 def get_pyscf_mol(
   mol: str,
   basis: str,
-  spin: int,
-  charge: int,
+  spin: int = -1,
+  charge: int = 0,
   source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
   """Construct a pyscf mole object from molecule name and basis name"""
   geometry = get_mol_geometry(mol, source)
   atoms = get_atom_from_geometry(geometry)
   if spin == -1:
-    spin = get_spin(atoms)
+    spin = get_spin(atoms, charge)
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin, charge=charge)
   logging.info(f"spin: {spin}, charge: {charge}, geometry: {geometry}")
   return mol
@@ -97,5 +98,5 @@ class Mol(NamedTuple):
     source: Literal["cccdbd", "pubchem"] = "cccdbd"
   ) -> Mol:
     """Builds Mol object from molecule name"""
-    pyscf_mol = get_pyscf_mol(name, basis, source)
+    pyscf_mol = get_pyscf_mol(name, basis, source=source)
     return Mol.from_pyscf_mol(pyscf_mol)

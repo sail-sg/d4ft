@@ -13,27 +13,31 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "workspace0.bzl",
+    "workspace1.bzl",
+    "workspace2.bzl",
+])
 
 py_library(
     name = "constants",
     srcs = ["constants.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "types",
     srcs = ["types.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "xc",
     srcs = ["xc.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":types",
         "//d4ft/integral/gto:cgto",
@@ -45,43 +49,52 @@ py_library(
 py_library(
     name = "config",
     srcs = ["config.py"],
-    visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        requirement("ml_collections"),
+    ],
 )
 
 py_library(
     name = "optimize",
     srcs = ["optimize.py"],
-    visibility = ["//visibility:public"],
-    deps = [":config"],
+    deps = [
+        ":config",
+        ":types",
+        requirement("optax"),
+    ],
 )
 
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        requirement("einops"),
+    ],
 )
 
 py_library(
     name = "logger",
     srcs = ["logger.py"],
-    visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        requirement("pandas"),
+    ],
 )
 
 py_library(
     name = "d4ft",
     srcs = ["__init__.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":config",
         ":constants",
         ":logger",
         ":optimize",
-        ":pyscf_wrapper",
         ":types",
         ":utils",
         ":xc",
+        "//d4ft/hamiltonian",
+        "//d4ft/integral",
+        "//d4ft/native/xla:custom_call",
+        "//d4ft/solver",
+        "//d4ft/system",
     ],
 )

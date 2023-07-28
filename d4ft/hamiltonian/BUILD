@@ -13,36 +13,47 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
+
+package(default_visibility = ["//visibility:public"])
 
 py_library(
     name = "nuclear",
     srcs = ["nuclear.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "ortho",
     srcs = ["ortho.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "cgto_intors",
     srcs = ["cgto_intors.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:utils",
+        requirement("pyscf"),
     ],
 )
 
 py_library(
     name = "dft_cgto",
     srcs = ["dft_cgto.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":cgto_intors",
         ":nuclear",
+    ],
+)
+
+py_library(
+    name = "hamiltonian",
+    srcs = ["__init__.py"],
+    deps = [
+        ":cgto_intors",
+        ":dft_cgto",
+        ":nuclear",
+        ":ortho",
     ],
 )

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@pip_requirements//:requirements.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_test")
 
 py_test(
@@ -20,11 +21,19 @@ py_test(
     deps = [
         "//d4ft/integral/gto:cgto",
         "//d4ft/system:mol",
+        requirement("dm-haiku"),
+        requirement("jax"),
+        requirement("jaxlib"),
     ],
 )
 
-py_library(
+py_test(
     name = "symmetry_test",
     srcs = ["symmetry_test.py"],
-    deps = ["//d4ft/integral/gto:symmetry"],
+    deps = [
+        "//d4ft/integral/gto:symmetry",
+        requirement("absl-py"),
+        requirement("jax"),
+        requirement("jaxlib"),
+    ],
 )

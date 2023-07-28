@@ -13,24 +13,24 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
+
+package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "xyz_files",
     srcs = glob(["xyz_files/*.xyz"]),
-    visibility = ["//visibility:public"],
 )
 
 py_library(
     name = "occupation",
     srcs = ["occupation.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "crystal",
     srcs = ["crystal.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:constants",
         "//d4ft:types",
@@ -40,25 +40,23 @@ py_library(
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "geometry",
     srcs = ["geometry.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":cccdbd",
         ":fake_fullerene",
         ":utils",
+        requirement("pubchempy"),
     ],
 )
 
 py_library(
     name = "mol",
     srcs = ["mol.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":geometry",
         ":occupation",
@@ -70,13 +68,26 @@ py_library(
 py_library(
     name = "cccdbd",
     srcs = ["cccdbd.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "fake_fullerene",
     srcs = ["fake_fullerene.py"],
-    visibility = ["//visibility:public"],
     deps = [],
+)
+
+py_library(
+    name = "system",
+    srcs = ["__init__.py"],
+    data = ["//d4ft/system:xyz_files"],
+    deps = [
+        ":cccdbd",
+        ":crystal",
+        ":fake_fullerene",
+        ":geometry",
+        ":mol",
+        ":occupation",
+        ":utils",
+    ],
 )

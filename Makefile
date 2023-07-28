@@ -1,7 +1,8 @@
 SHELL          = /bin/bash
 PROJECT_NAME   = d4ft
-PROJECT_FOLDER = d4ft
-PYTHON_FILES   = $(shell find . -type f -name "*.py" -not -path '*/.venv/*')
+PROJECT_FOLDER = $(PROJECT_NAME) third_party
+PYTHON_FILES   = $(shell find . -type f -name "*.py" -not -path '*/.venv/*' -not -path './d4ft/integral/obara_saika/boys_table.py')
+CPP_FILES      = $(shell find $(PROJECT_NAME) -type f \( -name "*.h" -o -name "*.cc" \) -not -name "comb.h" -not -path '*/.venv/*')
 BAZEL_FILES    = $(shell find . -type f -name "*BUILD" -o -name "*.bzl" -not -path '*/.venv/*')
 COMMIT_HASH    = $(shell git log -1 --format=%h)
 COPYRIGHT      = "Garena Online Private Limited"
@@ -9,6 +10,7 @@ BAZELOPT       =
 PATH           := $(HOME)/go/bin:$(PATH)
 
 # installation
+
 check_install = python3 -c "import $(1)" || (cd && pip3 install $(1) --upgrade && cd -)
 check_install_extra = python3 -c "import $(1)" || (cd && pip3 install $(2) --upgrade && cd -)
 
@@ -17,19 +19,32 @@ flake8-install:
 	$(call check_install_extra, bugbear, flake8_bugbear)
 
 py-format-install:
+	$(call check_install, isort)
 	$(call check_install, yapf)
+
+mypy-install:
+	$(call check_install, mypy)
 
 cpplint-install:
 	$(call check_install, cpplint)
 
-# requires go >= 1.16
-bazel-install:
+clang-format-install:
+	command -v clang-format || sudo apt-get install -y clang-format
+
+clang-tidy-install:
+	command -v clang-tidy || sudo apt-get install -y clang-tidy
+
+go-install:
+	# requires go >= 1.16
+	command -v go || (sudo apt-get install -y golang-1.18 && sudo ln -sf /usr/lib/go-1.18/bin/go /usr/bin/go)
+
+bazel-install: go-install
 	command -v bazel || (go install github.com/bazelbuild/bazelisk@latest && ln -sf $(HOME)/go/bin/bazelisk $(HOME)/go/bin/bazel)
 
-buildifier-install:
+buildifier-install: go-install
 	command -v buildifier || go install github.com/bazelbuild/buildtools/buildifier@latest
 
-addlicense-install:
+addlicense-install: go-install
 	command -v addlicense || go install github.com/google/addlicense@latest
 
 doc-install:
@@ -39,19 +54,36 @@ doc-install:
 	$(call check_install, sphinx_rtd_theme)
 	$(call check_install_extra, sphinxcontrib.spelling, sphinxcontrib.spelling pyenchant)
 
-# python linter
+auditwheel-install:
+	$(call check_install_extra, auditwheel, auditwheel typed-ast patchelf)
+
+# python linter. -fix version applies the fixes
 
 flake8: flake8-install
-	flake8 $(PYTHON_FILES) --count --show-source --statistics --exclude d4ft/integral/obara_saika/boys_table.py
+	flake8 $(PYTHON_FILES) --count --show-source --statistics
 
 flake8-fix: flake8-install
-	flake8 $(PYTHON_FILES) --exclude d4ft/integral/obara_saika/boys_table.py
+	flake8 $(PYTHON_FILES)
 
 py-format: py-format-install
-	yapf -dr $(PYTHON_FILES) --exclude d4ft/integral/obara_saika/boys_table.py
+	isort --check $(PYTHON_FILES) && yapf -r -d $(PYTHON_FILES)
 
 py-format-fix: py-format-install
-	yapf -ir $(PYTHON_FILES) --exclude d4ft/integral/obara_saika/boys_table.py
+	isort $(PYTHON_FILES) && yapf -ir $(PYTHON_FILES)
+
+mypy: mypy-install
+	mypy $(PROJECT_NAME)
+
+# c++ linter
+
+cpplint: cpplint-install
+	cpplint $(CPP_FILES)
+
+clang-format: clang-format-install
+	clang-format --style=file -i $(CPP_FILES) -n --Werror
+
+clang-format-fix: clang-format-install
+	clang-format --style=file -i $(CPP_FILES)
 
 # bazel file linter
 
@@ -60,6 +92,38 @@ buildifier: buildifier-install
 
 buildifier-fix: buildifier-install
 	buildifier -r -lint=fix $(BAZEL_FILES)
+
+# bazel build/test
+
+bazel-pip-requirement-dev:
+	cd third_party/pip_requirements && (cmp requirements.txt requirements-dev.txt || ln -sf requirements-dev.txt requirements.txt)
+
+bazel-pip-requirement-release:
+	cd third_party/pip_requirements && (cmp requirements.txt requirements-release.txt || ln -sf requirements-release.txt requirements.txt)
+
+clang-tidy: clang-tidy-install bazel-pip-requirement-dev
+	bazel build $(BAZELOPT) //... --config=clang-tidy --config=test
+
+bazel-debug: bazel-install bazel-pip-requirement-dev
+	bazel run $(BAZELOPT) //:setup --config=debug -- bdist_wheel
+	mkdir -p dist
+	cp bazel-bin/setup.runfiles/$(PROJECT_NAME)/dist/*.whl ./dist
+
+bazel-build: bazel-install bazel-pip-requirement-dev
+	bazel run $(BAZELOPT) //:setup --config=test -- bdist_wheel
+	mkdir -p dist
+	cp bazel-bin/setup.runfiles/$(PROJECT_NAME)/dist/*.whl ./dist
+
+bazel-release: bazel-install bazel-pip-requirement-release
+	bazel run $(BAZELOPT) //:setup --config=release -- bdist_wheel
+	mkdir -p dist
+	cp bazel-bin/setup.runfiles/$(PROJECT_NAME)/dist/*.whl ./dist
+
+bazel-test: bazel-install bazel-pip-requirement-dev
+	bazel test --test_output=all $(BAZELOPT) //... --config=test --spawn_strategy=local --color=yes
+
+bazel-clean: bazel-install
+	bazel clean --expunge
 
 # documentation
 
@@ -75,12 +139,15 @@ docstyle: doc-install
 doc: doc-install
 	cd docs && make html && cd _build/html && python3 -m http.server
 
+spelling: doc-install
+	cd docs && make spelling SPHINXOPTS="-W"
+
 doc-clean:
 	cd docs && make clean
 
 lint: buildifier flake8 py-format # docstyle
 
-format: py-format-install buildifier-install addlicense-install py-format-fix buildifier-fix addlicense-fix
+format: py-format-install buildifier-install addlicense-install py-format-fix clang-format-fix buildifier-fix addlicense-fix
 
-bazel-test: bazel-install
-	bazel test --test_output=all //tests/... --config=test --spawn_strategy=local --color=yes
+pypi-wheel: auditwheel-install bazel-release
+	ls dist/*.whl -Art | tail -n 1 | xargs auditwheel repair --plat manylinux_2_24_x86_64

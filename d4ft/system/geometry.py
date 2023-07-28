@@ -15,11 +15,12 @@
 import os
 from typing import Literal, Optional
 
-import d4ft.system.cccdbd
-import d4ft.system.fake_fullerene
 import pubchempy
 import requests
 from absl import logging
+
+import d4ft.system.cccdbd
+import d4ft.system.fake_fullerene
 from d4ft.system.cccdbd import query_geometry_from_cccbdb
 from d4ft.system.utils import periodic_table
 
