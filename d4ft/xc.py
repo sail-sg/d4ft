@@ -31,6 +31,7 @@ def get_xc_functional(xc_type: str, polarized: bool) -> Callable:
     xc_type: Name of the xc functional to use. To mix two XC functional, use the
       syntax a*xc_name_1+b*xc_name_2 where a, b are numbers.
   """
+  xc_type = xc_type.lower()
   if "+" in xc_type:
     weights, xc_names = zip(*(map(lambda x: x.split("*"), xc_type.split("+"))))
     weights = list(map(float, weights))
