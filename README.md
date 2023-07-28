@@ -31,16 +31,17 @@ python main.py --run direct --config.mol_cfg.mol O2
 
 and you should see the following log after the calculation has converged:
 ``` shell
-I0629 10:57:29.393578 140645918545728 logger.py:50] Iter: 395
-e_total   -145.984650
-e_kin      146.055756
-e_ext     -406.366943
-e_har      101.187576
-e_xc       -14.908516
+I0728 23:26:17.428046 140634023188288 sgd.py:141] e_total std: 5.535387390409596e-05
+I0728 23:26:17.428330 140634023188288 sgd.py:151] Converged: True
+I0728 23:26:17.478279 140634023188288 drivers.py:160] lowest total energy: 
+ e_total    -146.04742
+e_kin       146.03822
+e_ext      -406.35187
+e_har         101.126
+e_xc       -14.907249
 e_nuc       28.047487
-time         0.009397
-dtype: float64
-I0629 10:57:29.400142 140645918545728 sgd.py:83] Converged: True
+time         0.010077
+Name: 778, dtype: object
 ```
 where each component of the ground state energy is printed.
 
@@ -115,6 +116,8 @@ gd_cfg: !!python/object:config_config.GDConfig
   hist_len: 50
   lr: 0.01
   lr_decay: piecewise
+  meta_lr: 0.03
+  meta_opt: none
   optimizer: adam
 intor_cfg: !!python/object:config_config.IntorConfig
   __pydantic_initialised__: true
@@ -126,8 +129,12 @@ mol_cfg: !!python/object:config_config.MoleculeConfig
   basis: sto-3g
   charge: 0
   geometry_source: cccdbd
-  mol: O2
+  mol: o2
   spin: -1
+scf_cfg: !!python/object:config_config.SCFConfig
+  __pydantic_initialised__: true
+  epochs: 100
+  momentum: 0.5
 ```
 
 All configuration stated in `d4ft/config.py` can be overridden by providing an appropriate flag (of the form `--config.<cfg_field>`). For example, to change the basis set to `6-31g`, use the flag `--config.mol_cfg.basis 6-31g`. You can directly change the 
