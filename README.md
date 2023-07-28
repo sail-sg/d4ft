@@ -1,6 +1,6 @@
 # D4FT: Differentiable Density Functional Theory
 
-Join work with [i-fim](https://ifim.nus.edu.sg/).
+Joint work with [i-fim](https://ifim.nus.edu.sg/).
 
 ## Installation
 
