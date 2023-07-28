@@ -116,7 +116,7 @@ class D4FTConfig(ConfigDict):
     )
 
   def validate(self, spin: int, charge: int) -> None:
-    if self.dft_cfg.rks:
+    if self.dft_cfg.rks and self.mol_cfg.mol not in ["bh76_h", "h"]:
       assert spin == 0 and charge == 0, \
         "RKS only supports closed-shell molecules"
 

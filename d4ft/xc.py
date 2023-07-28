@@ -35,15 +35,15 @@ def get_xc_functional(xc_type: str, polarized: bool) -> Callable:
     weights, xc_names = zip(*(map(lambda x: x.split("*"), xc_type.split("+"))))
     weights = list(map(float, weights))
     xc_funcs = [getattr(jax_xc, xc_name)(polarized) for xc_name in xc_names]
-  else:
-    xc_funcs = [getattr(jax_xc, xc_type)(polarized)]
-    weights = [1.0]
 
-  def xc_func(density: Callable, r: Float[Array, "3"]) -> float:
-    ret = 0.
-    for w, xc_func in zip(weights, xc_funcs):
-      ret += w * xc_func(density, r)
-    return ret
+    def xc_func(density: Callable, r: Float[Array, "3"]) -> float:
+      ret = 0.
+      for w, xc_func in zip(weights, xc_funcs):
+        ret += w * xc_func(density, r)
+      return ret
+
+  else:
+    xc_func = getattr(jax_xc, xc_type)(polarized)
 
   return xc_func
 

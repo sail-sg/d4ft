@@ -40,9 +40,9 @@ def scipy_opt(
   energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff)[0])
 
   import jaxopt
-  solver = jaxopt.BFGS(fun=energy_fn_jit, maxiter=4000)
+  solver = jaxopt.BFGS(fun=energy_fn_jit, maxiter=500)
   res = solver.run(init_params)
-  return res.state
+  return res
 
 
 class TrainingState(NamedTuple):
