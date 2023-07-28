@@ -59,6 +59,7 @@ py_library(
     srcs = ["optimize.py"],
     deps = [
         ":config",
+        ":types",
         requirement("optax"),
     ],
 )

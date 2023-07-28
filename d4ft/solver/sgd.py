@@ -13,7 +13,7 @@
 # limitations under the License.
 """Solve DFT with gradient descent"""
 
-from typing import NamedTuple, Tuple
+from typing import Tuple
 
 import haiku as hk
 import jax
@@ -25,7 +25,13 @@ from absl import logging
 from d4ft.config import GDConfig
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
-from d4ft.types import Hamiltonian, HamiltonianHKFactory, Trajectory, Transition
+from d4ft.types import (
+  Hamiltonian,
+  HamiltonianHKFactory,
+  TrainingState,
+  Trajectory,
+  Transition,
+)
 
 
 def scipy_opt(
@@ -43,12 +49,6 @@ def scipy_opt(
   solver = jaxopt.BFGS(fun=energy_fn_jit, maxiter=500)
   res = solver.run(init_params)
   return res
-
-
-class TrainingState(NamedTuple):
-  params: hk.Params
-  opt_state: optax.OptState
-  rng_key: jax.Array
 
 
 def sgd(
@@ -71,14 +71,10 @@ def sgd(
     return TrainingState(params, opt_state, next_rng_key), energies, mo_grads
 
   @jax.jit
-  def meta_loss(
-    meta_params: hk.Params,
-    params: hk.Params,
-    opt_state: optax.OptState,
-    rng_key: jax.Array,
-  ):
+  def meta_loss(meta_params: hk.Params, state: TrainingState):
+    opt_state = state.opt_state
     opt_state.hyperparams["learning_rate"] = jax.nn.sigmoid(meta_params)
-    state = TrainingState(params, opt_state, rng_key)
+    state = TrainingState(state.params, opt_state, state.rng_key)
 
     # for _ in range(10):
     new_state, energies, mo_grads = update(state)
@@ -89,32 +85,21 @@ def sgd(
     return loss, (new_state, energies, mo_grads)
 
   @jax.jit
-  def meta_step(state: TrainingState, meta_params, meta_state):
-    grad, (new_state, energies, mo_grads) = jax.grad(
-      meta_loss, has_aux=True
-    )(meta_params, state.params, state.opt_state, state.rng_key)
-    meta_updates, meta_state = meta_opt.update(grad, meta_state)
-    new_meta_params = optax.apply_updates(meta_params, meta_updates)
-
-    return new_meta_params, meta_state, new_state, energies, mo_grads
+  def meta_step(state: TrainingState, meta_state: TrainingState):
+    grad, aux = jax.grad(meta_loss, has_aux=True)(meta_state.params, state)
+    new_state, energies, mo_grads = aux
+    meta_updates, meta_opt_state = meta_opt.update(grad, meta_state.opt_state)
+    new_meta_params = optax.apply_updates(meta_state.params, meta_updates)
+    return TrainingState(
+      new_meta_params, meta_opt_state, meta_state.rng_key
+    ), new_state, energies, mo_grads
 
   # init state
   params = H_transformed.init(key)
-
-  if gd_cfg.meta_opt == "none":
-    optimizer = get_optimizer(gd_cfg)
-  else:
-    init_lr = jnp.array(gd_cfg.lr)
-    meta_lr = jnp.array(gd_cfg.meta_lr)
-    optimizer = optax.inject_hyperparams(getattr(optax, gd_cfg.optimizer))(
-      learning_rate=init_lr
-    )
-    meta_opt = getattr(optax, gd_cfg.meta_opt)(learning_rate=meta_lr)
-    meta_params = -np.log(1. / init_lr - 1)
-    meta_state = meta_opt.init(meta_params)
-
-  opt_state = optimizer.init(params)
-  state = TrainingState(params, opt_state, key)
+  opt_states = get_optimizer(gd_cfg, params, key)
+  optimizer, state = opt_states["main"]
+  if gd_cfg.meta_opt != "none":
+    meta_opt, meta_state = opt_states["meta"]
 
   # GD loop
   traj = []
@@ -126,10 +111,8 @@ def sgd(
     if gd_cfg.meta_opt == "none":
       new_state, energies, mo_grads = update(state)
     else:
-      meta_params, meta_state, new_state, energies, mo_grads = meta_step(
-        state, meta_params, meta_state
-      )
-      logging.info(f"cur lr: {jax.nn.sigmoid(meta_params):.4f}")
+      meta_state, new_state, energies, mo_grads = meta_step(state, meta_state)
+      logging.info(f"cur lr: {jax.nn.sigmoid(meta_state.params):.4f}")
 
     logger.log_step(energies, step)
     logger.get_segment_summary()
