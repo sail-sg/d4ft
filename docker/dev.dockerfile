@@ -69,3 +69,8 @@ antigen bundle zsh-users/zsh-autosuggestions \n\
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh \n\
 antigen theme https://github.com/denysdovhan/spaceship-prompt spaceship \n\
 antigen apply" > /root/.zshrc
+
+COPY apt_install.txt .
+RUN apt-get update
+RUN apt-get install -y `cat apt_install.txt`
+RUN pip install jupyterlab isort cpplint flake8 yapf
