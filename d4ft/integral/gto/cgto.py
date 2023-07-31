@@ -136,6 +136,9 @@ class PrimitiveGaussian(NamedTuple):
   """atom coordinates for each GTO."""
   exponent: Float[Array, "*batch"]
   """GTO exponent / bandwith"""
+  @property
+  def n_orbs(self) -> int:
+    return self.angular.shape[0]
 
   def normalization_constant(self) -> Int[Array, "*batch"]:
     return gto_normalization_constant(self.angular, self.exponent)
