@@ -7,6 +7,9 @@ BAZEL_FILES    = $(shell find . -type f -name "*BUILD" -o -name "*.bzl" -not -pa
 COMMIT_HASH    = $(shell git log -1 --format=%h)
 COPYRIGHT      = "Garena Online Private Limited"
 BAZELOPT       =
+REG_URL        =
+DATE           = $(shell date "+%Y-%m-%d")
+DOCKER_TAG     = $(DATE)-$(COMMIT_HASH)
 PATH           := $(HOME)/go/bin:$(PATH)
 
 # installation
@@ -148,6 +151,15 @@ doc-clean:
 lint: buildifier flake8 py-format # docstyle
 
 format: py-format-install buildifier-install addlicense-install py-format-fix clang-format-fix buildifier-fix addlicense-fix
+
+# Build docker images
+docker-build:
+	docker build --network=host -t $(PROJECT_NAME):$(DOCKER_TAG) -f docker/dev.dockerfile .
+	echo successfully build docker image with tag $(PROJECT_NAME):$(DOCKER_TAG)
+
+docker-push: docker-build
+	docker tag $(PROJECT_NAME):$(DOCKER_TAG) $(REG_URL)/$(PROJECT_NAME):$(DOCKER_TAG)
+	docker push $(REG_URL)/$(PROJECT_NAME):$(DOCKER_TAG)
 
 pypi-wheel: auditwheel-install bazel-release
 	ls dist/*.whl -Art | tail -n 1 | xargs auditwheel repair --plat manylinux_2_24_x86_64

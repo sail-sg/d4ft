@@ -1,6 +1,6 @@
 ase==3.22.1
 bs4==0.0.1
-dm-haiku==0.0.9
+dm-haiku>=0.0.10
 einops==0.6.1
 jax-xc>=0.0.7
 --find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
