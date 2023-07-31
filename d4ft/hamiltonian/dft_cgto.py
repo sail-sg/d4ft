@@ -16,13 +16,19 @@ from typing import Callable, Tuple
 
 import jax
 import jax.numpy as jnp
+from jaxtyping import Array, Float
+
 from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import (
-  Aux, CGTOIntors, Energies, Grads, Hamiltonian, MoCoeffFlat
+  Aux,
+  CGTOIntors,
+  Energies,
+  Grads,
+  Hamiltonian,
+  MoCoeffFlat,
 )
 from d4ft.utils import compose
-from jaxtyping import Array, Float
 
 
 def dft_cgto(

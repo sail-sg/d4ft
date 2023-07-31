@@ -14,8 +14,9 @@
 
 import einops
 import jax.numpy as jnp
-from d4ft.utils import complex_norm_square
 from jaxtyping import Array, Float, Int
+
+from d4ft.utils import complex_norm_square
 
 
 def kinetic_integral(

@@ -12,3 +12,6 @@ docs/_build/
 *tmp*
 *viztracer*
 *profiler*
+/compile_commands.json
+*.whl
+.vscode

@@ -15,56 +15,66 @@
 from typing import Literal
 
 from ml_collections import ConfigDict
-from pydantic.dataclasses import dataclass
-
 from pydantic.config import ConfigDict as PydanticConfigDict
+from pydantic.dataclasses import dataclass
 
 pydantic_config = PydanticConfigDict({"validate_assignment": True})
 
 
 @dataclass(config=pydantic_config)
-class OptimizerConfig:
-  """Config for the gradient descent DFT solver"""
-  epochs: int = 4000
+class GDConfig:
+  """Config for direct minimization with gradient descent solver."""
   lr: float = 1e-2
+  """learning rate"""
   lr_decay: Literal["none", "piecewise", "cosine"] = "piecewise"
-  optimizer: Literal["adam", "sgd", "adamw"] = "adam"
-  rng_seed: int = 137
-
-
-@dataclass(config=pydantic_config)
-class DirectMinimizationConfig:
-  """Config for DFT routine"""
-  rks: bool = False
-  """whether to run RKS, i.e. use the same coefficients for both spins"""
-  xc_type: str = "lda_x"
-  """name of the xc functional to use"""
-  quad_level: int = 1
-  """quadrature point level, higher means more points"""
+  """learning rate schedule"""
+  optimizer: Literal["adam", "sgd", "rmsprop"] = "adam"
+  """which optimizer to use"""
+  epochs: int = 4000
+  """number of updates/iterations"""
   converge_threshold: float = 1e-4
   """threshold for gradient descent convergence checking"""
   hist_len: int = 50
   """number of steps to used for computing standard deviation of totale energy,
   which is used for gradient descent convergence checking"""
+  meta_lr: float = 0.03
+  """meta learning rate"""
+  meta_opt: Literal["none", "adam", "sgd", "rmsprop"] = "none"
+  """meta optimizer to use, none to disable"""
+
+
+@dataclass(config=pydantic_config)
+class SCFConfig:
+  """Config for self-consistent field solver."""
+  momentum: float = 0.5
+  """fock matrix update momentum"""
+  epochs: int = 100
+  """number of updates/iterations"""
+
+
+@dataclass(config=pydantic_config)
+class IntorConfig:
+  """Config for Integrations."""
   incore: bool = True
   """Whether to store tensors incore when not optimizing basis.
   If false, tensors are computed on the fly."""
   intor: Literal["obsa", "libcint", "quad"] = "obsa"
   """which integration engine to use"""
+  quad_level: int = 1
+  """quadrature point level, higher means more points"""
 
 
 @dataclass(config=pydantic_config)
 class MoleculeConfig:
   """Config for molecule"""
-  mol: str = "H2"
+  mol: str = "o2"
   """name of the molecule, or the path to the geometry file, which
   specifies the geometry in the format
   <atom_type> <xyz coordinate in angstrom>.
   For example H2:
   H 0.0000 0.0000 0.0000;
   H 0.0000 0.0000 0.7414;"""
-  basis: str = "cc-pvdz" #"sto-3g"
-  #basis: str = "sto-3g"
+  basis: str = "sto-3g"
   """name of the atomic basis set"""
   spin: int = -1
   """number of unpaired electrons. -1 means all electrons are
@@ -75,26 +85,53 @@ class MoleculeConfig:
   """where to query the geometry from."""
 
 
-class D4FTConfig(ConfigDict):
-  optim_cfg: OptimizerConfig
-  direct_min_cfg: DirectMinimizationConfig
-  mol_cfg: MoleculeConfig
+@dataclass(config=pydantic_config)
+class DFTConfig:
+  """Config for DFT."""
+  rks: bool = False
+  """Whether to run RKS, i.e. use the same coefficients for both spins"""
+  xc_type: str = "lda_x"
+  """Name of the xc functional to use. To mix two XC functional, use the
+  syntax a*xc_name_1+b*xc_name_2 where a, b are numbers."""
+  rng_seed: int = 137
+  """PRNG seed"""
 
-  def __init__(self) -> None:
+
+class D4FTConfig(ConfigDict):
+  dft_cfg: DFTConfig
+  intor_cfg: IntorConfig
+  mol_cfg: MoleculeConfig
+  gd_cfg: GDConfig
+  scf_cfg: SCFConfig
+
+  def __init__(self, config_string: str) -> None:
     super().__init__(
       {
-        "optim_cfg": OptimizerConfig(),
-        "direct_min_cfg": DirectMinimizationConfig(),
+        "dft_cfg": DFTConfig(),
+        "intor_cfg": IntorConfig(),
         "mol_cfg": MoleculeConfig(),
+        "gd_cfg": GDConfig(),
+        "scf_cfg": SCFConfig(),
       }
     )
 
   def validate(self, spin: int, charge: int) -> None:
-    if self.direct_min_cfg.rks:
+    if self.dft_cfg.rks and self.mol_cfg.mol not in ["bh76_h", "h"]:
       assert spin == 0 and charge == 0, \
         "RKS only supports closed-shell molecules"
 
 
-def get_config() -> D4FTConfig:
-  cfg = D4FTConfig()
+def get_config(config_string: str = "") -> D4FTConfig:
+  """Return the default configurations.
+
+  Args:
+    config_string: currently only set the type of algorithm. Available values:
+      "gd", "scf".
+
+  NOTE: for distributed setup, might need to move the dataclass definition
+  into this function.
+  ref. https://github.com/google/ml_collections\
+  #config-files-and-pickling-config_files_and_pickling
+  """
+  cfg = D4FTConfig(config_string)
   return cfg

@@ -14,10 +14,11 @@
 
 load("@rules_python//python:defs.bzl", "py_library")
 
+package(default_visibility = ["//visibility:public"])
+
 py_library(
     name = "pw",
     srcs = ["pw.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:types",
         "//d4ft:utils",
@@ -28,7 +29,6 @@ py_library(
 py_library(
     name = "pw_intors",
     srcs = ["pw_intors.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:types",
         "//d4ft:utils",
@@ -38,7 +38,6 @@ py_library(
 py_library(
     name = "kinetic_integral",
     srcs = ["kinetic_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [
         "//d4ft:utils",
     ],

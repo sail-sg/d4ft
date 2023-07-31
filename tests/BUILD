@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_test")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 py_test(
     name = "solver_test",
@@ -21,5 +22,18 @@ py_test(
     deps = [
         "//d4ft:config",
         "//d4ft/solver:drivers",
+        requirement("absl-py"),
+    ],
+)
+
+py_test(
+    name = "xc_test",
+    srcs = ["xc_test.py"],
+    data = ["//d4ft/system:xyz_files"],
+    deps = [
+        "//d4ft:config",
+        "//d4ft/solver:drivers",
+        requirement("absl-py"),
+        requirement("jax-xc"),
     ],
 )

@@ -20,7 +20,7 @@ py_test(
     deps = [
         "//d4ft:utils",
         "//d4ft/hamiltonian:ortho",
-        "//d4ft/integral/pw:pw",
+        "//d4ft/integral/pw",
         "//d4ft/system:crystal",
     ],
 )

@@ -14,6 +14,28 @@
 
 load("@rules_python//python:defs.bzl", "py_library")
 
+package(default_visibility = ["//visibility:public"])
+
+py_library(
+    name = "driver",
+    srcs = ["driver.py"],
+    deps = [
+        ":angular_stats",
+        ":electron_repulsion_integral",
+        ":kinetic_integral",
+        ":nuclear_attraction_integral",
+        "//d4ft/integral/gto:cgto",
+        "//d4ft/integral/gto:symmetry",
+        "//d4ft/integral/gto:tensorization",
+        "//d4ft/integral/obara_saika",
+    ],
+)
+
+py_library(
+    name = "boys_table",
+    srcs = ["boys_table.py"],
+)
+
 py_library(
     name = "driver",
     srcs = ["driver.py"],
@@ -39,35 +61,30 @@ py_library(
 py_library(
     name = "boys",
     srcs = ["boys.py"],
-    visibility = ["//visibility:public"],
     deps = [":boys_table"],
 )
 
 py_library(
     name = "terms",
     srcs = ["terms.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "utils",
     srcs = ["utils.py"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
 py_library(
     name = "angular_stats",
     srcs = ["angular_stats.py"],
-    visibility = ["//visibility:public"],
     deps = ["//d4ft:types"],
 )
 
 py_library(
     name = "overlap_integral",
     srcs = ["overlap_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":angular_stats",
         ":terms",
@@ -80,7 +97,6 @@ py_library(
 py_library(
     name = "kinetic_integral",
     srcs = ["kinetic_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":angular_stats",
         ":terms",
@@ -92,7 +108,6 @@ py_library(
 py_library(
     name = "nuclear_attraction_integral",
     srcs = ["nuclear_attraction_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":angular_stats",
         ":boys",
@@ -106,7 +121,6 @@ py_library(
 py_library(
     name = "electron_repulsion_integral",
     srcs = ["electron_repulsion_integral.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":angular_stats",
         ":boys",
@@ -120,7 +134,6 @@ py_library(
 py_library(
     name = "obara_saika",
     srcs = ["__init__.py"],
-    visibility = ["//visibility:public"],
     deps = [
         ":angular_stats",
         ":boys",

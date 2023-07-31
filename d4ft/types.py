@@ -14,7 +14,10 @@
 
 from typing import Callable, List, NamedTuple, Tuple, Union
 
+import haiku as hk
+import jax
 import numpy as np
+import optax
 from jaxtyping import Array, Float, Int
 from typing_extensions import TypeAlias
 
@@ -138,3 +141,9 @@ HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]
 
 CGTOIntors = Tuple[MoCoeffScalarFn, MoCoeffScalarFn, MoCoeffScalarFn]
 """intor for kin, ext and eri."""
+
+
+class TrainingState(NamedTuple):
+  params: hk.Params
+  opt_state: optax.OptState
+  rng_key: jax.Array

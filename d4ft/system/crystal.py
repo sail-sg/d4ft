@@ -24,9 +24,10 @@ import ase
 import ase.io
 import jax.numpy as jnp
 import numpy as np
+from jaxtyping import Array, Float, Int
+
 from d4ft.constants import ANGSTRONG_TO_BOHR
 from d4ft.types import Cell
-from jaxtyping import Array, Float, Int
 
 
 class Crystal(NamedTuple):

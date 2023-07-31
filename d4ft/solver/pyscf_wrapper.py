@@ -13,14 +13,14 @@
 # limitations under the License.
 
 import os
+from typing import Optional
 
 import numpy as np
 import pyscf
 from pyscf import scf
 from pyscf.lib import logger
-from typing import Optional
 
-from d4ft.types import MoCoeff, RDM1
+from d4ft.types import RDM1, MoCoeff
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 

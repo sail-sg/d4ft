@@ -17,15 +17,19 @@ from typing import Callable, Literal, Optional
 import jax
 import jax.numpy as jnp
 import pyscf
+from jaxtyping import Array, Float
+
 from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import (
-  CGTOIntors, ETensorsIncore, Fock, IdxCount2C, IdxCount4C, MoCoeff,
-  QuadGridsNWeights
+  CGTOIntors,
+  ETensorsIncore,
+  Fock,
+  IdxCount2C,
+  IdxCount4C,
+  MoCoeff,
 )
 from d4ft.utils import get_rdm1
-from d4ft.xc import get_lda_vxc
-from jaxtyping import Array, Float
 
 
 def libcint_incore(
@@ -82,10 +86,15 @@ def get_cgto_intor(
       e_ext = jnp.sum(ext * rdm1_2c_ab)
       return e_ext
 
+    # rate = 0.5
+
     def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
       rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
       rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
       rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
+      # key = hk.next_rng_key()
+      # mask = jax.random.bernoulli(key, rate, shape=eri.shape)
+      # e_har = jnp.sum(eri * mask * rdm1_ab * rdm1_cd) / rate
       e_har = jnp.sum(eri * rdm1_ab * rdm1_cd)
       return e_har
 
@@ -108,10 +117,7 @@ def unreduce_symmetry_2c(
 
 
 def get_cgto_fock_fn(
-  cgto: CGTO,
-  incore_energy_tensors: ETensorsIncore,
-  grids_and_weights: QuadGridsNWeights,
-  polarized: bool,
+  cgto: CGTO, incore_energy_tensors: ETensorsIncore, vxc_fn: Callable
 ) -> Callable[[MoCoeff], Fock]:
   """Currently only support incore"""
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
@@ -137,9 +143,6 @@ def get_cgto_fock_fn(
     for seg_id, seg_len in enumerate(reversed(range(1, n_2c_idx + 1)))
   ]
   cd_seg_idx = jnp.hstack(cd_seg_idx)
-
-  # VXC
-  vxc_fn = get_lda_vxc(grids_and_weights, cgto, polarized)
 
   def get_fock(mo_coeff: MoCoeff) -> Fock:
     """Calculate the Fock matrix from the MO coefficients.
