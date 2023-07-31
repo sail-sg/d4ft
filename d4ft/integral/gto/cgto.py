@@ -22,7 +22,7 @@ import jax.numpy as jnp
 import numpy as np
 import scipy.special
 from absl import logging
-from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
+from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell, SPH_WF_NORMALIZATION_FACTOR
 from d4ft.system.mol import Mol
 from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
@@ -111,9 +111,9 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
     # From libcint CINTcommon_fac_sp
     if 0 == shells[cur_ptr]:
-      fac = 0.282094791773878143
+      fac = SPH_WF_NORMALIZATION_FACTOR[0]
     elif 1 == shells[cur_ptr]:
-      fac = 0.488602511902919921
+      fac = SPH_WF_NORMALIZATION_FACTOR[1]
     else:
       fac = 1
     ncoeff = jnp.concatenate([ncoeff, fac*jnp.einsum('pi,i->pi', gto_coeffs, s1).reshape(1,-1)[0]]) 
@@ -231,7 +231,47 @@ class CGTO(NamedTuple):
     """
     gto_val = self.coeff * self.N * self.primitives.eval(r)
     n_cgtos = len(self.cgto_splits)
-    return jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
+    cart_vals = jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
+    cart_ptr = 0
+    sph_vals = []
+    cgto_shells = []
+    cgto_ptr = 0
+    split_ptr = 0
+    while cgto_ptr < len(self.shells):
+      shell = self.shells[cgto_ptr]
+      ngtos = self.cgto_splits[split_ptr] 
+      cgto_shells.append(shell)
+      if shell == 0:
+        cgto_ptr += 1*ngtos
+        split_ptr += 1
+      elif shell == 1:
+        cgto_ptr += 3*ngtos
+        split_ptr += 3
+      elif shell == 2:
+        cgto_ptr += 6*ngtos
+        split_ptr += 6
+      elif shell == 3:
+        cgto_ptr += 10*ngtos
+        split_ptr += 10
+    for shell in cgto_shells:
+      if shell == 0:
+        sph_vals.append(cart_vals[cart_ptr])
+        cart_ptr += 1
+      elif shell == 1:
+        sph_vals.append(cart_vals[cart_ptr])
+        sph_vals.append(cart_vals[cart_ptr+1])
+        sph_vals.append(cart_vals[cart_ptr+2])
+        cart_ptr += 3
+      elif shell == 2:
+        sph_vals.append(SPH_WF_NORMALIZATION_FACTOR[2]*cart_vals[cart_ptr+1])
+        sph_vals.append(SPH_WF_NORMALIZATION_FACTOR[2]*cart_vals[cart_ptr+4])
+        sph_vals.append(SPH_WF_NORMALIZATION_FACTOR[3]*(2*cart_vals[cart_ptr+5]-cart_vals[cart_ptr]-cart_vals[cart_ptr+3]))
+        sph_vals.append(SPH_WF_NORMALIZATION_FACTOR[2]*cart_vals[cart_ptr+2])
+        sph_vals.append(0.5*SPH_WF_NORMALIZATION_FACTOR[2]*(cart_vals[cart_ptr]-cart_vals[cart_ptr+3]))
+      elif shell == 3:
+        pass
+        # TODO: f shell sph convert
+    return jnp.array(sph_vals)
 
   @staticmethod
   def from_mol(mol: Mol) -> CGTO:
