@@ -134,7 +134,7 @@ def incore_cgto_direct_opt_dft(cfg: D4FTConfig) -> float:
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   # TODO: change this to use obsa
-  ovlp: Float[Array, "a a"] = pyscf_mol.intor('int1e_ovlp_sph')
+  ovlp: Float[Array, "a a"] = pyscf_mol.intor('int1e_ovlp_cart')
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     # TODO: out-of-core + basis optimization
