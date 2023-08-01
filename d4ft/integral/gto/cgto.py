@@ -233,7 +233,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO,mol: Mol) -> CGTO:
       atom_splits.append(atom_ngto_sph)
       atom_ngto_cart = 0
       atom_ptr +=1
-
+  # TODO: the rest things following:
 
   primitives = []
   atom_splits = []
