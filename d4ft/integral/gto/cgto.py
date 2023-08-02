@@ -132,7 +132,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     primitives, primitives.normalization_constant(), jnp.array(coeffs),
     cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
   )
-  #logging.info(f"there are {sum(cgto_splits)} GTOs")
+  # logging.info(f"there are {sum(cgto_splits)} GTOs")
   return cgto
 
 def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
@@ -184,48 +184,48 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
 
     # d shell: xx xy xz yy yz zz -> xy yz 1/2(2zz-xx-yy) xz 1/2(xx-yy) 
     elif shell == 2:
-      #xy
+      # xy
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+1*ngtos+j],cgto_cart.primitives[1][cgto_ptr+1*ngtos+j],cgto_cart.primitives[2][cgto_ptr+1*ngtos+j]))
         coeffs.append(cgto_cart.coeff[cgto_ptr+1*ngtos+j])
         shells.append(cgto_cart.shells[cgto_ptr+1*ngtos+j])
       cgto_splits.append(ngtos)
-      #yz
+      # yz
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+4*ngtos+j],cgto_cart.primitives[1][cgto_ptr+4*ngtos+j],cgto_cart.primitives[2][cgto_ptr+4*ngtos+j]))
         coeffs.append(cgto_cart.coeff[cgto_ptr+4*ngtos+j])
         shells.append(cgto_cart.shells[cgto_ptr+4*ngtos+j])
       cgto_splits.append(ngtos)
-      #1/2(2z^2-x^2-y^2)
-      #zz
+      # 1/2(2z^2-x^2-y^2)
+      # zz
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+5*ngtos+j],cgto_cart.primitives[1][cgto_ptr+5*ngtos+j],cgto_cart.primitives[2][cgto_ptr+5*ngtos+j]))
         coeffs.append(cgto_cart.coeff[cgto_ptr+5*ngtos+j])
         shells.append(cgto_cart.shells[cgto_ptr+5*ngtos+j])
-      #xx
+      # xx
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+j],cgto_cart.primitives[1][cgto_ptr+j],cgto_cart.primitives[2][cgto_ptr+j]))
         coeffs.append(-0.5*cgto_cart.coeff[cgto_ptr+j])
         shells.append(cgto_cart.shells[cgto_ptr+j])
-      #yy
+      # yy
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+3*ngtos+j],cgto_cart.primitives[1][cgto_ptr+3*ngtos+j],cgto_cart.primitives[2][cgto_ptr+3*ngtos+j]))
         coeffs.append(-0.5*cgto_cart.coeff[cgto_ptr+3*ngtos+j])
         shells.append(cgto_cart.shells[cgto_ptr+3*ngtos+j])
       cgto_splits.append(3*ngtos)
-      #xz
+      # xz
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+2*ngtos+j],cgto_cart.primitives[1][cgto_ptr+2*ngtos+j],cgto_cart.primitives[2][cgto_ptr+2*ngtos+j]))
         coeffs.append(cgto_cart.coeff[cgto_ptr+2*ngtos+j])
         shells.append(cgto_cart.shells[cgto_ptr+2*ngtos+j])
       cgto_splits.append(ngtos)
-      #1/2(x^2-y^2)
-      #xx
+      # 1/2(x^2-y^2)
+      # xx
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+j],cgto_cart.primitives[1][cgto_ptr+j],cgto_cart.primitives[2][cgto_ptr+j]))
         coeffs.append(0.5*0.5*SPH_WF_NORMALIZATION_FACTOR[2]*cgto_cart.coeff[cgto_ptr+j]/SPH_WF_NORMALIZATION_FACTOR[3])
         shells.append(cgto_cart.shells[cgto_ptr+j])
-      #yy
+      # yy
       for j in range(ngtos):
         primitives.append((cgto_cart.primitives[0][cgto_ptr+3*ngtos+j],cgto_cart.primitives[1][cgto_ptr+3*ngtos+j],cgto_cart.primitives[2][cgto_ptr+3*ngtos+j]))
         coeffs.append(-0.5*0.5*SPH_WF_NORMALIZATION_FACTOR[2]*cgto_cart.coeff[cgto_ptr+3*ngtos+j]/SPH_WF_NORMALIZATION_FACTOR[3])
