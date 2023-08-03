@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import os
-from typing import Literal, Optional
+from typing import Literal, Optional, Tuple
 
+import numpy as np
 import pubchempy
 import requests
 from absl import logging
@@ -65,9 +66,26 @@ def get_fullerene_geometry(name: str) -> Optional[str]:
     return geometry
 
 
+def get_refdata_geometry(name: str) -> Tuple[str, int, int]:
+  logging.info("loading geometry from refdata")
+  set_name = name.split("_")[0]
+  url_head = "https://raw.githubusercontent.com/aoterodelaroza/refdata/master"
+  res = requests.get(f"{url_head}/20_{set_name}/{name}.xyz")
+  if res.status_code == 404:
+    return None
+  lines = res.content.decode("utf-8").split("\n")
+  n_atoms = int(lines[0].strip())
+  assert n_atoms == len(lines) - 3
+  charge, spin_p1 = map(int, lines[1].strip().split(" "))
+  spin = spin_p1 - 1
+  geometry = "\n".join(lines[2:])
+  return geometry, charge, spin
+
+
 def get_mol_geometry(
-  name: str, source: Literal["cccdbd", "pubchem"] = "cccdbd"
-) -> str:
+  name: str,
+  source: Literal["cccdbd", "refdata", "pubchem"] = "cccdbd"
+) -> Tuple[str, int, int]:
   geometry: Optional[str] = None
   if ".xyz" in name:
     with open(name, "r") as f:
@@ -91,11 +109,17 @@ def get_mol_geometry(
       with open(f"{xyz_path}/{offline_xyz[0]}", "r") as f:
         geometry = f.read()
 
+  charge = np.nan
+  spin = -1
   if geometry is None:
     if source == "cccdbd":
       geometry = query_geometry_from_cccbdb(name)
-    else:
+    elif source == "refdata":
+      geometry, charge, spin = get_refdata_geometry(name)
+    elif source == "refdata":
       geometry = get_pubchem_geometry(name)
+    else:
+      raise ValueError(f"source {source} not supported")
 
   assert geometry is not None
-  return geometry
+  return geometry, charge, spin

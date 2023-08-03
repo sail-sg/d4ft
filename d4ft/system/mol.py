@@ -16,6 +16,7 @@ from __future__ import annotations  # forward declaration
 
 from typing import Dict, List, Literal, NamedTuple, Tuple
 
+import numpy as np
 import pyscf
 from absl import logging
 from jaxtyping import Array, Int
@@ -46,9 +47,11 @@ def get_pyscf_mol(
   source: Literal["cccdbd", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
   """Construct a pyscf mole object from molecule name and basis name"""
-  geometry = get_mol_geometry(mol, source)
+  geometry, charge_, spin = get_mol_geometry(mol, source)
+  if not np.isnan(charge_):  # override charge from the given source
+    charge = charge_
   atoms = get_atom_from_geometry(geometry)
-  if spin == -1:
+  if spin == -1:  # the default: electrons are maximally paired
     spin = get_spin(atoms, charge)
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin, charge=charge)
   logging.info(f"spin: {spin}, charge: {charge}, geometry: {geometry}")

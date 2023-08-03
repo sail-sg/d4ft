@@ -81,7 +81,7 @@ class MoleculeConfig:
   maximally paired, so the spin is 0 or 1."""
   charge: int = 0
   """charge multiplicity"""
-  geometry_source: Literal["cccdbd", "pubchem"] = "cccdbd"
+  geometry_source: Literal["cccdbd", "refdata", "pubchem"] = "cccdbd"
   """where to query the geometry from."""
 
 
