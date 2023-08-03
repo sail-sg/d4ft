@@ -57,6 +57,9 @@ def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_gtos"]:
 
 def build_cgto_from_mol(mol: Mol) -> CGTO:
   """Transform pyscf mol object to CGTO.
+  Reference: https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html,
+            https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/,
+            https://github.com/sunqm/libcint/blob/747d6c0dd838d20abdc9a4c9e4c62d196a855bc0/src/cart2sph.c
 
   Returns:
     all translated GTOs. STO TO GTO
@@ -66,7 +69,6 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   cgto_splits = []
   coeffs = []
   shells = []
-  # facs = []
   
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coords[i]
@@ -74,7 +76,6 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     for sto in mol.basis[element]:
       shell = Shell(sto[0])
       gtos = sto[1:]
-      fac_cnt = 0
       for cid in range(1,1+len(gtos[0][1:])):
         for angular in SHELL_TO_ANGULAR_VEC[shell]:
           cgto_splits.append(len(gtos))
@@ -86,20 +87,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
             coeffs.append(coeff)
             shells.append(sto[0])
             
-            # CGTO normalization factors, refer to libcint cart2sph.c
-          #   if sto[0] < 2:
-          #     facs.append(SPH_WF_NORMALIZATION_FACTOR[sto[0]])
-          #   elif sto[0] == 2:
-          #     if fac_cnt == 0 or fac_cnt == 3 or fac_cnt == 5:
-          #       facs.append(SPH_WF_NORMALIZATION_FACTOR[3]*2)
-          #     else:
-          #       facs.append(SPH_WF_NORMALIZATION_FACTOR[2])
-          #   else:
-          #     facs.append(1.)
-          # fac_cnt += 1
     atom_splits.append(n_gtos)
-  
-  facs = jnp.array(facs)
 
   primitives = PrimitiveGaussian(
     *[jnp.array(np.stack(a, axis=0)) for a in zip(*primitives)]
@@ -127,13 +115,12 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     cur_ptr += lgto
 
   # Real spherical Harmonic Normalization for Wavefunctions
-  coeffs = facs * ncoeff/primitives.normalization_constant()
+  coeffs = ncoeff/primitives.normalization_constant()
   cgto = CGTO(
     primitives, primitives.normalization_constant(), jnp.array(coeffs),
     cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges,
     mol.nocc, shells
   )
-  # logging.info(f"there are {sum(cgto_splits)} GTOs")
   return cgto
 
 def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:

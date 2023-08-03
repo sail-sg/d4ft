@@ -50,29 +50,31 @@ def main(_: Any) -> None:
   #print(gto.format_basis({"O":"cc-pvdz"}))
   #print(pyscf_mol.bas_angular(9))
   import pyscf
-  pyscf_mol_cc = gto.M(atom='O 0 0 0', basis='cc-pvdz',cart=True,spin=0)
+  pyscf_mol_cc = gto.M(atom='Kr 0 0 0', basis='cc-pvdz',cart=True,spin=0)
   pyscf_mol_3g = gto.M(atom='Zn 0 0 0', basis='sto-3g',cart=True,spin=0)
   
   #breakpoint()
-  pyscf_mol = pyscf_mol_3g
+  pyscf_mol = pyscf_mol_cc
   mol = Mol.from_pyscf_mol(pyscf_mol)
   #print(mol.basis)
   cfg.validate(mol.spin, mol.charge)
-  cgto = CGTO.from_mol(mol)
+  cgto_cart = CGTO.from_mol(mol)
+  cgto_sph = CGTO.from_cart(cgto_cart)
   #print(cgto.N_cn)
   #print(cgto.N)
   #print(cgto.N_cn)
   #print(cgto.nao)
   # linear combination d shell
-  #print("pyscf basis:",pyscf_mol._basis)
+  print("pyscf basis:",pyscf_mol._basis)
   #print("pyscf env:",pyscf_mol._env)
   import numpy
   coords_pyscf = numpy.random.random((1,3))
   ao_value_pyscf = pyscf_mol.eval_gto("GTOval_sph", coords_pyscf)
-  ao_value_cgto = cgto.eval(coords_pyscf)
+  ao_value_cgto = cgto_sph.eval(coords_pyscf)
   #print(coords_pyscf)
   print(ao_value_pyscf)
   print(ao_value_cgto)
+  print(ao_value_pyscf[0]-ao_value_cgto)
   #print(cgto.nao)
 
 
