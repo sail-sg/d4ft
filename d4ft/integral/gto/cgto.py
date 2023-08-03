@@ -116,7 +116,6 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     angular = jnp.sum(primitives.angular[cur_ptr])
     gto_coeffs = cart_coeffs[cur_ptr:cur_ptr+lgto].reshape(-1, 1)
     exponents = primitives.exponent[cur_ptr:cur_ptr+lgto].reshape(-1, 1)
-
     ee = exponents.reshape(-1, 1) + exponents.reshape(1, -1)
     # Apply gaussian_int to ee
     n = angular*2+2
@@ -124,7 +123,6 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     ee = jax.scipy.special.gamma(n1) / (2. * ee**n1)
     # Compute s1
     s1 = 1. / jnp.sqrt(jnp.einsum('pi,pq,qi->i', gto_coeffs, ee, gto_coeffs))
-
     ncoeff = jnp.concatenate([ncoeff, jnp.einsum('pi,i->pi', gto_coeffs, s1).reshape(1,-1)[0]]) 
     cur_ptr += lgto
 
