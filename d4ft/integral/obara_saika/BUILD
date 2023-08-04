@@ -37,28 +37,6 @@ py_library(
 )
 
 py_library(
-    name = "driver",
-    srcs = ["driver.py"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":angular_stats",
-        ":electron_repulsion_integral",
-        ":kinetic_integral",
-        ":nuclear_attraction_integral",
-        "//d4ft/integral/gto:cgto",
-        "//d4ft/integral/gto:symmetry",
-        "//d4ft/integral/gto:tensorization",
-        "//d4ft/integral/obara_saika",
-    ],
-)
-
-py_library(
-    name = "boys_table",
-    srcs = ["boys_table.py"],
-    visibility = ["//visibility:public"],
-)
-
-py_library(
     name = "boys",
     srcs = ["boys.py"],
     deps = [":boys_table"],

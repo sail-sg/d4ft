@@ -22,11 +22,12 @@ import jax.numpy as jnp
 import numpy as np
 import scipy.special
 from absl import logging
+from jaxtyping import Array, Float, Int
+
 from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell, SPH_WF_NORMALIZATION_FACTOR
 from d4ft.system.mol import Mol
 from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
-from jaxtyping import Array, Float, Int
 
 _r25 = np.arange(25)
 perm_2n_n = jnp.array(scipy.special.perm(2 * _r25, _r25))
@@ -90,7 +91,11 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     atom_splits.append(n_gtos)
 
   primitives = PrimitiveGaussian(
-    *[jnp.array(np.stack(a, axis=0)) for a in zip(*primitives)]
+    *[
+      np.array(np.stack(a, axis=0)) if i ==
+      0 else jnp.array(np.stack(a, axis=0))
+      for i, a in enumerate(zip(*primitives))
+    ]
   )
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
@@ -396,12 +401,15 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
 
 class PrimitiveGaussian(NamedTuple):
   """Batch of Primitive Gaussians / Gaussian-Type Orbitals (GTO)."""
-  angular: Int[Array, "*batch 3"]
-  """angular momentum vector, e.g. (0,1,0)"""
+  angular: Int[np.ndarray, "*batch 3"]
+  """angular momentum vector, e.g. (0,1,0). Note that it is stored as
+  numpy array to avoid tracing error, which is okay since it is not
+  trainable."""
   center: Float[Array, "*batch 3"]
   """atom coordinates for each GTO."""
   exponent: Float[Array, "*batch"]
   """GTO exponent / bandwith"""
+
   @property
   def n_orbs(self) -> int:
     return self.angular.shape[0]
@@ -418,7 +426,14 @@ class PrimitiveGaussian(NamedTuple):
     Returns:
       unnormalized gto (x-c_x)^l (y-c_y)^m (z-c_z)^n exp{-alpha |r-c|^2}
     """
-    xyz_lmn = jnp.prod(jnp.power(r - self.center, self.angular), axis=1)
+    xyz_lmn = []
+    for i in range(self.n_orbs):
+      xyz_lmn_i = 1.0
+      for d in range(3):  # x, y, z
+        if self.angular[i, d] > 0:
+          xyz_lmn_i *= jnp.power(r[d] - self.center[i, d], self.angular[i, d])
+      xyz_lmn.append(xyz_lmn_i)
+    xyz_lmn = jnp.array(xyz_lmn)
     exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
     return xyz_lmn * exp
 
