@@ -50,7 +50,7 @@ def incore_int_sym(
 
   def ext_fn(a, b, static_args):
     ni = obsa.nuclear_attraction_integral
-    atom_coords = cgto.primitives.center[
+    atom_coords = cgto.pgto.center[
       jnp.cumsum(jnp.array(cgto.atom_splits)) - 1]
     return jax.vmap(lambda Z, C: Z * ni(C, a, b, static_args, use_horizontal)
                    )(cgto.charge, atom_coords).sum()

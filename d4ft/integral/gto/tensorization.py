@@ -20,7 +20,7 @@ import jax
 import jax.numpy as jnp
 
 from d4ft.integral.gto import symmetry
-from d4ft.integral.gto.cgto import CGTO, PrimitiveGaussian
+from d4ft.integral.gto.cgto import CGTO, PGTO
 from d4ft.types import IdxCount2C, IdxCount4C
 
 
@@ -33,7 +33,7 @@ def tensorize_2c_cgto(f: Callable, static_args, sto: bool = True):
     sto: if True, contract the tensor into sto basis
   """
 
-  def f_curry(*args: PrimitiveGaussian):
+  def f_curry(*args: PGTO):
     return f(*args, static_args=static_args)
 
   vmap_f = jax.vmap(f_curry, in_axes=(0, 0))
@@ -74,7 +74,7 @@ def tensorize_4c_cgto(f: Callable, static_args, sto: bool = True):
     sto: if True, contract the tensor into sto basis
   """
 
-  def f_curry(*args: PrimitiveGaussian):
+  def f_curry(*args: PGTO):
     return f(*args, static_args=static_args)
 
   vmap_f = jax.vmap(f_curry, in_axes=(0, 0, 0, 0))
@@ -110,7 +110,7 @@ def tensorize_4c_cgto_range(f: Callable, static_args, sto: bool = True):
   """Currently not used.
   This brings marginal speed up compared to tensorize_4c_cgto"""
 
-  def f_curry(*args: PrimitiveGaussian):
+  def f_curry(*args: PGTO):
     return f(*args, static_args=static_args)
 
   vmap_f = jax.vmap(f_curry, in_axes=(0, 0, 0, 0))

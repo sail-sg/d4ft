@@ -87,11 +87,11 @@ class HKTest(parameterized.TestCase):
 
     self.assertEqual(len(ao_val), n_cgtos)
 
-    print(cgto.primitives.center)
+    print(cgto.pgto.center)
     print(gparams)
 
     self.assertEqual(gparams['~']['center'].shape[0], n_atoms)
-    self.assertEqual(cgto.primitives.center.shape[0], n_gtos)
+    self.assertEqual(cgto.pgto.center.shape[0], n_gtos)
 
     self.assertEqual(cgto.n_gtos, n_gtos)
     self.assertEqual(cgto.n_cgtos, n_cgtos)

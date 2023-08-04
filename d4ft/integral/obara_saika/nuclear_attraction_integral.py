@@ -19,15 +19,15 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from d4ft.integral.gto.cgto import PrimitiveGaussian
+from d4ft.integral.gto.cgto import PGTO
 from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
 from d4ft.types import AngularStats
 
 
 def nuclear_attraction_integral(
   nuclear_center,
-  a: PrimitiveGaussian,
-  b: PrimitiveGaussian,
+  a: PGTO,
+  b: PGTO,
   static_args: Optional[AngularStats] = None,
   use_horizontal: bool = False
 ):

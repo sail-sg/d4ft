@@ -24,7 +24,11 @@ import scipy.special
 from absl import logging
 from jaxtyping import Array, Float, Int
 
-from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell, SPH_WF_NORMALIZATION_FACTOR
+from d4ft.constants import (
+  SHELL_TO_ANGULAR_VEC,
+  SPH_WF_NORMALIZATION_FACTOR,
+  Shell,
+)
 from d4ft.system.mol import Mol
 from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
@@ -65,36 +69,35 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   Returns:
     all translated GTOs. STO TO GTO
   """
-  primitives = []
+  pgto = []
   atom_splits = []
   cgto_splits = []
   coeffs = []
   shells = []
-  
+
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coords[i]
     n_gtos = 0
     for sto in mol.basis[element]:
       shell = Shell(sto[0])
       gtos = sto[1:]
-      for cid in range(1,1+len(gtos[0][1:])):
+      for cid in range(1, 1 + len(gtos[0][1:])):
         for angular in SHELL_TO_ANGULAR_VEC[shell]:
           cgto_splits.append(len(gtos))
           for gto in gtos:
             exponent = gto[0]
             coeff = gto[cid]
             n_gtos += 1
-            primitives.append((angular, coord, exponent))
+            pgto.append((angular, coord, exponent))
             coeffs.append(coeff)
             shells.append(sto[0])
-            
+
     atom_splits.append(n_gtos)
 
-  primitives = PrimitiveGaussian(
+  pgto = PGTO(
     *[
       np.array(np.stack(a, axis=0)) if i ==
-      0 else jnp.array(np.stack(a, axis=0))
-      for i, a in enumerate(zip(*primitives))
+      0 else jnp.array(np.stack(a, axis=0)) for i, a in enumerate(zip(*pgto))
     ]
   )
   cgto_splits = tuple(cgto_splits)
@@ -102,31 +105,33 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
   cur_ptr = 0
   # GTO normalize to 1 in cartesian
-  cart_coeffs = jnp.array(coeffs) * primitives.normalization_constant()
+  cart_coeffs = jnp.array(coeffs) * pgto.normalization_constant()
   ncoeff = jnp.array([])
   # CGTO normalize to 1 in cartesian
   for lgto in cgto_splits:
-    angular = jnp.sum(primitives.angular[cur_ptr])
-    gto_coeffs = cart_coeffs[cur_ptr:cur_ptr+lgto].reshape(-1, 1)
-    exponents = primitives.exponent[cur_ptr:cur_ptr+lgto].reshape(-1, 1)
+    angular = jnp.sum(pgto.angular[cur_ptr])
+    gto_coeffs = cart_coeffs[cur_ptr:cur_ptr + lgto].reshape(-1, 1)
+    exponents = pgto.exponent[cur_ptr:cur_ptr + lgto].reshape(-1, 1)
     ee = exponents.reshape(-1, 1) + exponents.reshape(1, -1)
     # Apply gaussian_int to ee
-    n = angular*2+2
+    n = angular * 2 + 2
     n1 = (n + 1) * .5
     ee = jax.scipy.special.gamma(n1) / (2. * ee**n1)
     # Compute s1
     s1 = 1. / jnp.sqrt(jnp.einsum('pi,pq,qi->i', gto_coeffs, ee, gto_coeffs))
-    ncoeff = jnp.concatenate([ncoeff, jnp.einsum('pi,i->pi', gto_coeffs, s1).reshape(1,-1)[0]]) 
+    ncoeff = jnp.concatenate(
+      [ncoeff, jnp.einsum('pi,i->pi', gto_coeffs, s1).reshape(1, -1)[0]]
+    )
     cur_ptr += lgto
 
   # Real spherical Harmonic Normalization for Wavefunctions
-  coeffs = ncoeff/primitives.normalization_constant()
+  coeffs = ncoeff / pgto.normalization_constant()
   cgto = CGTO(
-    primitives, primitives.normalization_constant(), jnp.array(coeffs),
-    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges,
-    mol.nocc, shells
+    pgto, pgto.normalization_constant(), jnp.array(coeffs), cgto_splits,
+    cgto_seg_id, jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
   )
   return cgto
+
 
 def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
   """Transform Cartesian CGTO object to CGTO.
@@ -140,245 +145,419 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
   atom_ptr = 0
   atom_ngto_cart = 0
   atom_ngto_sph = 0
-  primitives = []
+  pgto = []
   atom_splits = []
   cgto_splits = []
   coeffs = []
   shells = []
   while cgto_ptr < len(cgto_cart.shells):
     shell = cgto_cart.shells[cgto_ptr]
-    ngtos = cgto_cart.cgto_splits[split_ptr] 
+    ngtos = cgto_cart.cgto_splits[split_ptr]
     cgto_shells.append(shell)
 
     # d shell: same as cartesian
     if shell == 0:
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+j],
-                           cgto_cart.primitives[1][cgto_ptr+j],
-                           cgto_cart.primitives[2][cgto_ptr+j]))
-        coeffs.append(SPH_WF_NORMALIZATION_FACTOR[0]*cgto_cart.coeff[cgto_ptr+j])
-        shells.append(cgto_cart.shells[cgto_ptr+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + j], cgto_cart.pgto[1][cgto_ptr + j],
+            cgto_cart.pgto[2][cgto_ptr + j]
+          )
+        )
+        coeffs.append(
+          SPH_WF_NORMALIZATION_FACTOR[0] * cgto_cart.coeff[cgto_ptr + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + j])
       cgto_splits.append(ngtos)
-      cgto_ptr += 1*ngtos
-      atom_ngto_cart += 1*ngtos
-      atom_ngto_sph += 1*ngtos
+      cgto_ptr += 1 * ngtos
+      atom_ngto_cart += 1 * ngtos
+      atom_ngto_sph += 1 * ngtos
       split_ptr += 1
 
     # p shell: same as cartesian
     elif shell == 1:
       for i in range(3):
         for j in range(ngtos):
-          primitives.append((cgto_cart.primitives[0][cgto_ptr+i*ngtos+j],
-                             cgto_cart.primitives[1][cgto_ptr+i*ngtos+j],
-                             cgto_cart.primitives[2][cgto_ptr+i*ngtos+j]))
-          coeffs.append(SPH_WF_NORMALIZATION_FACTOR[1]*cgto_cart.coeff[cgto_ptr+i*ngtos+j])
-          shells.append(cgto_cart.shells[cgto_ptr+i*ngtos+j])
+          pgto.append(
+            (
+              cgto_cart.pgto[0][cgto_ptr + i * ngtos + j],
+              cgto_cart.pgto[1][cgto_ptr + i * ngtos + j],
+              cgto_cart.pgto[2][cgto_ptr + i * ngtos + j]
+            )
+          )
+          coeffs.append(
+            SPH_WF_NORMALIZATION_FACTOR[1] *
+            cgto_cart.coeff[cgto_ptr + i * ngtos + j]
+          )
+          shells.append(cgto_cart.shells[cgto_ptr + i * ngtos + j])
         cgto_splits.append(ngtos)
-      atom_ngto_cart += 3*ngtos
-      atom_ngto_sph += 3*ngtos
-      cgto_ptr += 3*ngtos
+      atom_ngto_cart += 3 * ngtos
+      atom_ngto_sph += 3 * ngtos
+      cgto_ptr += 3 * ngtos
       split_ptr += 3
 
-    # d shell: xx xy xz yy yz zz -> xy yz 1/2(2zz-xx-yy) xz 1/2(xx-yy) 
+    # d shell: xx xy xz yy yz zz -> xy yz 1/2(2zz-xx-yy) xz 1/2(xx-yy)
     elif shell == 2:
       # d1.xy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+1*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+1*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+1*ngtos+j]))
-        coeffs.append(SPH_WF_NORMALIZATION_FACTOR[2]*cgto_cart.coeff[cgto_ptr+1*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+1*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 1 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 1 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 1 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          SPH_WF_NORMALIZATION_FACTOR[2] *
+          cgto_cart.coeff[cgto_ptr + 1 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 1 * ngtos + j])
       cgto_splits.append(ngtos)
       # d2.yz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+4*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+4*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+4*ngtos+j]))
-        coeffs.append(SPH_WF_NORMALIZATION_FACTOR[2]*cgto_cart.coeff[cgto_ptr+4*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+4*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 4 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 4 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 4 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          SPH_WF_NORMALIZATION_FACTOR[2] *
+          cgto_cart.coeff[cgto_ptr + 4 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 4 * ngtos + j])
       cgto_splits.append(ngtos)
       # d3.1/2(2z^2-x^2-y^2)
       # zz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+5*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+5*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+5*ngtos+j]))
-        coeffs.append(2*SPH_WF_NORMALIZATION_FACTOR[3]*cgto_cart.coeff[cgto_ptr+5*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+5*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 5 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 5 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 5 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          2 * SPH_WF_NORMALIZATION_FACTOR[3] *
+          cgto_cart.coeff[cgto_ptr + 5 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 5 * ngtos + j])
       # xx
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+j],
-                           cgto_cart.primitives[1][cgto_ptr+j],
-                           cgto_cart.primitives[2][cgto_ptr+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[3]*cgto_cart.coeff[cgto_ptr+j])
-        shells.append(cgto_cart.shells[cgto_ptr+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + j], cgto_cart.pgto[1][cgto_ptr + j],
+            cgto_cart.pgto[2][cgto_ptr + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[3] * cgto_cart.coeff[cgto_ptr + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + j])
       # yy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+3*ngtos+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[3]*cgto_cart.coeff[cgto_ptr+3*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+3*ngtos+j])
-      cgto_splits.append(3*ngtos)
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 3 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[3] *
+          cgto_cart.coeff[cgto_ptr + 3 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 3 * ngtos + j])
+      cgto_splits.append(3 * ngtos)
       # d4.xz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+2*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+2*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+2*ngtos+j]))
-        coeffs.append(SPH_WF_NORMALIZATION_FACTOR[2]*cgto_cart.coeff[cgto_ptr+2*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+2*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 2 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 2 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 2 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          SPH_WF_NORMALIZATION_FACTOR[2] *
+          cgto_cart.coeff[cgto_ptr + 2 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 2 * ngtos + j])
       cgto_splits.append(ngtos)
       # d5.1/2(x^2-y^2)
       # xx
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+j],
-                           cgto_cart.primitives[1][cgto_ptr+j],
-                           cgto_cart.primitives[2][cgto_ptr+j]))
-        coeffs.append(0.5*SPH_WF_NORMALIZATION_FACTOR[2]
-                      *cgto_cart.coeff[cgto_ptr+j])
-        shells.append(cgto_cart.shells[cgto_ptr+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + j], cgto_cart.pgto[1][cgto_ptr + j],
+            cgto_cart.pgto[2][cgto_ptr + j]
+          )
+        )
+        coeffs.append(
+          0.5 * SPH_WF_NORMALIZATION_FACTOR[2] * cgto_cart.coeff[cgto_ptr + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + j])
       # yy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+3*ngtos+j]))
-        coeffs.append(-0.5*SPH_WF_NORMALIZATION_FACTOR[2]
-                      *cgto_cart.coeff[cgto_ptr+3*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+3*ngtos+j])
-      cgto_splits.append(2*ngtos)
-      cgto_ptr += 6*ngtos
-      atom_ngto_cart += 6*ngtos
-      atom_ngto_sph += 8*ngtos
-      split_ptr += 6   
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 3 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -0.5 * SPH_WF_NORMALIZATION_FACTOR[2] *
+          cgto_cart.coeff[cgto_ptr + 3 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 3 * ngtos + j])
+      cgto_splits.append(2 * ngtos)
+      cgto_ptr += 6 * ngtos
+      atom_ngto_cart += 6 * ngtos
+      atom_ngto_sph += 8 * ngtos
+      split_ptr += 6
     # f shell
     elif shell == 3:
       # f1. 3xxy-yyy
       # xxy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+1*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+1*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+1*ngtos+j]))
-        coeffs.append(3*SPH_WF_NORMALIZATION_FACTOR[5]*cgto_cart.coeff[cgto_ptr+1*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+1*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 1 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 1 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 1 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          3 * SPH_WF_NORMALIZATION_FACTOR[5] *
+          cgto_cart.coeff[cgto_ptr + 1 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 1 * ngtos + j])
       # yyy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+6*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+6*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+6*ngtos+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[5]*cgto_cart.coeff[cgto_ptr+6*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+6*ngtos+j])
-      cgto_splits.append(2*ngtos)
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 6 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 6 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 6 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[5] *
+          cgto_cart.coeff[cgto_ptr + 6 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 6 * ngtos + j])
+      cgto_splits.append(2 * ngtos)
       # f2. 2xyz
       # xyz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+4*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+4*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+4*ngtos+j]))
-        coeffs.append(2*SPH_WF_NORMALIZATION_FACTOR[7]*cgto_cart.coeff[cgto_ptr+4*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+4*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 4 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 4 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 4 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          2 * SPH_WF_NORMALIZATION_FACTOR[7] *
+          cgto_cart.coeff[cgto_ptr + 4 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 4 * ngtos + j])
       cgto_splits.append(ngtos)
       # f3. -xxy-yyy+4yzz
       # xxy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+1*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+1*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+1*ngtos+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[6]*cgto_cart.coeff[cgto_ptr+1*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+1*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 1 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 1 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 1 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          cgto_cart.coeff[cgto_ptr + 1 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 1 * ngtos + j])
       # yyy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+6*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+6*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+6*ngtos+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[6]*cgto_cart.coeff[cgto_ptr+6*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+6*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 6 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 6 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 6 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          cgto_cart.coeff[cgto_ptr + 6 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 6 * ngtos + j])
       # yzz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+8*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+8*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+8*ngtos+j]))
-        coeffs.append(4*SPH_WF_NORMALIZATION_FACTOR[6]*cgto_cart.coeff[cgto_ptr+8*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+9*ngtos+j])
-      cgto_splits.append(3*ngtos)
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 8 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 8 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 8 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          4 * SPH_WF_NORMALIZATION_FACTOR[6] *
+          cgto_cart.coeff[cgto_ptr + 8 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 9 * ngtos + j])
+      cgto_splits.append(3 * ngtos)
       # f4. -3xxz-3yyz+2zzz
       # xxz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+2*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+2*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+2*ngtos+j]))
-        coeffs.append(-3*SPH_WF_NORMALIZATION_FACTOR[4]*cgto_cart.coeff[cgto_ptr+2*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+2*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 2 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 2 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 2 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -3 * SPH_WF_NORMALIZATION_FACTOR[4] *
+          cgto_cart.coeff[cgto_ptr + 2 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 2 * ngtos + j])
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+7*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+7*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+7*ngtos+j]))
-        coeffs.append(-3*SPH_WF_NORMALIZATION_FACTOR[4]*cgto_cart.coeff[cgto_ptr+7*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+7*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 7 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 7 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 7 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -3 * SPH_WF_NORMALIZATION_FACTOR[4] *
+          cgto_cart.coeff[cgto_ptr + 7 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 7 * ngtos + j])
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+9*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+9*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+9*ngtos+j]))
-        coeffs.append(2*SPH_WF_NORMALIZATION_FACTOR[4]*cgto_cart.coeff[cgto_ptr+9*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+9*ngtos+j])
-      cgto_splits.append(3*ngtos)
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 9 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 9 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 9 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          2 * SPH_WF_NORMALIZATION_FACTOR[4] *
+          cgto_cart.coeff[cgto_ptr + 9 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 9 * ngtos + j])
+      cgto_splits.append(3 * ngtos)
       # f5. -xxx-xyy+4xzz
       # xxx
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+0*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+0*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+0*ngtos+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[6]*cgto_cart.coeff[cgto_ptr+0*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+0*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 0 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 0 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 0 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          cgto_cart.coeff[cgto_ptr + 0 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 0 * ngtos + j])
       # xyy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+3*ngtos+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[6]*cgto_cart.coeff[cgto_ptr+3*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+3*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 3 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          cgto_cart.coeff[cgto_ptr + 3 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 3 * ngtos + j])
       # zzz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+5*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+5*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+5*ngtos+j]))
-        coeffs.append(4*SPH_WF_NORMALIZATION_FACTOR[6]*cgto_cart.coeff[cgto_ptr+5*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+5*ngtos+j])
-      cgto_splits.append(3*ngtos)
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 5 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 5 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 5 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          4 * SPH_WF_NORMALIZATION_FACTOR[6] *
+          cgto_cart.coeff[cgto_ptr + 5 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 5 * ngtos + j])
+      cgto_splits.append(3 * ngtos)
       # f6. xxz-yyz
       # xxz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+2*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+2*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+2*ngtos+j]))
-        coeffs.append(SPH_WF_NORMALIZATION_FACTOR[7]*cgto_cart.coeff[cgto_ptr+2*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+2*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 2 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 2 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 2 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          SPH_WF_NORMALIZATION_FACTOR[7] *
+          cgto_cart.coeff[cgto_ptr + 2 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 2 * ngtos + j])
       # yyz
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+7*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+7*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+7*ngtos+j]))
-        coeffs.append(-SPH_WF_NORMALIZATION_FACTOR[7]*cgto_cart.coeff[cgto_ptr+7*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+7*ngtos+j])
-      cgto_splits.append(2*ngtos)
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 7 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 7 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 7 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -SPH_WF_NORMALIZATION_FACTOR[7] *
+          cgto_cart.coeff[cgto_ptr + 7 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 7 * ngtos + j])
+      cgto_splits.append(2 * ngtos)
       # f7. xxx-3xyy
       # xxx
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+0*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+0*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+0*ngtos+j]))
-        coeffs.append(SPH_WF_NORMALIZATION_FACTOR[5]*cgto_cart.coeff[cgto_ptr+0*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+0*ngtos+j])
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 0 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 0 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 0 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          SPH_WF_NORMALIZATION_FACTOR[5] *
+          cgto_cart.coeff[cgto_ptr + 0 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 0 * ngtos + j])
       # zyy
       for j in range(ngtos):
-        primitives.append((cgto_cart.primitives[0][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[1][cgto_ptr+3*ngtos+j],
-                           cgto_cart.primitives[2][cgto_ptr+3*ngtos+j]))
-        coeffs.append(-3*SPH_WF_NORMALIZATION_FACTOR[5]*cgto_cart.coeff[cgto_ptr+3*ngtos+j])
-        shells.append(cgto_cart.shells[cgto_ptr+3*ngtos+j])
-      cgto_splits.append(2*ngtos)
-      cgto_ptr += 10*ngtos
-      atom_ngto_cart += 10*ngtos
-      atom_ngto_sph += 16*ngtos
+        pgto.append(
+          (
+            cgto_cart.pgto[0][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[1][cgto_ptr + 3 * ngtos + j],
+            cgto_cart.pgto[2][cgto_ptr + 3 * ngtos + j]
+          )
+        )
+        coeffs.append(
+          -3 * SPH_WF_NORMALIZATION_FACTOR[5] *
+          cgto_cart.coeff[cgto_ptr + 3 * ngtos + j]
+        )
+        shells.append(cgto_cart.shells[cgto_ptr + 3 * ngtos + j])
+      cgto_splits.append(2 * ngtos)
+      cgto_ptr += 10 * ngtos
+      atom_ngto_cart += 10 * ngtos
+      atom_ngto_sph += 16 * ngtos
       split_ptr += 10
 
     if atom_ngto_cart == cgto_cart.atom_splits[atom_ptr]:
@@ -387,24 +566,25 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
       atom_ptr += 1
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
-  primitives = PrimitiveGaussian(
+  pgto = PGTO(
     *[
       np.array(np.stack(a, axis=0)) if i ==
-      0 else jnp.array(np.stack(a, axis=0))
-      for i, a in enumerate(zip(*primitives))
+      0 else jnp.array(np.stack(a, axis=0)) for i, a in enumerate(zip(*pgto))
     ]
   )
   cgto_sph = CGTO(
-    primitives, primitives.normalization_constant(), jnp.array(coeffs),
-    cgto_splits, cgto_seg_id, jnp.array(atom_splits), cgto_cart.charge,
-    cgto_cart.nocc, shells
+    pgto,
+    pgto.normalization_constant(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
+    jnp.array(atom_splits), cgto_cart.charge, cgto_cart.nocc, shells
   )
   logging.info(f"there are {sum(cgto_splits)} GTOs")
   return cgto_sph
 
 
-class PrimitiveGaussian(NamedTuple):
-  """Batch of Primitive Gaussians / Gaussian-Type Orbitals (GTO)."""
+class PGTO(NamedTuple):
+  """Batch of Primitive Gaussian-Type Orbitals (PGTO).
+  Analytical integral are calculated in this basis.
+  """
   angular: Int[np.ndarray, "*batch 3"]
   """angular momentum vector, e.g. (0,1,0). Note that it is stored as
   numpy array to avoid tracing error, which is okay since it is not
@@ -443,11 +623,11 @@ class PrimitiveGaussian(NamedTuple):
 
 
 class CGTO(NamedTuple):
-  """Linear Combination of Contracted Gaussian-Type Orbitals.
+  """Batch contracted GTOs, i.e. linear combinations of PGTO.
   Can be used to represent AO.
   """
-  primitives: PrimitiveGaussian
-  """GTO basis functions."""
+  pgto: PGTO
+  """PGTO basis functions."""
   N: Int[Array, "n_gtos"]
   """Store computed GTO normalization constant. (cgto normalize)"""
   coeff: Float[Array, "*n_gtos"]
@@ -489,26 +669,21 @@ class CGTO(NamedTuple):
 
   @property
   def atom_coords(self) -> Float[Array, "n_atoms 3"]:
-    return self.primitives.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
+    return self.pgto.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
 
-  def map_params(
-    self, f: Callable
-  ) -> Tuple[PrimitiveGaussian, Float[Array, "*batch"]]:
+  def map_params(self, f: Callable) -> Tuple[PGTO, Float[Array, "*batch"]]:
     """Apply function f to primitive gaussian parameters and contraction coeffs.
     Can be used to get a tensor slice of the parameters for contraction or
     tensorization.
     """
     angular, center, exponent, coeff = map(
-      f, [
-        self.primitives.angular, self.primitives.center,
-        self.primitives.exponent, self.coeff
-      ]
+      f, [self.pgto.angular, self.pgto.center, self.pgto.exponent, self.coeff]
     )
-    return PrimitiveGaussian(angular, center, exponent), coeff
+    return PGTO(angular, center, exponent), coeff
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "n_cgtos"]:
     """Evaluate CGTO given real space coordinate by first evaluate
-    all primitives, normalize it then contract them.
+    all pgto, normalize it then contract them.
 
     Args:
       r: 3D real space coordinate
@@ -516,7 +691,7 @@ class CGTO(NamedTuple):
     Returns:
       contracted normalized gtos.
     """
-    gto_val = self.coeff * self.N * self.primitives.eval(r)
+    gto_val = self.coeff * self.N * self.pgto.eval(r)
     n_cgtos = len(self.cgto_splits)
     return jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
 
@@ -524,9 +699,9 @@ class CGTO(NamedTuple):
   def from_mol(mol: Mol) -> CGTO:
     """Build CGTO from pyscf mol."""
     return build_cgto_from_mol(mol)
-  
+
   @staticmethod
-  def from_cart(cgto_cart:CGTO) -> CGTO:
+  def from_cart(cgto_cart: CGTO) -> CGTO:
     return build_cgto_sph_from_mol(cgto_cart)
 
   def to_hk(self) -> CGTO:
@@ -549,17 +724,15 @@ class CGTO(NamedTuple):
     exponent = jax.nn.softplus(
       hk.get_parameter(
         "exponent",
-        self.primitives.exponent.shape,
-        init=make_constant_fn(inv_softplus(self.primitives.exponent))
+        self.pgto.exponent.shape,
+        init=make_constant_fn(inv_softplus(self.pgto.exponent))
       )
     )
     coeff = hk.get_parameter(
       "coeff", self.coeff.shape, init=make_constant_fn(self.coeff)
     )
-    primitives = PrimitiveGaussian(
-      self.primitives.angular, center_rep, exponent
-    )
-    return self._replace(primitives=primitives, coeff=coeff)
+    pgto = PGTO(self.pgto.angular, center_rep, exponent)
+    return self._replace(pgto=pgto, coeff=coeff)
 
   # TODO: instead of using occupation mask, we can orthogonalize a non-square
   # matrix directly
