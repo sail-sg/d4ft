@@ -388,7 +388,11 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
   primitives = PrimitiveGaussian(
-    *[jnp.array(np.stack(a, axis=0)) for a in zip(*primitives)]
+    *[
+      np.array(np.stack(a, axis=0)) if i ==
+      0 else jnp.array(np.stack(a, axis=0))
+      for i, a in enumerate(zip(*primitives))
+    ]
   )
   cgto_sph = CGTO(
     primitives, primitives.normalization_constant(), jnp.array(coeffs),
