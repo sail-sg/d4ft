@@ -66,7 +66,7 @@ class HKTest(parameterized.TestCase):
     ("h2", "sto-3g", 2, 2, 6),
     ("o", "sto-3g", 1, 5, 15),
   )
-  def test_basis_param(self, system, basis, n_atoms, n_cgtos, n_gtos):
+  def test_basis_param(self, system, basis, n_atoms, n_cgtos, n_pgtos):
     mol = Mol.from_mol_name(system, basis)
     cgto_transformed = hk.without_apply_rng(
       hk.transform(lambda: CGTO.from_mol(mol).to_hk())
@@ -91,9 +91,9 @@ class HKTest(parameterized.TestCase):
     print(gparams)
 
     self.assertEqual(gparams['~']['center'].shape[0], n_atoms)
-    self.assertEqual(cgto.pgto.center.shape[0], n_gtos)
+    self.assertEqual(cgto.pgto.center.shape[0], n_pgtos)
 
-    self.assertEqual(cgto.n_gtos, n_gtos)
+    self.assertEqual(cgto.n_pgtos, n_pgtos)
     self.assertEqual(cgto.n_cgtos, n_cgtos)
     self.assertEqual(cgto.n_atoms, n_atoms)
 

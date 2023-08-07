@@ -53,21 +53,41 @@ def gto_normalization_constant(
   )
 
 
-def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_gtos"]:
-  n_gtos = sum(cgto_splits)
+def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_pgtos"]:
+  n_pgtos = sum(cgto_splits)
   cgto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
-  seg_id = jnp.argmax(jnp.arange(n_gtos)[:, None] < cgto_seg_len, axis=-1)
+  seg_id = jnp.argmax(jnp.arange(n_pgtos)[:, None] < cgto_seg_len, axis=-1)
   return seg_id
 
 
 def build_cgto_from_mol(mol: Mol) -> CGTO:
   """Transform pyscf mol object to CGTO.
+
+  Example PySCF basis (cc-pvdz)
+  {'O': [
+    [0, [11720.0, 0.00071, -0.00016],
+        [1759.0, 0.00547, -0.001263],
+        [400.8, 0.027837, -0.006267],
+        [113.7, 0.1048, -0.025716],
+        [37.03, 0.283062, -0.070924],
+        [13.27, 0.448719, -0.165411],
+        [5.025, 0.270952, -0.116955],
+        [1.013, 0.015458, 0.557368]],
+    [0, [0.3023, 1.0]],
+    [1, [17.7, 0.043018],
+        [3.854, 0.228913],
+        [1.046, 0.508728]],
+    [1, [0.2753, 1.0]],
+    [2, [1.185, 1.0]]]}
+
+  Basically each CGTO is represented as [shell, [exponent, coeff1, coeff2, ...]].
+
   Reference: https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html,
             https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/,
             https://github.com/sunqm/libcint/blob/747d6c0dd838d20abdc9a4c9e4c62d196a855bc0/src/cart2sph.c
 
   Returns:
-    all translated GTOs. STO TO GTO
+    all translated GTOs.
   """
   pgto = []
   atom_splits = []
@@ -77,22 +97,22 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coords[i]
-    n_gtos = 0
-    for sto in mol.basis[element]:
-      shell = Shell(sto[0])
-      gtos = sto[1:]
-      for cid in range(1, 1 + len(gtos[0][1:])):
+    n_pgtos = 0
+    for cgto_i in mol.basis[element]:
+      shell = Shell(cgto_i[0])
+      pgtos_i = cgto_i[1:]
+      for cid in range(1, 1 + len(pgtos_i[0][1:])):
         for angular in SHELL_TO_ANGULAR_VEC[shell]:
-          cgto_splits.append(len(gtos))
-          for gto in gtos:
-            exponent = gto[0]
-            coeff = gto[cid]
-            n_gtos += 1
+          cgto_splits.append(len(pgtos_i))
+          for pgto_i in pgtos_i:
+            exponent = pgto_i[0]
+            coeff = pgto_i[cid]
+            n_pgtos += 1
             pgto.append((angular, coord, exponent))
             coeffs.append(coeff)
-            shells.append(sto[0])
+            shells.append(cgto_i[0])
 
-    atom_splits.append(n_gtos)
+    atom_splits.append(n_pgtos)
 
   pgto = PGTO(
     *[
@@ -100,6 +120,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
       0 else jnp.array(np.stack(a, axis=0)) for i, a in enumerate(zip(*pgto))
     ]
   )
+
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
 
@@ -137,7 +158,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
   """Transform Cartesian CGTO object to CGTO.
 
   Returns:
-    all translated GTOs. STO TO GTO
+    all translated GTOs.
   """
   cgto_shells = []
   cgto_ptr = 0
@@ -582,7 +603,14 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
 
 
 class PGTO(NamedTuple):
-  """Batch of Primitive Gaussian-Type Orbitals (PGTO).
+  r"""Batch of Primitive Gaussian-Type Orbitals (PGTO).
+
+  .. math::
+    PGTO_{nlm}(r)
+    =N_n(x-c_x)^n_x (y-c_y)^n_y (z-c_z)^n_z \exp{-\alpha \norm{r-c}^2}
+
+  where N is the normalization factor
+
   Analytical integral are calculated in this basis.
   """
   angular: Int[np.ndarray, "*batch 3"]
@@ -608,7 +636,7 @@ class PGTO(NamedTuple):
       r: 3D real space coordinate
 
     Returns:
-      unnormalized gto (x-c_x)^l (y-c_y)^m (z-c_z)^n exp{-alpha |r-c|^2}
+      unnormalized gto
     """
     xyz_lmn = []
     for i in range(self.n_orbs):
@@ -623,21 +651,21 @@ class PGTO(NamedTuple):
 
 
 class CGTO(NamedTuple):
-  """Batch contracted GTOs, i.e. linear combinations of PGTO.
-  Can be used to represent AO.
+  """Contracted GTO, i.e. linear combinations of PGTO.
+  Stored as a batch of PGTOs, and a list of contraction coefficients.
   """
   pgto: PGTO
   """PGTO basis functions."""
-  N: Int[Array, "n_gtos"]
-  """Store computed GTO normalization constant. (cgto normalize)"""
-  coeff: Float[Array, "*n_gtos"]
+  N: Int[Array, "n_pgtos"]
+  """Store computed PGTO normalization constant."""
+  coeff: Float[Array, "*n_pgtos"]
   """CGTO contraction coefficient. n_cgto is usually the number of AO."""
   cgto_splits: Union[Int[Array, "*n_cgtos"], tuple]
-  """CGTO segment lengths. e.g. (3, 3, 3, 3, 3, 3, 3, 3, 3, 3) for O2 in sto-3g.
-  Store it in tuple form so that it is hashable, and can be passed to a jitted
-  function as static arg."""
-  cgto_seg_id: Int[Array, "n_gtos"]
-  """Segment ids for contracting tensors in GTO basis to CGTO basis.
+  """Constraction segment lengths. e.g. (3, 3, 3, 3, 3, 3, 3, 3, 3, 3) for
+  O2 in sto-3g. Store it in tuple form so that it is hashable, and can be
+  passed to a jitted function as static arg."""
+  cgto_seg_id: Int[Array, "n_pgtos"]
+  """Segment ids for contracting tensors in PGTO basis to CGTO basis.
   e.g. [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7,
   8, 8, 8, 9, 9, 9] for O2 in sto-3g.
   """
@@ -648,11 +676,11 @@ class CGTO(NamedTuple):
   """charges of the atoms"""
   nocc: Int[Array, "2 nao"]
   """occupation mask for alpha and beta spin"""
-  shells: Int[Array, "*n_gtos"]
-  """shell idx for each gto"""
+  shells: Int[Array, "*n_pgtos"]
+  """shell idx for each pgto"""
 
   @property
-  def n_gtos(self) -> int:
+  def n_pgtos(self) -> int:
     return sum(self.cgto_splits)
 
   @property
@@ -685,6 +713,8 @@ class CGTO(NamedTuple):
     """Evaluate CGTO given real space coordinate by first evaluate
     all pgto, normalize it then contract them.
 
+    TODO: support generalized contraction.
+
     Args:
       r: 3D real space coordinate
 
@@ -716,7 +746,7 @@ class CGTO(NamedTuple):
       center,
       jnp.array(self.atom_splits),
       axis=0,
-      total_repeat_length=self.n_gtos
+      total_repeat_length=self.n_pgtos
     )
     # NOTE: we want to have some activation function here to make sure
     # that exponent > 0. However softplus is not good as inv_softplus

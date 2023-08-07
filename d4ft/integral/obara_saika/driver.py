@@ -50,13 +50,12 @@ def incore_int_sym(
 
   def ext_fn(a, b, static_args):
     ni = obsa.nuclear_attraction_integral
-    atom_coords = cgto.pgto.center[
-      jnp.cumsum(jnp.array(cgto.atom_splits)) - 1]
+    atom_coords = cgto.pgto.center[jnp.cumsum(jnp.array(cgto.atom_splits)) - 1]
     return jax.vmap(lambda Z, C: Z * ni(C, a, b, static_args, use_horizontal)
                    )(cgto.charge, atom_coords).sum()
 
   # 2c tensors
-  ab_idx_counts = symmetry.get_2c_sym_idx(cgto.n_gtos)
+  ab_idx_counts = symmetry.get_2c_sym_idx(cgto.n_pgtos)
   cgto_2c_seg_id = symmetry.get_cgto_segment_id_sym(
     ab_idx_counts, cgto.cgto_splits
   )
@@ -74,7 +73,7 @@ def incore_int_sym(
   ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
   abab_idx_count = jnp.hstack([ab_idx, ab_idx, counts_ab[:, None]]).astype(int)
 
-  gto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4, sto=False)
+  gto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4, cgto=False)
   cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
   # cgto_4c_fn = tensorization.tensorize_4c_cgto_range(eri_fn, s4)
 

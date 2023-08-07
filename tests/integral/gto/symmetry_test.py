@@ -23,17 +23,17 @@ class SymmetryTest(parameterized.TestCase):
     (6, True),
     (6, False),
   )
-  def test_sym_idx(self, n_gtos, four_c):
+  def test_sym_idx(self, n_pgtos, four_c):
     if four_c:
-      idx_counts = symmetry.get_4c_sym_idx(n_gtos)
+      idx_counts = symmetry.get_4c_sym_idx(n_pgtos)
       print(idx_counts)
-      self.assertEqual(len(idx_counts), symmetry.unique_ijkl(n_gtos))
+      self.assertEqual(len(idx_counts), symmetry.unique_ijkl(n_pgtos))
       self.assertEqual(idx_counts.shape[1], 5)
 
     else:
-      idx_counts = symmetry.get_2c_sym_idx(n_gtos)
+      idx_counts = symmetry.get_2c_sym_idx(n_pgtos)
       print(idx_counts)
-      self.assertEqual(len(idx_counts), symmetry.unique_ij(n_gtos))
+      self.assertEqual(len(idx_counts), symmetry.unique_ij(n_pgtos))
       self.assertEqual(idx_counts.shape[1], 3)
 
 

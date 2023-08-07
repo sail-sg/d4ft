@@ -24,13 +24,13 @@ from d4ft.integral.gto.cgto import CGTO, PGTO
 from d4ft.types import IdxCount2C, IdxCount4C
 
 
-def tensorize_2c_cgto(f: Callable, static_args, sto: bool = True):
+def tensorize_2c_cgto(f: Callable, static_args, cgto: bool = True):
   """2c centers tensorization with provided index set,
-  where the tensor is contracted to sto basis.
+  where the tensor is contracted to cgto.
   Used for incore/precompute.
 
   Args:
-    sto: if True, contract the tensor into sto basis
+    cgto: if True, contract the tensor into cgto basis
   """
 
   def f_curry(*args: PGTO):
@@ -57,7 +57,7 @@ def tensorize_2c_cgto(f: Callable, static_args, sto: bool = True):
     t_ab = vmap_f(*gtos_ab)
     # coeffs_ab = [gtos.coeff[ab_idx[:, i]] for i in range(2)]
     ab = jnp.einsum("k,k,k,k->k", t_ab, N_ab, *coeffs_ab)
-    if not sto:
+    if not cgto:
       return ab
     cgto_ab = jax.ops.segment_sum(ab, cgto_seg_id, n_cgto_segs)
     return cgto_ab
@@ -65,13 +65,13 @@ def tensorize_2c_cgto(f: Callable, static_args, sto: bool = True):
   return tensorize
 
 
-def tensorize_4c_cgto(f: Callable, static_args, sto: bool = True):
+def tensorize_4c_cgto(f: Callable, static_args, cgto: bool = True):
   """4c centers tensorization with provided index set.
-  where the tensor is contracted to sto basis.
+  where the tensor is contracted to cgto.
   Used for incore/precompute.
 
   Args:
-    sto: if True, contract the tensor into sto basis
+    cgto: if True, contract the tensor into cgto basis
   """
 
   def f_curry(*args: PGTO):
@@ -95,7 +95,7 @@ def tensorize_4c_cgto(f: Callable, static_args, sto: bool = True):
       ]
     )
     t_abcd = vmap_f(*gtos_abcd)
-    if not sto:
+    if not cgto:
       return t_abcd
     counts_abcd_i = idx_counts[:, 4]
     N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i
@@ -106,7 +106,7 @@ def tensorize_4c_cgto(f: Callable, static_args, sto: bool = True):
   return tensorize
 
 
-def tensorize_4c_cgto_range(f: Callable, static_args, sto: bool = True):
+def tensorize_4c_cgto_range(f: Callable, static_args, cgto: bool = True):
   """Currently not used.
   This brings marginal speed up compared to tensorize_4c_cgto"""
 
@@ -146,7 +146,7 @@ def tensorize_4c_cgto_range(f: Callable, static_args, sto: bool = True):
       ]
     )
     t_abcd = vmap_f(*gtos_abcd)
-    if not sto:
+    if not cgto:
       return t_abcd
     counts_abcd_i = idx_counts[:, 4]
     N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i

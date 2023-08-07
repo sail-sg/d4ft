@@ -19,7 +19,7 @@ import jax.numpy as jnp
 from d4ft.integral.gto.cgto import CGTO
 
 
-def contraction_2c_sym(f, n_gtos, static_args):
+def contraction_2c_sym(f, n_pgtos, static_args):
   """4c centers contraction with provided index set."""
 
   def f_curry(*args: CGTO):
@@ -27,7 +27,7 @@ def contraction_2c_sym(f, n_gtos, static_args):
 
   vmap_f = jax.vmap(f_curry, in_axes=(0, 0))
 
-  ab_idx, counts_ab = get_2c_combs(n_gtos)
+  ab_idx, counts_ab = get_2c_combs(n_pgtos)
 
   def contract_fn(mo: CGTO):
     """assuming mo are normalized"""
