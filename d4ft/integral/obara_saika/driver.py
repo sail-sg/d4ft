@@ -73,11 +73,11 @@ def incore_int_sym(
   ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
   abab_idx_count = jnp.hstack([ab_idx, ab_idx, counts_ab[:, None]]).astype(int)
 
-  gto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4, cgto=False)
+  pgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4, cgto=False)
   cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
   # cgto_4c_fn = tensorization.tensorize_4c_cgto_range(eri_fn, s4)
 
-  eri_abab = gto_4c_fn(cgto, abab_idx_count, None, None)
+  eri_abab = pgto_4c_fn(cgto, abab_idx_count, None, None)
   logging.info(f"block diag (ab|ab) computed, size: {eri_abab.shape}")
 
   eri_abcd_cgto = jnp.zeros(1)

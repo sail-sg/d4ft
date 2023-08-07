@@ -40,21 +40,21 @@ def tensorize_2c_cgto(f: Callable, static_args, cgto: bool = True):
 
   @partial(jax.jit, static_argnames=["n_cgto_segs"])
   def tensorize(
-    gtos: CGTO,
+    cgto: CGTO,
     ab_idx_counts: IdxCount2C,
     cgto_seg_id,
     n_cgto_segs,
   ):
-    Ns = gtos.N
+    Ns = cgto.N
     ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
-    gtos_ab, coeffs_ab = zip(
+    pgtos_ab, coeffs_ab = zip(
       *[
-        gtos.map_params(lambda gto_param, i=i: gto_param[ab_idx[:, i]])
+        cgto.map_pgto_params(lambda pgto_param, i=i: pgto_param[ab_idx[:, i]])
         for i in range(2)
       ]
     )
     N_ab = Ns[ab_idx].prod(-1) * counts_ab
-    t_ab = vmap_f(*gtos_ab)
+    t_ab = vmap_f(*pgtos_ab)
     # coeffs_ab = [gtos.coeff[ab_idx[:, i]] for i in range(2)]
     ab = jnp.einsum("k,k,k,k->k", t_ab, N_ab, *coeffs_ab)
     if not cgto:
@@ -90,7 +90,7 @@ def tensorize_4c_cgto(f: Callable, static_args, cgto: bool = True):
     abcd_idx = idx_counts[:, :4]
     gtos_abcd, coeffs_abcd = zip(
       *[
-        gtos.map_params(lambda gto_param, i=i: gto_param[abcd_idx[:, i]])
+        gtos.map_pgto_params(lambda gto_param, i=i: gto_param[abcd_idx[:, i]])
         for i in range(4)
       ]
     )
@@ -141,7 +141,7 @@ def tensorize_4c_cgto_range(f: Callable, static_args, cgto: bool = True):
     abcd_idx = idx_counts[:, :4]
     gtos_abcd, coeffs_abcd = zip(
       *[
-        gtos.map_params(lambda gto_param, i=i: gto_param[abcd_idx[:, i]])
+        gtos.map_pgto_params(lambda gto_param, i=i: gto_param[abcd_idx[:, i]])
         for i in range(4)
       ]
     )

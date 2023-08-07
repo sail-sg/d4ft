@@ -699,8 +699,8 @@ class CGTO(NamedTuple):
   def atom_coords(self) -> Float[Array, "n_atoms 3"]:
     return self.pgto.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
 
-  def map_params(self, f: Callable) -> Tuple[PGTO, Float[Array, "*batch"]]:
-    """Apply function f to primitive gaussian parameters and contraction coeffs.
+  def map_pgto_params(self, f: Callable) -> Tuple[PGTO, Float[Array, "*batch"]]:
+    """Apply function f to PGTO parameters and contraction coeffs.
     Can be used to get a tensor slice of the parameters for contraction or
     tensorization.
     """
