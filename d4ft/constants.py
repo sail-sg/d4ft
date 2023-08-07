@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from enum import Enum
+import numpy as np
 
 
 class Shell(Enum):
@@ -41,11 +42,43 @@ for lx in reversed(range(l + 1)):
       print("[{},{},{}]".format(lx,ly,lz))
 """
 
-SPH_WF_NORMALIZATION_FACTOR = [
-  0.282094791773878143, 0.488602511902919921, 1.092548430592079070,
-  0.315391565252520002, 0.746352665180230782 / 2, 0.590043589926643510,
-  0.457045799464465739, 1.445305721320277020
+
+def racah_normalization(l: int):
+  r"""Racah's normalization for total angular momentum of l, denoted as R(l).
+  It is used to define normalized spherical harmonics C_{lm} where
+  C_{00}=R(0)Y_{00}=1.
+
+  .. math::
+    \sqrt{\frac{4\pi}{2l+1}}
+
+  The solid harmonic y_{lm}=r^l*Y_{lm} uses the same normalization, and
+  also the real-valued solide harmonics s_{lm}, since they are obtained via
+  unitary tranformation from the solid harmonic.
+  """
+  return np.sqrt((4 * np.pi) / (2 * l + 1))
+
+
+REAL_SOLID_SPH_CART_PREFAC = [ #  lm
+  0.282094791773878143,        #0 00: 1/R(0)
+  0.488602511902919921,        #1 1{1,2,3}: 1/R(1)
+  1.092548430592079070,        #2 2{1,2}: 1/R(2) * np.sqrt(3)
+  0.315391565252520002,        #3 2{0}: 1/R(2) * 0.5
+  0.746352665180230782 / 2,    #4 3{0}: 1/R(3) * 0.5
+  0.590043589926643510,        #5 3{3}: 1/R(3) * 0.5 * np.sqrt(5/2)
+  0.457045799464465739,        #6 3{1}: 1/R(3) * 0.5 * np.sqrt(3/2)
+  1.445305721320277020,        #7 3{2}: 1/R(3) * 0.5 * np.sqrt(15)
 ]
+"""The prefactor of the real solid harmonics under cartesian coordinate,
+mulitplied by inverse of Racah's normalization R(l).
+
+Racah's normalization produce nice monomial for s and p orbitals
+(for p we have x, y, z), however to convert back to the original spherical
+harmonics we need to undo it. So we need to multiply 1/R(l) where R(l) is
+the Racah's normalization for total angular momentum of l.
+
+https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/
+"""
+
 REAL_HARMONIC_NORMALIZATION = [
   # s shell
   [1],
@@ -58,8 +91,9 @@ REAL_HARMONIC_NORMALIZATION = [
     [
       -0.315391565252520002, 0, 0, -0.315391565252520002, 0,
       -0.315391565252520002
-    ], [0, 0, 1.092548430592079070, 0, 0, 0],
-    [0.546274215296039535, 0, 0, -0.546274215296039535, 0, 0]
+    ],
+    [0, 0, 1.092548430592079070, 0, 0, 0],
+    [0.546274215296039535, 0, 0, -0.546274215296039535, 0, 0],
   ],
   # f shell
   [
@@ -76,8 +110,9 @@ REAL_HARMONIC_NORMALIZATION = [
     [
       -0.457045799464465739, 0, 0, -0.457045799464465739, 0,
       1.828183197857862944, 0, 0, 0, 0
-    ], [0, 0, 1.445305721320277020, 0, 0, 0, 0, -1.445305721320277020, 0, 0],
-    [0.590043589926643510, 0, 0, -1.770130769779930530, 0, 0, 0, 0, 0, 0]
+    ],
+    [0, 0, 1.445305721320277020, 0, 0, 0, 0, -1.445305721320277020, 0, 0],
+    [0.590043589926643510, 0, 0, -1.770130769779930530, 0, 0, 0, 0, 0, 0],
   ]
 ]
 

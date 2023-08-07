@@ -26,7 +26,7 @@ from jaxtyping import Array, Float, Int
 
 from d4ft.constants import (
   SHELL_TO_ANGULAR_VEC,
-  SPH_WF_NORMALIZATION_FACTOR,
+  REAL_SOLID_SPH_CART_PREFAC,
   Shell,
 )
 from d4ft.system.mol import Mol
@@ -176,8 +176,11 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
     n_pgtos = cgto_cart.cgto_splits[split_ptr]
     cgto_shells.append(shell)
 
+    breakpoint()
+
     # s shell: same as cartesian
     if shell == 0:
+      # TODO: replace this with cgto_cart.pgto.at(slice(cgto_ptr, cgto_ptr+n_pgtos))
       for j in range(n_pgtos):
         pgto.append(
           (
@@ -186,7 +189,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          SPH_WF_NORMALIZATION_FACTOR[0] * cgto_cart.coeff[cgto_ptr + j]
+          REAL_SOLID_SPH_CART_PREFAC[0] * cgto_cart.coeff[cgto_ptr + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + j])
       cgto_splits.append(n_pgtos)
@@ -207,7 +210,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
             )
           )
           coeffs.append(
-            SPH_WF_NORMALIZATION_FACTOR[1] *
+            REAL_SOLID_SPH_CART_PREFAC[1] *
             cgto_cart.coeff[cgto_ptr + i * n_pgtos + j]
           )
           shells.append(cgto_cart.shells[cgto_ptr + i * n_pgtos + j])
@@ -229,7 +232,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          SPH_WF_NORMALIZATION_FACTOR[2] *
+          REAL_SOLID_SPH_CART_PREFAC[2] *
           cgto_cart.coeff[cgto_ptr + 1 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 1 * n_pgtos + j])
@@ -244,7 +247,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          SPH_WF_NORMALIZATION_FACTOR[2] *
+          REAL_SOLID_SPH_CART_PREFAC[2] *
           cgto_cart.coeff[cgto_ptr + 4 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 4 * n_pgtos + j])
@@ -260,7 +263,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          2 * SPH_WF_NORMALIZATION_FACTOR[3] *
+          2 * REAL_SOLID_SPH_CART_PREFAC[3] *
           cgto_cart.coeff[cgto_ptr + 5 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 5 * n_pgtos + j])
@@ -273,7 +276,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[3] * cgto_cart.coeff[cgto_ptr + j]
+          -REAL_SOLID_SPH_CART_PREFAC[3] * cgto_cart.coeff[cgto_ptr + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + j])
       # yy
@@ -286,7 +289,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[3] *
+          -REAL_SOLID_SPH_CART_PREFAC[3] *
           cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
@@ -301,7 +304,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          SPH_WF_NORMALIZATION_FACTOR[2] *
+          REAL_SOLID_SPH_CART_PREFAC[2] *
           cgto_cart.coeff[cgto_ptr + 2 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 2 * n_pgtos + j])
@@ -316,7 +319,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          0.5 * SPH_WF_NORMALIZATION_FACTOR[2] * cgto_cart.coeff[cgto_ptr + j]
+          0.5 * REAL_SOLID_SPH_CART_PREFAC[2] * cgto_cart.coeff[cgto_ptr + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + j])
       # yy
@@ -329,7 +332,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -0.5 * SPH_WF_NORMALIZATION_FACTOR[2] *
+          -0.5 * REAL_SOLID_SPH_CART_PREFAC[2] *
           cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
@@ -351,7 +354,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          3 * SPH_WF_NORMALIZATION_FACTOR[5] *
+          3 * REAL_SOLID_SPH_CART_PREFAC[5] *
           cgto_cart.coeff[cgto_ptr + 1 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 1 * n_pgtos + j])
@@ -365,7 +368,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[5] *
+          -REAL_SOLID_SPH_CART_PREFAC[5] *
           cgto_cart.coeff[cgto_ptr + 6 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 6 * n_pgtos + j])
@@ -381,7 +384,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          2 * SPH_WF_NORMALIZATION_FACTOR[7] *
+          2 * REAL_SOLID_SPH_CART_PREFAC[7] *
           cgto_cart.coeff[cgto_ptr + 4 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 4 * n_pgtos + j])
@@ -397,7 +400,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          -REAL_SOLID_SPH_CART_PREFAC[6] *
           cgto_cart.coeff[cgto_ptr + 1 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 1 * n_pgtos + j])
@@ -411,7 +414,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          -REAL_SOLID_SPH_CART_PREFAC[6] *
           cgto_cart.coeff[cgto_ptr + 6 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 6 * n_pgtos + j])
@@ -425,7 +428,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          4 * SPH_WF_NORMALIZATION_FACTOR[6] *
+          4 * REAL_SOLID_SPH_CART_PREFAC[6] *
           cgto_cart.coeff[cgto_ptr + 8 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 9 * n_pgtos + j])
@@ -441,7 +444,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -3 * SPH_WF_NORMALIZATION_FACTOR[4] *
+          -3 * REAL_SOLID_SPH_CART_PREFAC[4] *
           cgto_cart.coeff[cgto_ptr + 2 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 2 * n_pgtos + j])
@@ -454,7 +457,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -3 * SPH_WF_NORMALIZATION_FACTOR[4] *
+          -3 * REAL_SOLID_SPH_CART_PREFAC[4] *
           cgto_cart.coeff[cgto_ptr + 7 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 7 * n_pgtos + j])
@@ -467,7 +470,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          2 * SPH_WF_NORMALIZATION_FACTOR[4] *
+          2 * REAL_SOLID_SPH_CART_PREFAC[4] *
           cgto_cart.coeff[cgto_ptr + 9 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 9 * n_pgtos + j])
@@ -483,7 +486,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          -REAL_SOLID_SPH_CART_PREFAC[6] *
           cgto_cart.coeff[cgto_ptr + 0 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 0 * n_pgtos + j])
@@ -497,7 +500,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[6] *
+          -REAL_SOLID_SPH_CART_PREFAC[6] *
           cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
@@ -511,7 +514,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          4 * SPH_WF_NORMALIZATION_FACTOR[6] *
+          4 * REAL_SOLID_SPH_CART_PREFAC[6] *
           cgto_cart.coeff[cgto_ptr + 5 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 5 * n_pgtos + j])
@@ -527,7 +530,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          SPH_WF_NORMALIZATION_FACTOR[7] *
+          REAL_SOLID_SPH_CART_PREFAC[7] *
           cgto_cart.coeff[cgto_ptr + 2 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 2 * n_pgtos + j])
@@ -541,7 +544,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -SPH_WF_NORMALIZATION_FACTOR[7] *
+          -REAL_SOLID_SPH_CART_PREFAC[7] *
           cgto_cart.coeff[cgto_ptr + 7 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 7 * n_pgtos + j])
@@ -557,7 +560,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          SPH_WF_NORMALIZATION_FACTOR[5] *
+          REAL_SOLID_SPH_CART_PREFAC[5] *
           cgto_cart.coeff[cgto_ptr + 0 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 0 * n_pgtos + j])
@@ -571,7 +574,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
           )
         )
         coeffs.append(
-          -3 * SPH_WF_NORMALIZATION_FACTOR[5] *
+          -3 * REAL_SOLID_SPH_CART_PREFAC[5] *
           cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
         )
         shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
@@ -628,6 +631,10 @@ class PGTO(NamedTuple):
 
   def normalization_constant(self) -> Int[Array, "*batch"]:
     return gto_normalization_constant(self.angular, self.exponent)
+
+  def at(self, i: Union[slice, int]) -> PGTO:
+    """get one PGTO out of the batch"""
+    return PGTO(self.angular[i], self.center[i], self.exponent[i])
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "*batch"]:
     """Evaluate GTO (unnormalized) with given real space coordinate.
