@@ -17,7 +17,7 @@ import numpy as np
 
 
 class Shell(Enum):
-  """https://pyscf.org/user/gto.html#basis-set"""
+  """Letter for total angular momentum"""
   s = 0
   p = 1
   d = 2
@@ -44,15 +44,16 @@ for lx in reversed(range(l + 1)):
 
 
 def racah_normalization(l: int):
-  r"""Racah's normalization for total angular momentum of l, denoted as R(l).
-  It is used to define normalized spherical harmonics C_{lm} where
-  C_{00}=R(0)Y_{00}=1.
+  r"""Racah's normalization for total angular momentum of :math:`l`,
+  denoted as :math:`R(l)`.
 
-  .. math::
-    \sqrt{\frac{4\pi}{2l+1}}
+  It is used to define normalized spherical harmonics :math:`C_{lm}` where
+  :math:`C_{00}=R(0)Y_{00}=1`.
+  The formula is
+  :math:`R(l)=\sqrt{\frac{4\pi}{2l+1}}`
 
-  The solid harmonic y_{lm}=r^l*Y_{lm} uses the same normalization, and
-  also the real-valued solide harmonics s_{lm}, since they are obtained via
+  The solid harmonic :math:`\mathcal{Y}_{lm}=r^l*Y_{lm}` uses the same
+  normalization, and also the real solid harmonics s_{lm}, since they are obtained via
   unitary tranformation from the solid harmonic.
   """
   return np.sqrt((4 * np.pi) / (2 * l + 1))
@@ -68,15 +69,29 @@ REAL_SOLID_SPH_CART_PREFAC = [ #  lm
   0.457045799464465739,        #6 3{1}: 1/R(3) * 0.5 * np.sqrt(3/2)
   1.445305721320277020,        #7 3{2}: 1/R(3) * 0.5 * np.sqrt(15)
 ]
-"""The prefactor of the real solid harmonics under cartesian coordinate,
-mulitplied by inverse of Racah's normalization R(l).
+r"""The prefactor of the real solid harmonics under Cartesian coordinate,
+mulitplied by inverse of Racah's normalization for total angular momentum of
+:math:`l`: :math:`R(l)`.
 
-Racah's normalization produce nice monomial for s and p orbitals
-(for p we have x, y, z), however to convert back to the original spherical
-harmonics we need to undo it. So we need to multiply 1/R(l) where R(l) is
-the Racah's normalization for total angular momentum of l.
+GTO basis with variable exponents is defined as
 
-https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/
+.. math::
+  \chi^{GTO}_{\alpha_{nl}lm} = R^{GTO}_{\alpha_{nl}lm}(r)Y_{lm}(\theta, \varphi)
+
+Absorbing the :math:`r^l` term from the radial part into the spherical harmonic
+:math:`Y_{lm}`, we have the real solid harmonic
+
+.. math::
+  C_{lm}(\vb{r})=r^l Y_{lm}(\theta, \varphi)
+
+Racah's normalization produce nice monomial for s and p orbitals:
+for s we have 1 and for p we have :math:`x,y,z`. To convert back to the
+original spherical harmonics we need to undo it. So we need to multiply
+:math:`1/R(l)`.
+
+Reference:
+ - Helgaker 6.6.4
+ - https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/
 """
 
 REAL_HARMONIC_NORMALIZATION = [
@@ -117,5 +132,7 @@ REAL_HARMONIC_NORMALIZATION = [
 ]
 
 ANGSTRONG_TO_BOHR = 1.8897259886
+"""Conversion factor from Angstrom to Bohr"""
 
 HARTREE_TO_KCALMOL = 627.503
+"""Conversion factor from Hartree to kcal/mol"""

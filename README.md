@@ -336,14 +336,14 @@ cd docs
 pip install -r requirements.txt  # install the tools needs to build the website
 make html  # generate a static site from the rst and markdown files
 sphinx-serve  # run a server locally, so that it can be viewed in browser
-sphinx-autobuild docs docs/_build/html
 ```
 
 #### Auto-build (optional)
 
+At the root directory, run the following
 ```shell
 pip install sphinx-autobuild
-sphinx-autobuild docs docs/_build/html
+sphinx-autobuild --watch d4ft docs docs/_build/html
 ```
 
 ### Editing

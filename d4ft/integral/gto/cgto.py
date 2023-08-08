@@ -39,18 +39,51 @@ perm_2n_n = jnp.array(scipy.special.perm(2 * _r25, _r25))
  Used in GTO normalization and OS horizontal recursion."""
 
 
-# TODO: is it good to vmap here? this code only works if vmapped
-@jax.vmap
-def gto_normalization_constant(
+def gaussian_integral(n: Int[Array, "*batch"], alpha: Float[Array, "*batch"]):
+  r"""Evaluate gaussian integral using the gamma function.
+
+  .. math::
+    \int_0^\infty x^n \exp(-\alpha x^2) dx
+    = \frac{\Gamma((n+1)/2)}{2 \alpha^{(n+1)/2}}
+
+  Args:
+    n: power of x
+    alpha: exponent
+
+  Ref:
+  https://en.wikipedia.org/wiki/Gaussian_integral#Relation_to_the_gamma_function
+  """
+  np1_half = (n + 1) * .5
+  return scipy.special.gamma(np1_half) / (2. * alpha**np1_half)
+
+
+def pgto_norm_inv(
   angular: Int[Array, "*batch 3"], exponent: Float[Array, "*batch"]
 ) -> Int[Array, "*batch"]:
-  """Normalization constant of GTO.
+  """Normalization constant of PGTO, i.e. the inverse of its norm.
 
   Ref: https://en.wikipedia.org/wiki/Gaussian_orbital
   """
   return (2 * exponent / np.pi)**(3 / 4) * jnp.sqrt(
     (8 * exponent)**(jnp.sum(angular)) / jnp.prod(perm_2n_n[angular])
   )
+
+
+def normalize_cgto_coeff(pgto: PGTO, coeff: Float[Array, "*n_pgtos"]):
+  r"""Normalize the contraction coefficients of CGTO such that the
+  CGTO with normalized coefficients has norm of 1.
+
+  The input should be a batch of PGTOs corresponding to one CGTO.
+  """
+  # total angular momentum, asuming all PGTOs has the same angular
+  l = jnp.sum(pgto.angular[0])
+  # multipy exp funcs equals to sum exponents
+  ee: Float[Array, "n_pgtos n_pgtos"]
+  ee = pgto.exponent.reshape(-1, 1) + pgto.exponent.reshape(1, -1)
+  overlap = gaussian_integral(l * 2 + 2, ee)  # TODO: why l * 2 + 2
+  cgto_norm = jnp.einsum('p,pq,q->', coeff, overlap, coeff)
+  normalized_coeff = coeff / jnp.sqrt(cgto_norm)
+  return normalized_coeff
 
 
 def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_pgtos"]:
@@ -80,11 +113,19 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     [1, [0.2753, 1.0]],
     [2, [1.185, 1.0]]]}
 
-  Basically each CGTO is represented as [shell, [exponent, coeff1, coeff2, ...]].
+  Basically each CGTO is represented as
+  [[angular, kappa, [[exp, c_1, c_2, ..],
+                     [exp, c_1, c_2, ..],
+                     ... ]],
+   [angular, kappa, [[exp, c_1, c_2, ..],
+                     [exp, c_1, c_2, ..]
+                     ... ]]]
 
-  Reference: https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html,
-            https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/,
-            https://github.com/sunqm/libcint/blob/747d6c0dd838d20abdc9a4c9e4c62d196a855bc0/src/cart2sph.c
+  Reference:
+   - https://pyscf.org/user/gto.html#basis-set
+   - https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html,
+   - https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/,
+   - https://github.com/sunqm/libcint/blob/747d6c0dd838d20abdc9a4c9e4c62d196a855bc0/src/cart2sph.c
 
   Returns:
     all translated GTOs.
@@ -100,8 +141,12 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
     n_pgtos = 0
     for cgto_i in mol.basis[element]:
       shell = Shell(cgto_i[0])
-      pgtos_i = cgto_i[1:]
-      for cid in range(1, 1 + len(pgtos_i[0][1:])):
+      assert not isinstance(
+        cgto_i[1], float
+      ), "basis with kappa is not supported yet"
+      pgtos_i = cgto_i[1:]  # [[exp, c_1, c_2, ..], [exp, c_1, c_2, ..], ... ]]
+      n_coeffs = len(pgtos_i[0][1:])
+      for cid in range(1, 1 + n_coeffs):
         for angular in SHELL_TO_ANGULAR_VEC[shell]:
           cgto_splits.append(len(pgtos_i))
           for pgto_i in pgtos_i:
@@ -114,6 +159,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
     atom_splits.append(n_pgtos)
 
+  # NOTE: do not use jnp for angular as it will cause tracing error
   pgto = PGTO(
     *[
       np.array(np.stack(a, axis=0)) if i ==
@@ -125,31 +171,22 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
 
   cur_ptr = 0
-  # GTO normalize to 1 in cartesian
-  cart_coeffs = jnp.array(coeffs) * pgto.normalization_constant()
-  ncoeff = jnp.array([])
-  # CGTO normalize to 1 in cartesian
-  for lgto in cgto_splits:
-    angular = jnp.sum(pgto.angular[cur_ptr])
-    gto_coeffs = cart_coeffs[cur_ptr:cur_ptr + lgto].reshape(-1, 1)
-    exponents = pgto.exponent[cur_ptr:cur_ptr + lgto].reshape(-1, 1)
-    ee = exponents.reshape(-1, 1) + exponents.reshape(1, -1)
-    # Apply gaussian_int to ee
-    n = angular * 2 + 2
-    n1 = (n + 1) * .5
-    ee = jax.scipy.special.gamma(n1) / (2. * ee**n1)
-    # Compute s1
-    s1 = 1. / jnp.sqrt(jnp.einsum('pi,pq,qi->i', gto_coeffs, ee, gto_coeffs))
-    ncoeff = jnp.concatenate(
-      [ncoeff, jnp.einsum('pi,i->pi', gto_coeffs, s1).reshape(1, -1)[0]]
+  # normalize each PGTO in cartesian coordinate
+  cart_coeffs = jnp.array(coeffs) * pgto.norm_inv()
+  normalized_cart_coeff = jnp.array([])
+  # normalize each CGTO in cartesian coordinate
+  for lgto in cgto_splits:  # get one monomial with different exponents
+    n = normalize_cgto_coeff(
+      pgto.at(slice(cur_ptr, cur_ptr + lgto)),
+      cart_coeffs[cur_ptr:cur_ptr + lgto]
     )
+    normalized_cart_coeff = jnp.concatenate([normalized_cart_coeff, n])
     cur_ptr += lgto
 
-  # Real spherical Harmonic Normalization for Wavefunctions
-  coeffs = ncoeff / pgto.normalization_constant()
+  coeffs = normalized_cart_coeff / pgto.norm_inv()
   cgto = CGTO(
-    pgto, pgto.normalization_constant(), jnp.array(coeffs), cgto_splits,
-    cgto_seg_id, jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
+    pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
+    jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
   )
   return cgto
 
@@ -175,8 +212,6 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
     shell = cgto_cart.shells[cgto_ptr]
     n_pgtos = cgto_cart.cgto_splits[split_ptr]
     cgto_shells.append(shell)
-
-    breakpoint()
 
     # s shell: same as cartesian
     if shell == 0:
@@ -597,8 +632,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
     ]
   )
   cgto_sph = CGTO(
-    pgto,
-    pgto.normalization_constant(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
+    pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
     jnp.array(atom_splits), cgto_cart.charge, cgto_cart.nocc, shells
   )
   logging.info(f"there are {sum(cgto_splits)} GTOs")
@@ -609,8 +643,8 @@ class PGTO(NamedTuple):
   r"""Batch of Primitive Gaussian-Type Orbitals (PGTO).
 
   .. math::
-    PGTO_{nlm}(r)
-    =N_n(x-c_x)^n_x (y-c_y)^n_y (z-c_z)^n_z \exp{-\alpha \norm{r-c}^2}
+    PGTO_{nlm}(\vb{r})
+    =N_n(r_x-c_x)^{n_x} (r_y-c_y)^{n_y} (r_z-c_z)^{n_z} \exp(-\alpha \norm{\vb{r}-\vb{c}}^2)
 
   where N is the normalization factor
 
@@ -629,8 +663,8 @@ class PGTO(NamedTuple):
   def n_orbs(self) -> int:
     return self.angular.shape[0]
 
-  def normalization_constant(self) -> Int[Array, "*batch"]:
-    return gto_normalization_constant(self.angular, self.exponent)
+  def norm_inv(self) -> Int[Array, "*batch"]:
+    return jax.vmap(pgto_norm_inv)(self.angular, self.exponent)
 
   def at(self, i: Union[slice, int]) -> PGTO:
     """get one PGTO out of the batch"""
@@ -668,7 +702,7 @@ class CGTO(NamedTuple):
   coeff: Float[Array, "*n_pgtos"]
   """CGTO contraction coefficient. n_cgto is usually the number of AO."""
   cgto_splits: Union[Int[Array, "*n_cgtos"], tuple]
-  """Constraction segment lengths. e.g. (3, 3, 3, 3, 3, 3, 3, 3, 3, 3) for
+  """Contraction segment lengths. e.g. (3, 3, 3, 3, 3, 3, 3, 3, 3, 3) for
   O2 in sto-3g. Store it in tuple form so that it is hashable, and can be
   passed to a jitted function as static arg."""
   cgto_seg_id: Int[Array, "n_pgtos"]
