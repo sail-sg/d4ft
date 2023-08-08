@@ -68,11 +68,12 @@ def get_fullerene_geometry(name: str) -> Optional[str]:
 
 def get_refdata_geometry(name: str) -> Tuple[str, int, int]:
   logging.info("loading geometry from refdata")
-  set_name = name.split("_")[0]
+  set_name, sys_name = name.split("-")
   url_head = "https://raw.githubusercontent.com/aoterodelaroza/refdata/master"
-  res = requests.get(f"{url_head}/20_{set_name}/{name}.xyz")
+  url = f"{url_head}/20_{set_name}/{sys_name}.xyz"
+  res = requests.get(url)
   if res.status_code == 404:
-    return None
+    raise ValueError(f"no geometry found for {name}")
   lines = res.content.decode("utf-8").split("\n")
   n_atoms = int(lines[0].strip())
   assert n_atoms == len(lines) - 3
