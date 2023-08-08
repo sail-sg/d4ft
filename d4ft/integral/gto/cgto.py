@@ -146,7 +146,8 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
       ), "basis with kappa is not supported yet"
       pgtos_i = cgto_i[1:]  # [[exp, c_1, c_2, ..], [exp, c_1, c_2, ..], ... ]]
       n_coeffs = len(pgtos_i[0][1:])
-      for cid in range(1, 1 + n_coeffs):
+      # TODO: do not create separate PGTO for each c_1, c_2, ...
+      for cid in range(1, 1 + n_coeffs):  # 0-idx is exponent
         for angular in SHELL_TO_ANGULAR_VEC[shell]:
           cgto_splits.append(len(pgtos_i))
           for pgto_i in pgtos_i:
@@ -170,11 +171,11 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
 
-  cur_ptr = 0
   # normalize each PGTO in cartesian coordinate
   cart_coeffs = jnp.array(coeffs) * pgto.norm_inv()
   normalized_cart_coeff = jnp.array([])
   # normalize each CGTO in cartesian coordinate
+  cur_ptr = 0
   for lgto in cgto_splits:  # get one monomial with different exponents
     n = normalize_cgto_coeff(
       pgto.at(slice(cur_ptr, cur_ptr + lgto)),

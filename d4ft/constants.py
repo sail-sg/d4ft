@@ -59,6 +59,9 @@ def racah_normalization(l: int):
   return np.sqrt((4 * np.pi) / (2 * l + 1))
 
 
+# TODO: change this to a function that takes l and m as input
+# get the R(l) part from racah_normalization, and the other prefactor
+# can be tabulated against l and m.
 REAL_SOLID_SPH_CART_PREFAC = [ #  lm
   0.282094791773878143,        #0 00: 1/R(0)
   0.488602511902919921,        #1 1{1,2,3}: 1/R(1)
@@ -79,15 +82,32 @@ GTO basis with variable exponents is defined as
   \chi^{GTO}_{\alpha_{nl}lm} = R^{GTO}_{\alpha_{nl}lm}(r)Y_{lm}(\theta, \varphi)
 
 Absorbing the :math:`r^l` term from the radial part into the spherical harmonic
-:math:`Y_{lm}`, we have the real solid harmonic
+:math:`Y_{lm}`, we have the solid harmonic
 
 .. math::
   C_{lm}(\vb{r})=r^l Y_{lm}(\theta, \varphi)
 
-Racah's normalization produce nice monomial for s and p orbitals:
-for s we have 1 and for p we have :math:`x,y,z`. To convert back to the
-original spherical harmonics we need to undo it. So we need to multiply
-:math:`1/R(l)`.
+This is a complex function. We can get the real solid harmonic :math:`S_{lm}`,
+which is real-valued, via an unitary transformation. The real solid harmonic
+can be expressed in Cartesian coordinate as polynomials of :math:`x,y,z`.
+For example, for the d shell (:math:`l=2`), we have
+
+.. math::
+  S_{22}(\vb{r})=&\frac{1}{2}\sqrt{3}(x^2-y^2) \\
+  S_{21}(\vb{r})=&\sqrt{3}xz \\
+  S_{20}(\vb{r})=&\frac{1}{2}(2z^2-x^2-y^2) \\
+  S_{2-1}(\vb{r})=&\sqrt{3}yz \\
+  S_{2-2}(\vb{r})=&\sqrt{3}xy
+
+By convention Racah's normalization are applied so that we have nice monomial
+for s and p orbitals: for s we have 1 and for p we have :math:`x,y,z`.
+Therefore to convert back to the original spherical harmonics we need to
+undo it. So we need to multiply :math:`1/R(l)`.
+
+We store the prefactor and the Racah's normalization in the table, which
+are all you need to create real solid harmonics in cartesian coordinates
+with monomials. For example, in the case of :math:`S_{20}`, we have
+ :math:`\frac{1}{2} * \frac{1}{R(2)}=0.315391565252520002`.
 
 Reference:
  - Helgaker 6.6.4
