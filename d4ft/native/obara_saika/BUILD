@@ -62,6 +62,7 @@ cuda_library(
 cc_binary(
     name = "eri_test",
     srcs = ["eri_test.cc"],
+    tags = ["manual"],
     deps = [
         ":eri_kernel",
         # "@cuda//:cudart_static",
@@ -72,6 +73,7 @@ cc_binary(
 cc_binary(
     name = "boys_test",
     srcs = ["boys_test.cc"],
+    tags = ["manual"],
     deps = [
         ":boys",
         # "@cuda//:cudart_static",
