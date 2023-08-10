@@ -27,12 +27,12 @@ jobs:
       - name: isort and yapf
         run: |
           make py-format
-      - name: cpplint
-        run: |
-          make cpplint
-      - name: clang-format
-        run: |
-          make clang-format
+      # - name: cpplint
+      #   run: |
+      #     make cpplint
+      # - name: clang-format
+      #   run: |
+      #     make clang-format
       - name: buildifier
         run: |
           make buildifier

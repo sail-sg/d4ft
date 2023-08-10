@@ -32,7 +32,11 @@ py_library(
 py_library(
     name = "types",
     srcs = ["types.py"],
-    deps = [],
+    deps = [
+        requirement("dm-haiku"),
+        requirement("optax"),
+        requirement("jaxtyping"),
+    ],
 )
 
 py_library(
@@ -51,6 +55,7 @@ py_library(
     srcs = ["config.py"],
     deps = [
         requirement("ml_collections"),
+        requirement("pydantic"),
     ],
 )
 
@@ -69,6 +74,7 @@ py_library(
     srcs = ["utils.py"],
     deps = [
         requirement("einops"),
+        requirement("ml_collections"),
     ],
 )
 

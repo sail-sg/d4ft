@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from pathlib import Path
-
 import numpy as np
 from absl import logging
 from absl.testing import absltest, parameterized
@@ -44,13 +41,8 @@ class CrystalTest(parameterized.TestCase):
 
   @parameterized.parameters(("diamond.xyz", 76.5484253352856),)
   def test_init_from_xyz_file(self, xyz_file: str, expected_vol: float):
-    runfiles_dir = Path(os.environ['TEST_SRCDIR'])
-    logging.info(runfiles_dir)
-    xyz = runfiles_dir / '__main__/d4ft/system/xyz_files' / xyz_file
-    crystal = Crystal.from_xyz_file(xyz)
-
+    crystal = Crystal.from_xyz_file(xyz_file)
     logging.info(f'cell volume:{crystal.vol}')
-
     self.assertAlmostEqual(crystal.vol, expected_vol)
 
 

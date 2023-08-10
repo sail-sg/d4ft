@@ -26,7 +26,9 @@ py_library(
 py_library(
     name = "ortho",
     srcs = ["ortho.py"],
-    deps = [],
+    deps = [
+        requirement("jaxtyping"),
+    ],
 )
 
 py_library(

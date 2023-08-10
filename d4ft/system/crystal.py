@@ -17,6 +17,7 @@ Ref: https://pyscf.org/pyscf_api_docs/pyscf.pbc.gto.html
 """
 from __future__ import annotations  # forward declaration
 
+import os
 from pathlib import Path
 from typing import List, NamedTuple, Union
 
@@ -87,6 +88,9 @@ class Crystal(NamedTuple):
 
   @staticmethod
   def from_xyz_file(file_path: Union[Path, str], spin: int = 0) -> Crystal:
+    if isinstance(file_path, str):  # relative path to stored xyz file
+      here = os.path.abspath(os.path.dirname(__file__))
+      file_path = Path(f"{here}/xyz_files") / file_path
     ase_atoms = ase.io.read(file_path)
     assert isinstance(ase_atoms, ase.Atoms)
     return Crystal.from_ase_cell(ase_atoms, spin)

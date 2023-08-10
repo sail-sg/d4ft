@@ -12,19 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Entrypoint for D4FT."""
+import string
 from typing import Any
 
+import shortuuid
 from absl import app, flags, logging
 from jax.config import config
 from ml_collections.config_flags import config_flags
 
 from d4ft.config import D4FTConfig
-from d4ft.constants import HARTREE_TO_KCALMOL
 from d4ft.solver.drivers import (
   incore_cgto_direct_opt_dft,
   incore_cgto_pyscf_dft_benchmark,
   incore_cgto_scf_dft,
 )
+from d4ft.system.refdata import get_refdata_benchmark_set
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
@@ -32,7 +34,10 @@ flags.DEFINE_enum(
   "which routine to run"
 )
 flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
+flags.DEFINE_string("benchmark", "", "the refdata benchmark set to run")
 flags.DEFINE_bool("use_f64", False, "whether to use float64")
+flags.DEFINE_bool("pyscf", False, "whether to benchmark against pyscf results")
+flags.DEFINE_bool("save", False, "whether to save results and trajectories")
 
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
@@ -43,30 +48,43 @@ def main(_: Any) -> None:
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
 
+  if FLAGS.save:
+    with cfg.unlocked():
+      cfg.uuid = shortuuid.ShortUUID(
+        alphabet=string.ascii_lowercase + string.digits
+      ).random(8)
+
+  if FLAGS.benchmark != "":
+    assert FLAGS.save
+
+    with cfg.unlocked():
+      cfg.uuid = ",".join([FLAGS.benchmark, cfg.get_core_cfg_str(), cfg.uuid])
+
+    cfg.save()
+
+    systems, _, _ = get_refdata_benchmark_set(FLAGS.benchmark)
+    for system in systems:
+      with cfg.unlocked():
+        cfg.mol_cfg.mol = system
+
+      try:
+        if FLAGS.run == "direct":
+          incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf)
+        else:
+          raise NotImplementedError
+      except Exception as e:
+        logging.error(e)
+
+    return
+
   if FLAGS.run == "direct":
-    incore_cgto_direct_opt_dft(cfg)
+    incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf)
 
   elif FLAGS.run == "scf":
     incore_cgto_scf_dft(cfg)
 
   elif FLAGS.run == "pyscf":
     incore_cgto_pyscf_dft_benchmark(cfg)
-
-  elif FLAGS.run == "reaction":
-    systems = FLAGS.reaction.split("_")
-
-    e = {}
-    for system in systems:
-      cfg.mol_cfg.mol = f"bh76_{system}"
-      e[system] = incore_cgto_direct_opt_dft(cfg)
-
-    e_barrier = e[systems[2]] - e[systems[1]] - e[systems[0]]
-
-    for system in systems:
-      logging.info(f"e_{system} = {e[system]} Ha")
-    logging.info(
-      f"e_barrier = {e_barrier} Ha = {e_barrier * HARTREE_TO_KCALMOL} kcal/mol"
-    )
 
 
 if __name__ == "__main__":

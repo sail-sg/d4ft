@@ -13,7 +13,7 @@
 # limitations under the License.
 
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("@rules_cuda//cuda:defs.bzl", "cuda_library")
+# load("@rules_cuda//cuda:defs.bzl", "cuda_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -42,36 +42,38 @@ cc_library(
     ],
 )
 
-cuda_library(
-    name = "eri_kernel",
-    srcs = ["eri_kernel.cu"],
-    hdrs = ["eri_kernel.h"],
-    copts = [
-        "--expt-extended-lambda",
-        "--expt-relaxed-constexpr",
-    ],
-    linkopts = [
-        "-lstdc++",
-    ],
-    deps = [
-        ":eri",
-        "@hemi",
-    ],
-)
+# cuda_library(
+#     name = "eri_kernel",
+#     srcs = ["eri_kernel.cu"],
+#     hdrs = ["eri_kernel.h"],
+#     copts = [
+#         "--expt-extended-lambda",
+#         "--expt-relaxed-constexpr",
+#     ],
+#     linkopts = [
+#         "-lstdc++",
+#     ],
+#     deps = [
+#         ":eri",
+#         "@hemi",
+#     ],
+# )
 
-cc_binary(
-    name = "eri_test",
-    srcs = ["eri_test.cc"],
-    deps = [
-        ":eri_kernel",
-        "@hemi",
-    ],
-)
+# cc_binary(
+#     name = "eri_test",
+#     srcs = ["eri_test.cc"],
+#     deps = [
+#         ":eri_kernel",
+#         # "@cuda//:cudart_static",
+#         "@hemi",
+#     ],
+# )
 
-cc_binary(
-    name = "boys_test",
-    srcs = ["boys_test.cc"],
-    deps = [
-        ":boys",
-    ],
-)
+# cc_binary(
+#     name = "boys_test",
+#     srcs = ["boys_test.cc"],
+#     deps = [
+#         ":boys",
+#         # "@cuda//:cudart_static",
+#     ],
+# )

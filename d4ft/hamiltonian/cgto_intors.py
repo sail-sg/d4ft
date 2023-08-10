@@ -62,8 +62,8 @@ def get_cgto_intor(
 ) -> CGTOIntors:
   """
   Args:
-    intor: which intor to use
-    incore_tensor: if provided, calculate energy incore
+    intor: which integrator to use
+    incore_energy_tensors: if provided, calculate energy incore
   """
   # TODO: test join optimization with hk=True
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
