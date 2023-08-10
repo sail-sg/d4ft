@@ -26,7 +26,7 @@ cc_library(
     hdrs = ["custom_call.h"],
     deps = [
         ":specs",
-        "@cuda//:cudart_static",
+        # "@cuda//:cudart_static",
     ],
 )
 

@@ -170,7 +170,7 @@ class Xla : public CustomCall {
    * constructors for non-member functions
    * */
   template <bool IM = IsMember, std::enable_if_t<!IM, bool> = true>
-  Xla() = default;
+  Xla(){};
 
   /**
    * constructors for member functions

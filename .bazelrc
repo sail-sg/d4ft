@@ -3,10 +3,10 @@ build --@rules_cuda//cuda:enable_cuda
 build --@rules_cuda//cuda:copts=-std=c++17
 build --repo_env=CUDA_DIR=/opt/cuda
 build --repo_env=CUDA_PATH=/opt/cuda
-build --repo_env=CC=gcc-12
+#build --repo_env=CC=gcc-12
 # TODO: check whether both env var are needed
 build --action_env=CUDA_PATH=/opt/cuda
-build --action_env=CC=gcc-12
+#build --action_env=CC=gcc-12
 # build --python_path=/home/zekun/workspace/d4ft/.venv/bin/python
 
 build --action_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm

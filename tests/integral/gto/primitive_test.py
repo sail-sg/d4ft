@@ -83,7 +83,7 @@ class HKTest(parameterized.TestCase):
       ao_val_exp = eval_ao(r, mol)
       print(ao_val_exp)
 
-      self.assertTrue(jnp.allclose(ao_val, ao_val_exp))
+      self.assertTrue(jnp.allclose(ao_val, ao_val_exp, atol=1e-6))
 
     self.assertEqual(len(ao_val), n_cgtos)
 

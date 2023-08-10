@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -28,6 +29,7 @@ py_library(
         "//d4ft/integral/gto:symmetry",
         "//d4ft/integral/gto:tensorization",
         "//d4ft/integral/obara_saika",
+        requirement("tqdm"),
     ],
 )
 
