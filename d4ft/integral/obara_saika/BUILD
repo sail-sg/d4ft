@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
