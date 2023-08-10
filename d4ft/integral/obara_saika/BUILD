@@ -28,6 +28,7 @@ py_library(
         "//d4ft/integral/gto:symmetry",
         "//d4ft/integral/gto:tensorization",
         "//d4ft/integral/obara_saika",
+        requirement("tqdm"),
     ],
 )
 

@@ -25,6 +25,8 @@ py_test(
         requirement("dm-haiku"),
         requirement("jax"),
         requirement("jaxlib"),
+        requirement("numpy"),
+        requirement("absl-py"),
     ],
 )
 
