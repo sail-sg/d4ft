@@ -14,7 +14,7 @@
 from __future__ import annotations  # forward declaration
 
 import math
-from typing import Callable, NamedTuple, Optional, Tuple, Union
+from typing import Callable, NamedTuple, Optional, Tuple, Union, Sequence
 
 import haiku as hk
 import jax
@@ -154,19 +154,14 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
             exponent = pgto_i[0]
             coeff = pgto_i[cid]
             n_pgtos += 1
-            pgto.append((angular, coord, exponent))
+            pgto.append(PGTO(angular, coord, exponent))
             coeffs.append(coeff)
             shells.append(cgto_i[0])
 
     atom_splits.append(n_pgtos)
 
   # NOTE: do not use jnp for angular as it will cause tracing error
-  pgto = PGTO(
-    *[
-      np.array(np.stack(a, axis=0)) if i ==
-      0 else jnp.array(np.stack(a, axis=0)) for i, a in enumerate(zip(*pgto))
-    ]
-  )
+  pgto = PGTO.concat(pgto)
 
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
@@ -626,12 +621,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
       atom_ptr += 1
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
-  pgto = PGTO(
-    *[
-      np.array(np.stack(a, axis=0)) if i ==
-      0 else jnp.array(np.stack(a, axis=0)) for i, a in enumerate(zip(*pgto))
-    ]
-  )
+  pgto = PGTO.concat(pgto)
   cgto_sph = CGTO(
     pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
     jnp.array(atom_splits), cgto_cart.charge, cgto_cart.nocc, shells
@@ -671,25 +661,35 @@ class PGTO(NamedTuple):
     """get one PGTO out of the batch"""
     return PGTO(self.angular[i], self.center[i], self.exponent[i])
 
+  @staticmethod
+  def concat(pgtos: Sequence[PGTO]) -> PGTO:
+    """Return the concatenation of a sequence of PGTO singletons.
+    Note that the angular needs to be a numpy array to avoid tracing error.
+    """
+    angular, center, exponent = map(np.stack, zip(*pgtos))
+    return PGTO(angular, jnp.array(center), jnp.array(exponent))
+
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "*batch"]:
-    """Evaluate GTO (unnormalized) with given real space coordinate.
+    """Evaluate PGTO (unnormalized) with given real space coordinate.
 
     Args:
       r: 3D real space coordinate
 
     Returns:
-      unnormalized gto
+      batch of unnormalized pgto
     """
-    xyz_lmn = []
+    angular_cart = []
     for i in range(self.n_orbs):
-      xyz_lmn_i = 1.0
+      angular_cart_i = 1.0
       for d in range(3):  # x, y, z
         if self.angular[i, d] > 0:
-          xyz_lmn_i *= jnp.power(r[d] - self.center[i, d], self.angular[i, d])
-      xyz_lmn.append(xyz_lmn_i)
-    xyz_lmn = jnp.array(xyz_lmn)
+          angular_cart_i *= jnp.power(
+            r[d] - self.center[i, d], self.angular[i, d]
+          )
+      angular_cart.append(angular_cart_i)
+    angular_cart = jnp.array(angular_cart)
     exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
-    return xyz_lmn * exp
+    return angular_cart * exp
 
 
 class CGTO(NamedTuple):
