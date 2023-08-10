@@ -71,7 +71,9 @@ py_library(
 py_library(
     name = "cccdbd",
     srcs = ["cccdbd.py"],
-    deps = [],
+    deps = [
+        requirement("bs4"),
+    ],
 )
 
 py_library(
