@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Literal
 from pathlib import Path
+from typing import Literal
 
 from ml_collections import ConfigDict
 from pydantic.config import ConfigDict as PydanticConfigDict
@@ -27,9 +27,9 @@ class GDConfig:
   """Config for direct minimization with gradient descent solver."""
   lr: float = 1e-2
   """learning rate"""
-  lr_decay: Literal["none", "piecewise", "cosine"] = "piecewise"
+  lr_decay: Literal["none", "piecewise", "cosine"] = "none"
   """learning rate schedule"""
-  optimizer: Literal["adam", "sgd", "rmsprop"] = "adam"
+  optimizer: Literal["adam", "sgd", "rmsprop"] = "rmsprop"
   """which optimizer to use"""
   epochs: int = 4000
   """number of updates/iterations"""
@@ -40,7 +40,7 @@ class GDConfig:
   which is used for gradient descent convergence checking"""
   meta_lr: float = 0.03
   """meta learning rate"""
-  meta_opt: Literal["none", "adam", "sgd", "rmsprop"] = "none"
+  meta_opt: Literal["none", "adam", "sgd", "rmsprop"] = "adam"
   """meta optimizer to use, none to disable"""
 
 

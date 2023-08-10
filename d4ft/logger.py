@@ -14,12 +14,12 @@
 """Logger for metrics."""
 
 import time
-from pathlib import Path
 from typing import NamedTuple
-from d4ft.config import D4FTConfig
 
 import pandas as pd
 from absl import logging
+
+from d4ft.config import D4FTConfig
 
 
 class RunLogger:

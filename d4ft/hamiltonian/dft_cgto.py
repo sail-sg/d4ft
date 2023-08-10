@@ -38,8 +38,8 @@ def dft_cgto(
   mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]] = None,
 ) -> Tuple[Callable, Hamiltonian]:
   """Electron Hamiltonian with single Slater determinant ansatz (Hartree-Fock),
-  discretized the in CGTO/AO basis. All energy integral are computed analytically
-  except for XC which is integrated numerically with quadrature.
+  discretized the in CGTO/AO basis. All energy integral are computed
+  analytically except for XC which is integrated numerically with quadrature.
 
   It compose mo_coeff_fn with the cgto intors, and create a energy_fn
   that computes the total energy with logging.

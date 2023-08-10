@@ -14,14 +14,14 @@
 # limitations under the License.
 """High level routine for full calculations"""
 
+import pickle
 from functools import partial
 from typing import Callable, Tuple
-import numpy as np
-import pickle
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import numpy as np
 import pyscf
 from absl import logging
 from jaxtyping import Array, Float
@@ -162,11 +162,6 @@ def incore_cgto_direct_opt_dft(
   params = H_transformed.init(key)
   H = Hamiltonian(*H_transformed.apply)
 
-  if run_pyscf_benchmark:
-    pyscf_logger = pyscf_dft_benchmark(
-      cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
-    )
-
   logger, traj = sgd(cfg.gd_cfg, H, params, key)
 
   min_e_step = logger.data_df.e_total.astype(float).idxmin()
@@ -183,6 +178,22 @@ def incore_cgto_direct_opt_dft(
   #   rdm1=rdm1,
   # )
   # breakpoint()
+
+  if run_pyscf_benchmark:
+    pyscf_logger = pyscf_dft_benchmark(
+      cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
+    )
+
+    logging.info("energy diff")
+    logging.info(
+      pyscf_logger.data_df.iloc[-1] - logger.data_df.iloc[min_e_step]
+    )
+    logging.info("time diff")
+    pyscf_e_total = pyscf_logger.data_df.e_total[0]
+    e_lower_step = (logger.data_df.e_total < pyscf_e_total).argmax()
+    t_total = logger.data_df.iloc[:e_lower_step].time.sum()
+    logging.info(f"pyscf time: {pyscf_logger.data_df.time[0]}")
+    logging.info(f"d4ft time: {t_total}")
 
   if cfg.uuid != "":
     logger.save(cfg, "direct_opt")
@@ -217,7 +228,6 @@ def pyscf_dft_benchmark(
   xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
 
   # solve for ground state with PySCF and get the mo_coeff
-  logger = RunLogger()  # start timer
   atom_mf, mo_coeff = pyscf_wrapper(
     pyscf_mol, cfg.dft_cfg.rks, cfg.dft_cfg.xc_type, cfg.intor_cfg.quad_level
   )
@@ -233,6 +243,7 @@ def pyscf_dft_benchmark(
   _, (energies, _) = H.energy_fn(mo_coeff)
   e1 = energies.e_kin + energies.e_ext
 
+  logger = RunLogger()  # start timer
   logger.log_step(energies, 0)
   logger.get_segment_summary()
   logging.info(f"1e energy:{e1}")

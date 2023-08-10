@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Optional, Any, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import pyscf

@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Entrypoint for D4FT."""
+import string
 from typing import Any
 
+import shortuuid
 from absl import app, flags, logging
 from jax.config import config
 from ml_collections.config_flags import config_flags
 
-import string
-import shortuuid
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCALMOL
 from d4ft.solver.drivers import (
