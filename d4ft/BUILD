@@ -55,6 +55,7 @@ py_library(
     srcs = ["config.py"],
     deps = [
         requirement("ml_collections"),
+        requirement("pydantic"),
     ],
 )
 
