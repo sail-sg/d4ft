@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_library")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -30,13 +31,19 @@ py_library(
         "//d4ft:types",
         "//d4ft:utils",
         "//d4ft/system:mol",
+        requirement("jaxtyping"),
     ],
 )
 
 py_library(
     name = "symmetry",
     srcs = ["symmetry.py"],
-    deps = ["//d4ft:types"],
+    deps = [
+        "//d4ft:types",
+        requirement("jaxtyping"),
+        requirement("jax"),
+        requirement("jaxlib"),
+    ],
 )
 
 py_library(

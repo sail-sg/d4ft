@@ -5,8 +5,8 @@ einops==0.6.1
 jax-xc>=0.0.7
 # --find-links https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 # jax[cuda12_local]==0.4.13
-jax==0.4.13
-# jaxlib>=0.3.25
+jax>=0.4.13
+jaxlib>=0.3.25
 jaxtyping==0.2.15
 matplotlib==3.7.2
 ml_collections==0.1.1

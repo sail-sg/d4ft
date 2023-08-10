@@ -19,6 +19,7 @@ cc_library(
     name = "constants",
     hdrs = ["constants.h"],
     deps = [
+        "@cuda//:cudart_static",
         "@hemi",
     ],
 )
@@ -26,7 +27,9 @@ cc_library(
 cc_library(
     name = "lgamma",
     hdrs = ["lgamma.h"],
-    deps = [":constants"],
+    deps = [
+        ":constants",
+    ],
 )
 
 cc_library(

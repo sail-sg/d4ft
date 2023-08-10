@@ -34,6 +34,7 @@ py_library(
     deps = [
         "//d4ft:constants",
         "//d4ft:types",
+        requirement("ase"),
     ],
 )
 
@@ -63,6 +64,7 @@ py_library(
         ":occupation",
         ":utils",
         "//d4ft:types",
+        requirement("pyscf"),
     ],
 )
 
@@ -75,7 +77,9 @@ py_library(
 py_library(
     name = "refdata",
     srcs = ["refdata.py"],
-    deps = [],
+    deps = [
+        requirement("pandas"),
+    ],
 )
 
 py_library(

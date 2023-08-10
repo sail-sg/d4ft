@@ -116,7 +116,7 @@ class PW(NamedTuple):
 
     # TODO: fermi-dirac distribution above zero temp
     nocc = get_occupation_mask(
-      tot_electrons, tot_electrons * tot_kpts, crystal.spin
+      tot_electrons, tot_electrons * tot_kpts, crystal.spin, charge=0
     ).reshape(2, tot_electrons, tot_kpts)
 
     reciprocal_lattice_vec = tile_cell_to_lattice(

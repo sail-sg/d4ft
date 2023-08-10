@@ -18,6 +18,7 @@ load("@rules_python//python:defs.bzl", "py_test")
 py_test(
     name = "primitive_test",
     srcs = ["primitive_test.py"],
+    data = ["//d4ft/system:xyz_files"],
     deps = [
         "//d4ft/integral/gto:cgto",
         "//d4ft/system:mol",
@@ -33,7 +34,5 @@ py_test(
     deps = [
         "//d4ft/integral/gto:symmetry",
         requirement("absl-py"),
-        requirement("jax"),
-        requirement("jaxlib"),
     ],
 )
