@@ -124,10 +124,16 @@ class D4FTConfig(ConfigDict):
         "RKS only supports closed-shell molecules"
 
   def get_save_dir(self) -> Path:
-    run_dir = "+".join(
-      [self.mol_cfg.mol, self.mol_cfg.basis, self.dft_cfg.xc_type]
-    )
-    return Path(f"_exp/{self.uuid}/{run_dir}")
+    return Path(f"_exp/{self.uuid}/{self.mol_cfg.mol}")
+
+  def get_core_cfg_str(self) -> str:
+    return "+".join([self.mol_cfg.basis, self.dft_cfg.xc_type])
+
+  def save(self):
+    save_path = self.get_save_dir().parent
+    save_path.mkdir(parents=True, exist_ok=True)
+    with open(save_path / "config.txt", "w") as f:
+      f.write(str(self))
 
 
 def get_config(config_string: str = "") -> D4FTConfig:

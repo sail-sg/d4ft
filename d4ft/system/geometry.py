@@ -23,6 +23,7 @@ from absl import logging
 import d4ft.system.cccdbd
 import d4ft.system.fake_fullerene
 from d4ft.system.cccdbd import query_geometry_from_cccbdb
+from d4ft.system.refdata import get_refdata_geometry
 from d4ft.system.utils import periodic_table
 
 
@@ -64,23 +65,6 @@ def get_fullerene_geometry(name: str) -> Optional[str]:
     # remove header
     geometry = "\n".join(geometry.split("\n")[2:])
     return geometry
-
-
-def get_refdata_geometry(name: str) -> Tuple[str, int, int]:
-  logging.info("loading geometry from refdata")
-  set_name, sys_name = name.split("-")
-  url_head = "https://raw.githubusercontent.com/aoterodelaroza/refdata/master"
-  url = f"{url_head}/20_{set_name}/{sys_name}.xyz"
-  res = requests.get(url)
-  if res.status_code == 404:
-    raise ValueError(f"no geometry found for {name}")
-  lines = res.content.decode("utf-8").split("\n")
-  n_atoms = int(lines[0].strip())
-  assert n_atoms == len(lines) - 3
-  charge, spin_p1 = map(int, lines[1].strip().split(" "))
-  spin = spin_p1 - 1
-  geometry = "\n".join(lines[2:])
-  return geometry, charge, spin
 
 
 def get_mol_geometry(

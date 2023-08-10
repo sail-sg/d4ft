@@ -49,6 +49,7 @@ py_library(
     deps = [
         ":cccdbd",
         ":fake_fullerene",
+        ":refdata",
         ":utils",
         requirement("pubchempy"),
     ],
@@ -68,6 +69,12 @@ py_library(
 py_library(
     name = "cccdbd",
     srcs = ["cccdbd.py"],
+    deps = [],
+)
+
+py_library(
+    name = "refdata",
+    srcs = ["refdata.py"],
     deps = [],
 )
 
