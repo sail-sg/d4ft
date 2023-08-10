@@ -68,7 +68,7 @@ class IntorConfig:
 @dataclass(config=pydantic_config)
 class MoleculeConfig:
   """Config for molecule"""
-  mol: str = "o2"
+  mol: str = "O2"
   """name of the molecule, or the path to the geometry file, which
   specifies the geometry in the format
   <atom_type> <xyz coordinate in angstrom>.

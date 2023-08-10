@@ -51,11 +51,12 @@ def incore_hf_cgto(cfg: D4FTConfig):
   )
   mol = Mol.from_pyscf_mol(pyscf_mol)
   cfg.validate(mol.spin, mol.charge)
-  cgto = CGTO.from_mol(mol)
+  cgto_cart = CGTO.from_mol(mol)
+  cgto = CGTO.from_cart(cgto_cart)
 
   # TODO: intor.split() for pmap / batched
-  s2 = obsa.angular_static_args(*[cgto.primitives.angular] * 2)
-  s4 = obsa.angular_static_args(*[cgto.primitives.angular] * 4)
+  s2 = obsa.angular_static_args(*[cgto.pgto.angular] * 2)
+  s4 = obsa.angular_static_args(*[cgto.pgto.angular] * 4)
   incore_e_tensors = incore_int_sym(cgto, s2, s4)
 
   dg = DifferentiableGrids(pyscf_mol)
