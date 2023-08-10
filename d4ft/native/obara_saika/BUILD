@@ -64,7 +64,7 @@ cc_binary(
     srcs = ["eri_test.cc"],
     deps = [
         ":eri_kernel",
-        "@cuda//:cudart_static",
+        # "@cuda//:cudart_static",
         "@hemi",
     ],
 )
@@ -74,6 +74,6 @@ cc_binary(
     srcs = ["boys_test.cc"],
     deps = [
         ":boys",
-        "@cuda//:cudart_static",
+        # "@cuda//:cudart_static",
     ],
 )

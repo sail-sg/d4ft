@@ -38,7 +38,7 @@ cuda_library(
     ],
     deps = [
         ":example_h",
-        "@cuda//:cudart_static",
+        # "@cuda//:cudart_static",
     ],
 )
 
@@ -61,7 +61,7 @@ py_test(
     srcs = ["example_test.py"],
     data = [
         ":example.so",
-        "@cuda//:bin",
+        # "@cuda//:bin",
     ],
     deps = [
         "//d4ft/native/xla:custom_call",
