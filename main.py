@@ -18,6 +18,8 @@ from absl import app, flags, logging
 from jax.config import config
 from ml_collections.config_flags import config_flags
 
+import string
+import shortuuid
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCALMOL
 from d4ft.solver.drivers import (
@@ -33,6 +35,8 @@ flags.DEFINE_enum(
 )
 flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
 flags.DEFINE_bool("use_f64", False, "whether to use float64")
+flags.DEFINE_bool("pyscf", False, "whether to benchmark against pyscf results")
+flags.DEFINE_bool("save", False, "whether to save results and trajectories")
 
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
@@ -43,8 +47,14 @@ def main(_: Any) -> None:
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
 
+  if FLAGS.save:
+    with cfg.unlocked():
+      cfg.uuid = shortuuid.ShortUUID(
+        alphabet=string.ascii_lowercase + string.digits
+      ).random(8)
+
   if FLAGS.run == "direct":
-    incore_cgto_direct_opt_dft(cfg)
+    incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf)
 
   elif FLAGS.run == "scf":
     incore_cgto_scf_dft(cfg)

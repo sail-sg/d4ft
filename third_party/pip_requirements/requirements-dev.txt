@@ -19,5 +19,6 @@ pyscf==2.3.0
 requests==2.31.0
 scipy>=1.9.0
 setuptools==68.0.0
+shortuuid==1.0.11
 tqdm==4.64.1
 wheel==0.40.0

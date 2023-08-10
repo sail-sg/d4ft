@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Tuple
+from typing import Callable, Optional, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -32,12 +32,18 @@ from d4ft.utils import compose
 
 
 def dft_cgto(
-  cgto: CGTO, cgto_intors: CGTOIntors, xc_fn: Callable,
-  mo_coeff_fn: Callable[[], MoCoeffFlat]
+  cgto: CGTO,
+  cgto_intors: CGTOIntors,
+  xc_fn: Callable,
+  mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]] = None,
 ) -> Tuple[Callable, Hamiltonian]:
   """Electron Hamiltonian with single Slater determinant ansatz (Hartree-Fock),
-  discretized the in GTO basis. All energy integral are computed analytically
-  except for XC which is integrated numerically with quadrature."""
+  discretized the in CGTO/AO basis. All energy integral are computed analytically
+  except for XC which is integrated numerically with quadrature.
+
+  It compose mo_coeff_fn with the cgto intors, and create a energy_fn
+  that computes the total energy with logging.
+  """
 
   kin_fn, ext_fn, har_fn = cgto_intors
 
@@ -57,6 +63,11 @@ def dft_cgto(
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
     grads = Grads(kin_grads, ext_grads, har_grads, xc_grads)
     return e_total, (energies, grads)
+
+  if mo_coeff_fn is None:
+    return energy_fn, Hamiltonian(
+      kin_fn, ext_fn, har_fn, xc_fn, nuc_fn, energy_fn, mo_coeff_fn
+    )
 
   kin_fn_, ext_fn_, har_fn_, xc_fn_, energy_fn_ = [
     compose(e_fn, mo_coeff_fn)

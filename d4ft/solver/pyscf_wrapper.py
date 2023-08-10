@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Optional
+from typing import Optional, Any, Tuple
 
 import numpy as np
 import pyscf
@@ -33,7 +33,7 @@ def pyscf_wrapper(
   verbose: int = 2,
   max_cycle: int = 50,
   rdm1: Optional[RDM1] = None,
-) -> MoCoeff:
+) -> Tuple[Any, MoCoeff]:
   if rks:
     atom_mf = scf.RKS(mol)
   else:
@@ -60,4 +60,4 @@ def pyscf_wrapper(
   else:
     mo_coeff = np.transpose(atom_mf.mo_coeff, (0, 2, 1))
 
-  return mo_coeff
+  return atom_mf, mo_coeff

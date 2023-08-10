@@ -16,6 +16,7 @@
 import time
 from pathlib import Path
 from typing import NamedTuple
+from d4ft.config import D4FTConfig
 
 import pandas as pd
 from absl import logging
@@ -31,10 +32,10 @@ class RunLogger:
   def reset(self) -> None:
     self.last_t = self.data_df.index[-1]
 
-  def save_as_csv(self, csv_path: str) -> None:
-    csv_path_ = Path(csv_path)
-    csv_path_.parent.mkdir(parents=True, exist_ok=True)
-    self.data_df.to_csv(csv_path_)
+  def save(self, cfg: D4FTConfig, csv_name: str) -> None:
+    csv_path = cfg.get_save_dir() / f"{csv_name}.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    self.data_df.to_csv(csv_path)
 
   def log_step(self, metrics: NamedTuple, t: int) -> None:
     step_df = pd.DataFrame([metrics], index=[t])

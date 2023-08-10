@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from typing import Literal
+from pathlib import Path
 
 from ml_collections import ConfigDict
 from pydantic.config import ConfigDict as PydanticConfigDict
@@ -103,6 +104,7 @@ class D4FTConfig(ConfigDict):
   mol_cfg: MoleculeConfig
   gd_cfg: GDConfig
   scf_cfg: SCFConfig
+  uuid: str
 
   def __init__(self, config_string: str) -> None:
     super().__init__(
@@ -112,6 +114,7 @@ class D4FTConfig(ConfigDict):
         "mol_cfg": MoleculeConfig(),
         "gd_cfg": GDConfig(),
         "scf_cfg": SCFConfig(),
+        "uuid": "",
       }
     )
 
@@ -119,6 +122,12 @@ class D4FTConfig(ConfigDict):
     if self.dft_cfg.rks and self.mol_cfg.mol not in ["bh76_h", "h"]:
       assert spin == 0 and charge == 0, \
         "RKS only supports closed-shell molecules"
+
+  def get_save_dir(self) -> Path:
+    run_dir = "+".join(
+      [self.mol_cfg.mol, self.mol_cfg.basis, self.dft_cfg.xc_type]
+    )
+    return Path(f"_exp/{self.uuid}/{run_dir}")
 
 
 def get_config(config_string: str = "") -> D4FTConfig:
