@@ -14,7 +14,7 @@
 from __future__ import annotations  # forward declaration
 
 import math
-from typing import Callable, NamedTuple, Optional, Tuple, Union, Sequence
+from typing import Callable, NamedTuple, Optional, Sequence, Tuple, Union
 
 import haiku as hk
 import jax
@@ -25,8 +25,8 @@ from absl import logging
 from jaxtyping import Array, Float, Int
 
 from d4ft.constants import (
-  SHELL_TO_ANGULAR_VEC,
   REAL_SOLID_SPH_CART_PREFAC,
+  SHELL_TO_ANGULAR_VEC,
   Shell,
 )
 from d4ft.system.mol import Mol
@@ -123,9 +123,9 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
   Reference:
    - https://pyscf.org/user/gto.html#basis-set
-   - https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html,
-   - https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/,
-   - https://github.com/sunqm/libcint/blob/747d6c0dd838d20abdc9a4c9e4c62d196a855bc0/src/cart2sph.c
+   - https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html
+   - https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/
+   - https://github.com/sunqm/libcint/blob/master/src/cart2sph.c
 
   Returns:
     all translated GTOs.
@@ -211,7 +211,8 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
 
     # s shell: same as cartesian
     if shell == 0:
-      # TODO: replace this with cgto_cart.pgto.at(slice(cgto_ptr, cgto_ptr+n_pgtos))
+      # TODO: replace this with
+      # cgto_cart.pgto.at(slice(cgto_ptr, cgto_ptr+n_pgtos))
       for j in range(n_pgtos):
         pgto.append(
           (
@@ -635,7 +636,8 @@ class PGTO(NamedTuple):
 
   .. math::
     PGTO_{nlm}(\vb{r})
-    =N_n(r_x-c_x)^{n_x} (r_y-c_y)^{n_y} (r_z-c_z)^{n_z} \exp(-\alpha \norm{\vb{r}-\vb{c}}^2)
+    =N_n(r_x-c_x)^{n_x} (r_y-c_y)^{n_y} (r_z-c_z)^{n_z}
+     \exp(-\alpha \norm{\vb{r}-\vb{c}}^2)
 
   where N is the normalization factor
 

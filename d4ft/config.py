@@ -75,7 +75,7 @@ class MoleculeConfig:
   For example H2:
   H 0.0000 0.0000 0.0000;
   H 0.0000 0.0000 0.7414;"""
-  basis: str = "sto-3g"  #"sto-3g"
+  basis: str = "sto-3g"
   """name of the atomic basis set"""
   spin: int = -1
   """number of unpaired electrons. -1 means all electrons are

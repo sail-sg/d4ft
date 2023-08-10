@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from enum import Enum
+
 import numpy as np
 
 
@@ -53,8 +54,8 @@ def racah_normalization(l: int):
   :math:`R(l)=\sqrt{\frac{4\pi}{2l+1}}`
 
   The solid harmonic :math:`\mathcal{Y}_{lm}=r^l*Y_{lm}` uses the same
-  normalization, and also the real solid harmonics s_{lm}, since they are obtained via
-  unitary tranformation from the solid harmonic.
+  normalization, and also the real solid harmonics s_{lm}, since they are
+  obtained via unitary tranformation from the solid harmonic.
   """
   return np.sqrt((4 * np.pi) / (2 * l + 1))
 
@@ -62,15 +63,15 @@ def racah_normalization(l: int):
 # TODO: change this to a function that takes l and m as input
 # get the R(l) part from racah_normalization, and the other prefactor
 # can be tabulated against l and m.
-REAL_SOLID_SPH_CART_PREFAC = [ #  lm
-  0.282094791773878143,        #0 00: 1/R(0)
-  0.488602511902919921,        #1 1{1,2,3}: 1/R(1)
-  1.092548430592079070,        #2 2{1,2}: 1/R(2) * np.sqrt(3)
-  0.315391565252520002,        #3 2{0}: 1/R(2) * 0.5
-  0.746352665180230782 / 2,    #4 3{0}: 1/R(3) * 0.5
-  0.590043589926643510,        #5 3{3}: 1/R(3) * 0.5 * np.sqrt(5/2)
-  0.457045799464465739,        #6 3{1}: 1/R(3) * 0.5 * np.sqrt(3/2)
-  1.445305721320277020,        #7 3{2}: 1/R(3) * 0.5 * np.sqrt(15)
+REAL_SOLID_SPH_CART_PREFAC = [  # i lm
+  0.282094791773878143,         # 0 00: 1/R(0)
+  0.488602511902919921,         # 1 1{1,2,3}: 1/R(1)
+  1.092548430592079070,         # 2 2{1,2}: 1/R(2) * np.sqrt(3)
+  0.315391565252520002,         # 3 2{0}: 1/R(2) * 0.5
+  0.746352665180230782 / 2,     # 4 3{0}: 1/R(3) * 0.5
+  0.590043589926643510,         # 5 3{3}: 1/R(3) * 0.5 * np.sqrt(5/2)
+  0.457045799464465739,         # 6 3{1}: 1/R(3) * 0.5 * np.sqrt(3/2)
+  1.445305721320277020,         # 7 3{2}: 1/R(3) * 0.5 * np.sqrt(15)
 ]
 r"""The prefactor of the real solid harmonics under Cartesian coordinate,
 mulitplied by inverse of Racah's normalization for total angular momentum of
