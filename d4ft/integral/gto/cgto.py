@@ -27,7 +27,6 @@ from jaxtyping import Array, Float, Int
 from d4ft.integral.gto.utils import (
   MONOMIALS_TO_REAL_SOLID_HARMONICS,
   REAL_SOLID_HARMONICS_PREFAC,
-  SPH_PREFAC,
   Shell,
   get_cart_angular_vec,
   racah_norm,

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Dict, Tuple
-
 from enum import Enum
+from typing import Dict, List, Tuple
+
 import numpy as np
 from jaxtyping import Int
 
