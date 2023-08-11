@@ -24,8 +24,14 @@ import scipy.special
 from absl import logging
 from jaxtyping import Array, Float, Int
 
-from d4ft.constants import REAL_SOLID_SPH_CART_PREFAC
-from d4ft.integral.gto.utils import get_cart_angular_vec
+from d4ft.integral.gto.utils import (
+  MONOMIALS_TO_REAL_SOLID_HARMONICS,
+  REAL_SOLID_HARMONICS_PREFAC,
+  SPH_PREFAC,
+  Shell,
+  get_cart_angular_vec,
+  racah_norm,
+)
 from d4ft.system.mol import Mol
 from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
@@ -36,7 +42,10 @@ perm_2n_n = jnp.array(scipy.special.perm(2 * _r25, _r25))
  Used in GTO normalization and OS horizontal recursion."""
 
 
-def gaussian_integral(n: Int[Array, "*batch"], alpha: Float[Array, "*batch"]):
+def gaussian_integral(
+  n: Int[Array, "*batch"],
+  alpha: Float[Array, "*batch"],
+) -> Float[Array, "*batch"]:
   r"""Evaluate gaussian integral using the gamma function.
 
   .. math::
@@ -66,13 +75,16 @@ def pgto_norm_inv(
   )
 
 
-def normalize_cgto_coeff(pgto: PGTO, coeff: Float[Array, "*n_pgtos"]):
+def normalize_cgto_coeff(
+  pgto: PGTO, coeff: Float[Array, "*n_pgtos"]
+) -> Float[Array, "*n_pgtos"]:
   r"""Normalize the contraction coefficients of CGTO such that the
   CGTO with normalized coefficients has norm of 1.
 
   The input should be a batch of PGTOs corresponding to one CGTO.
+  Therefore all PGTOs has the same angular.
   """
-  # total angular momentum, asuming all PGTOs has the same angular
+  # total angular momentum,
   l = jnp.sum(pgto.angular[0])
   # multipy exp funcs equals to sum exponents
   ee: Float[Array, "n_pgtos n_pgtos"]
@@ -91,7 +103,7 @@ def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_pgtos"]:
 
 
 def build_cgto_from_mol(mol: Mol) -> CGTO:
-  """Transform pyscf mol object to CGTO.
+  """Build CGTO from the basis information in Mol.
 
   Example PySCF basis (cc-pvdz)
   {'O': [
@@ -118,6 +130,13 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
                      [exp, c_1, c_2, ..]
                      ... ]]]
 
+  To convert the monomials to real solid harmonics, we need to know the
+  monomials used by the harmonics, which is provided by the table
+  MONOMIALS_TO_REAL_SOLID_HARMONICS. And we also need to multiply the
+  common prefactor (REAL_SOLID_HARMONICS_PREFAC) to the monomials, and
+  the inverse of Racah's normalization (can be calculated with racah_norm)
+  for total angular momentum of :math:`l`: :math:`R(l)`.
+
   Reference:
    - https://pyscf.org/user/gto.html#basis-set
    - https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html
@@ -134,12 +153,13 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   coeffs = []
   shells = []
 
+  # iter atoms
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coords[i]
     n_pgtos_atom = 0
-    # iter atoms
+    # iter shells
     for cgto_i in mol.basis[element]:
-      total_angular = cgto_i[0]  # shell
+      total_angular = cgto_i[0]  # l/shell
       assert not isinstance(
         cgto_i[1], float
       ), "basis with kappa is not supported yet"
@@ -149,23 +169,24 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
       # iter contractions
       for cid in range(1, 1 + n_coeffs):  # 0-idx is exponent
         # iter cartesian monomials for the given shell
+        pgtos_monomials = []
+        coeffs_monomials = []
+        pgtos_sph = []
+        coeffs_sph = []
         for angular in get_cart_angular_vec(total_angular):
-          cgto_splits.append(len(pgtos_i))
           # iter PGTOs in the given CGTO. If n_coeffs > 1, we have
           # the general contraction, i.e. each PGTO appears in multiple
           # CGTOs.
-          pgto_is = []
+          pgto_i_ = []
           coeffs_i = []
           for pgto_i in pgtos_i:
-            n_pgtos_atom += 1
             exponent = pgto_i[0]
             coeff = pgto_i[cid]
-            pgto_is.append(PGTO(angular, coord, exponent))
+            pgto_i_.append(PGTO(angular, coord, exponent))
             coeffs_i.append(coeff)
-            shells.append(cgto_i[0])
 
-          pgto_i = PGTO.apply(np.stack, pgto_is)
-          pgtos.append(pgto_i)
+          pgto_i = PGTO.apply(np.stack, pgto_i_)
+          pgtos_monomials.append(pgto_i)
 
           # normalize each PGTO in cartesian coordinate
           N = pgto_i.norm_inv()
@@ -173,7 +194,35 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
             pgto_i,
             jnp.array(coeffs_i) * N
           ) / N
-          coeffs.append(normalized_coeffs_i)
+          coeffs_monomials.append(normalized_coeffs_i)
+
+        # convert to spherical
+        r_l_inv = 1 / racah_norm(total_angular)
+        shell = Shell(total_angular)
+        prefacs = REAL_SOLID_HARMONICS_PREFAC[shell]
+        for mpl, sph in enumerate(MONOMIALS_TO_REAL_SOLID_HARMONICS[shell]):
+          m = mpl - total_angular  # magnetic quantum number
+          p_m = prefacs[abs(m)]
+          n_pgto_sph = 0
+          for monomial_idx, m_prefac in sph:
+            pgtos_sph.append(pgtos_monomials[monomial_idx])
+            coeffs_sph.append(
+              coeffs_monomials[monomial_idx] * m_prefac * p_m * r_l_inv
+            )
+            # coeffs_sph.append(
+            #   coeffs_monomials[monomial_idx] * m_prefac *
+            #   SPH_PREFAC[shell][abs(m)]
+            # )
+            n_pgto_sph_i = len(pgtos_monomials[monomial_idx].angular)
+            n_pgto_sph += n_pgto_sph_i
+            shells.extend([total_angular] * n_pgto_sph_i)
+          cgto_splits.append(n_pgto_sph)
+
+        pgto_sph_ = PGTO.apply(np.concatenate, pgtos_sph)
+        pgtos.append(pgto_sph_)
+        coeffs.append(jnp.concatenate(coeffs_sph))
+        n_pgto_sph = len(pgto_sph_.angular)
+        n_pgtos_atom += n_pgto_sph
 
     atom_splits.append(n_pgtos_atom)
 
@@ -183,455 +232,16 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
 
+  logging.info(
+    f"there are {sum(cgto_splits)} (non-unique) PGTOs in spherical form"
+  )
+
   cgto = CGTO(
     pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
     jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
   )
+
   return cgto
-
-
-def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
-  """Transform Cartesian CGTO object to CGTO.
-
-  Returns:
-    all translated GTOs.
-  """
-  cgto_shells = []
-  cgto_ptr = 0
-  split_ptr = 0
-  atom_ptr = 0
-  atom_ngto_cart = 0
-  atom_ngto_sph = 0
-  pgto = []
-  atom_splits = []
-  cgto_splits = []
-  coeffs = []
-  shells = []
-  while cgto_ptr < len(cgto_cart.shells):
-    shell = cgto_cart.shells[cgto_ptr]
-    n_pgtos = cgto_cart.cgto_splits[split_ptr]
-    cgto_shells.append(shell)
-
-    # s shell: same as cartesian
-    if shell == 0:
-      # TODO: replace this with
-      # cgto_cart.pgto.at(slice(cgto_ptr, cgto_ptr+n_pgtos))
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + j], cgto_cart.pgto[1][cgto_ptr + j],
-            cgto_cart.pgto[2][cgto_ptr + j]
-          )
-        )
-        coeffs.append(
-          REAL_SOLID_SPH_CART_PREFAC[0] * cgto_cart.coeff[cgto_ptr + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + j])
-      cgto_splits.append(n_pgtos)
-      cgto_ptr += 1 * n_pgtos
-      atom_ngto_cart += 1 * n_pgtos
-      atom_ngto_sph += 1 * n_pgtos
-      split_ptr += 1
-
-    # p shell: same as cartesian
-    elif shell == 1:
-      for i in range(3):
-        for j in range(n_pgtos):
-          pgto.append(
-            (
-              cgto_cart.pgto[0][cgto_ptr + i * n_pgtos + j],
-              cgto_cart.pgto[1][cgto_ptr + i * n_pgtos + j],
-              cgto_cart.pgto[2][cgto_ptr + i * n_pgtos + j]
-            )
-          )
-          coeffs.append(
-            REAL_SOLID_SPH_CART_PREFAC[1] *
-            cgto_cart.coeff[cgto_ptr + i * n_pgtos + j]
-          )
-          shells.append(cgto_cart.shells[cgto_ptr + i * n_pgtos + j])
-        cgto_splits.append(n_pgtos)
-      atom_ngto_cart += 3 * n_pgtos
-      atom_ngto_sph += 3 * n_pgtos
-      cgto_ptr += 3 * n_pgtos
-      split_ptr += 3
-
-    # d shell: xx xy xz yy yz zz -> xy yz 1/2(2zz-xx-yy) xz 1/2(xx-yy)
-    elif shell == 2:
-      # d1.xy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 1 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 1 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 1 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          REAL_SOLID_SPH_CART_PREFAC[2] *
-          cgto_cart.coeff[cgto_ptr + 1 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 1 * n_pgtos + j])
-      cgto_splits.append(n_pgtos)
-      # d2.yz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 4 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 4 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 4 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          REAL_SOLID_SPH_CART_PREFAC[2] *
-          cgto_cart.coeff[cgto_ptr + 4 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 4 * n_pgtos + j])
-      cgto_splits.append(n_pgtos)
-      # d3.1/2(2z^2-x^2-y^2)
-      # zz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 5 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 5 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 5 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          2 * REAL_SOLID_SPH_CART_PREFAC[3] *
-          cgto_cart.coeff[cgto_ptr + 5 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 5 * n_pgtos + j])
-      # xx
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + j], cgto_cart.pgto[1][cgto_ptr + j],
-            cgto_cart.pgto[2][cgto_ptr + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[3] * cgto_cart.coeff[cgto_ptr + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + j])
-      # yy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 3 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[3] *
-          cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
-      cgto_splits.append(3 * n_pgtos)
-      # d4.xz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 2 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 2 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 2 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          REAL_SOLID_SPH_CART_PREFAC[2] *
-          cgto_cart.coeff[cgto_ptr + 2 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 2 * n_pgtos + j])
-      cgto_splits.append(n_pgtos)
-      # d5.1/2(x^2-y^2)
-      # xx
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + j], cgto_cart.pgto[1][cgto_ptr + j],
-            cgto_cart.pgto[2][cgto_ptr + j]
-          )
-        )
-        coeffs.append(
-          0.5 * REAL_SOLID_SPH_CART_PREFAC[2] * cgto_cart.coeff[cgto_ptr + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + j])
-      # yy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 3 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -0.5 * REAL_SOLID_SPH_CART_PREFAC[2] *
-          cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
-      cgto_splits.append(2 * n_pgtos)
-      cgto_ptr += 6 * n_pgtos
-      atom_ngto_cart += 6 * n_pgtos
-      atom_ngto_sph += 8 * n_pgtos
-      split_ptr += 6
-    # f shell
-    elif shell == 3:
-      # f1. 3xxy-yyy
-      # xxy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 1 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 1 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 1 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          3 * REAL_SOLID_SPH_CART_PREFAC[5] *
-          cgto_cart.coeff[cgto_ptr + 1 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 1 * n_pgtos + j])
-      # yyy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 6 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 6 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 6 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[5] *
-          cgto_cart.coeff[cgto_ptr + 6 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 6 * n_pgtos + j])
-      cgto_splits.append(2 * n_pgtos)
-      # f2. 2xyz
-      # xyz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 4 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 4 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 4 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          2 * REAL_SOLID_SPH_CART_PREFAC[7] *
-          cgto_cart.coeff[cgto_ptr + 4 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 4 * n_pgtos + j])
-      cgto_splits.append(n_pgtos)
-      # f3. -xxy-yyy+4yzz
-      # xxy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 1 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 1 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 1 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[6] *
-          cgto_cart.coeff[cgto_ptr + 1 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 1 * n_pgtos + j])
-      # yyy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 6 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 6 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 6 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[6] *
-          cgto_cart.coeff[cgto_ptr + 6 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 6 * n_pgtos + j])
-      # yzz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 8 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 8 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 8 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          4 * REAL_SOLID_SPH_CART_PREFAC[6] *
-          cgto_cart.coeff[cgto_ptr + 8 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 9 * n_pgtos + j])
-      cgto_splits.append(3 * n_pgtos)
-      # f4. -3xxz-3yyz+2zzz
-      # xxz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 2 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 2 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 2 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -3 * REAL_SOLID_SPH_CART_PREFAC[4] *
-          cgto_cart.coeff[cgto_ptr + 2 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 2 * n_pgtos + j])
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 7 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 7 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 7 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -3 * REAL_SOLID_SPH_CART_PREFAC[4] *
-          cgto_cart.coeff[cgto_ptr + 7 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 7 * n_pgtos + j])
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 9 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 9 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 9 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          2 * REAL_SOLID_SPH_CART_PREFAC[4] *
-          cgto_cart.coeff[cgto_ptr + 9 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 9 * n_pgtos + j])
-      cgto_splits.append(3 * n_pgtos)
-      # f5. -xxx-xyy+4xzz
-      # xxx
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 0 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 0 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 0 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[6] *
-          cgto_cart.coeff[cgto_ptr + 0 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 0 * n_pgtos + j])
-      # xyy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 3 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[6] *
-          cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
-      # zzz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 5 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 5 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 5 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          4 * REAL_SOLID_SPH_CART_PREFAC[6] *
-          cgto_cart.coeff[cgto_ptr + 5 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 5 * n_pgtos + j])
-      cgto_splits.append(3 * n_pgtos)
-      # f6. xxz-yyz
-      # xxz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 2 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 2 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 2 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          REAL_SOLID_SPH_CART_PREFAC[7] *
-          cgto_cart.coeff[cgto_ptr + 2 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 2 * n_pgtos + j])
-      # yyz
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 7 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 7 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 7 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -REAL_SOLID_SPH_CART_PREFAC[7] *
-          cgto_cart.coeff[cgto_ptr + 7 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 7 * n_pgtos + j])
-      cgto_splits.append(2 * n_pgtos)
-      # f7. xxx-3xyy
-      # xxx
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 0 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 0 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 0 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          REAL_SOLID_SPH_CART_PREFAC[5] *
-          cgto_cart.coeff[cgto_ptr + 0 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 0 * n_pgtos + j])
-      # zyy
-      for j in range(n_pgtos):
-        pgto.append(
-          (
-            cgto_cart.pgto[0][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[1][cgto_ptr + 3 * n_pgtos + j],
-            cgto_cart.pgto[2][cgto_ptr + 3 * n_pgtos + j]
-          )
-        )
-        coeffs.append(
-          -3 * REAL_SOLID_SPH_CART_PREFAC[5] *
-          cgto_cart.coeff[cgto_ptr + 3 * n_pgtos + j]
-        )
-        shells.append(cgto_cart.shells[cgto_ptr + 3 * n_pgtos + j])
-      cgto_splits.append(2 * n_pgtos)
-      cgto_ptr += 10 * n_pgtos
-      atom_ngto_cart += 10 * n_pgtos
-      atom_ngto_sph += 16 * n_pgtos
-      split_ptr += 10
-
-    if atom_ngto_cart == cgto_cart.atom_splits[atom_ptr]:
-      atom_splits.append(atom_ngto_sph)
-      atom_ngto_cart = 0
-      atom_ptr += 1
-  cgto_splits = tuple(cgto_splits)
-  cgto_seg_id = get_cgto_segment_id(cgto_splits)
-  pgto = PGTO.apply(np.stack, pgto)
-  cgto_sph = CGTO(
-    pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
-    jnp.array(atom_splits), cgto_cart.charge, cgto_cart.nocc, shells
-  )
-  logging.info(f"there are {sum(cgto_splits)} GTOs")
-  return cgto_sph
 
 
 class PGTO(NamedTuple):

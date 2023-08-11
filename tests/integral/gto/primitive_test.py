@@ -36,8 +36,10 @@ class HKTest(parameterized.TestCase):
     @hk.without_apply_rng
     @hk.transform
     def cgto_transformed():
-      cgto_cart = CGTO.from_mol(mol)
-      cgto = CGTO.from_cart(cgto_cart)
+      cgto = CGTO.from_mol(mol)
+      # cgto = CGTO.from_cart(cgto_cart)
+      # cgto_cart = CGTO.from_mol(mol)
+      # cgto = CGTO.from_cart(cgto_cart)
       return cgto.to_hk()
 
     gparams = cgto_transformed.init(1)
