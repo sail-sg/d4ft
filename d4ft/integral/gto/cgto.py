@@ -151,7 +151,6 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   atom_splits = []
   cgto_splits = []
   coeffs = []
-  shells = []
 
   # iter atoms
   for i, element in enumerate(mol.elements):
@@ -215,7 +214,6 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
             # )
             n_pgto_sph_i = len(pgtos_monomials[monomial_idx].angular)
             n_pgto_sph += n_pgto_sph_i
-            shells.extend([total_angular] * n_pgto_sph_i)
           cgto_splits.append(n_pgto_sph)
 
         pgto_sph_ = PGTO.apply(np.concatenate, pgtos_sph)
@@ -238,7 +236,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
   cgto = CGTO(
     pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
-    jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
+    jnp.array(atom_splits), mol.atom_charges, mol.nocc
   )
 
   return cgto
@@ -334,8 +332,6 @@ class CGTO(NamedTuple):
   """charges of the atoms"""
   nocc: Int[Array, "2 nao"]
   """occupation mask for alpha and beta spin"""
-  shells: Int[Array, "*n_pgtos"]
-  """shell idx for each pgto"""
 
   @property
   def n_pgtos(self) -> int:
