@@ -24,9 +24,16 @@ py_library(
 )
 
 py_library(
+    name = "utils",
+    srcs = ["utils.py"],
+    deps = [],
+)
+
+py_library(
     name = "cgto",
     srcs = ["cgto.py"],
     deps = [
+        ":utils",
         "//d4ft:constants",
         "//d4ft:types",
         "//d4ft:utils",
