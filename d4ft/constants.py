@@ -12,54 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
-
-import numpy as np
-
-
-class Shell(Enum):
-  """Letter for total angular momentum"""
-  s = 0
-  p = 1
-  d = 2
-  f = 3
-
-
-SHELL_TO_ANGULAR_VEC = {
-  Shell.s: [[0, 0, 0]],
-  Shell.p: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-  Shell.d: [[2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]],
-  Shell.f:
-    [
-      [3, 0, 0], [2, 1, 0], [2, 0, 1], [1, 2, 0], [1, 1, 1], [1, 0, 2],
-      [0, 3, 0], [0, 2, 1], [0, 1, 2], [0, 0, 3]
-    ]
-}
-"""
-Angular vectors for shells in cartesian form, computed by the followings:
-for lx in reversed(range(l + 1)):
-    for ly in reversed(range(l + 1 - lx)):
-      lz = l - lx - ly
-      print("[{},{},{}]".format(lx,ly,lz))
-"""
-
-
-def racah_normalization(l: int):
-  r"""Racah's normalization for total angular momentum of :math:`l`,
-  denoted as :math:`R(l)`.
-
-  It is used to define normalized spherical harmonics :math:`C_{lm}` where
-  :math:`C_{00}=R(0)Y_{00}=1`.
-  The formula is
-  :math:`R(l)=\sqrt{\frac{4\pi}{2l+1}}`
-
-  The solid harmonic :math:`\mathcal{Y}_{lm}=r^l*Y_{lm}` uses the same
-  normalization, and also the real solid harmonics s_{lm}, since they are
-  obtained via unitary tranformation from the solid harmonic.
-  """
-  return np.sqrt((4 * np.pi) / (2 * l + 1))
-
-
 # TODO: change this to a function that takes l and m as input
 # get the R(l) part from racah_normalization, and the other prefactor
 # can be tabulated against l and m.

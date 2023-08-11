@@ -199,7 +199,7 @@ def incore_cgto_direct_opt_dft(
   if cfg.uuid != "":
     logger.save(cfg, "direct_opt")
     with (cfg.get_save_dir() / "traj.pkl").open("wb") as f:
-      pickle.dump(traj, f)
+      pickle.dump(traj[-1], f)
 
   return lowest_e
 

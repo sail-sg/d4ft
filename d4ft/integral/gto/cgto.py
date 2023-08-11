@@ -24,11 +24,8 @@ import scipy.special
 from absl import logging
 from jaxtyping import Array, Float, Int
 
-from d4ft.constants import (
-  REAL_SOLID_SPH_CART_PREFAC,
-  SHELL_TO_ANGULAR_VEC,
-  Shell,
-)
+from d4ft.constants import REAL_SOLID_SPH_CART_PREFAC
+from d4ft.integral.gto.utils import get_cart_angular_vec
 from d4ft.system.mol import Mol
 from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
@@ -126,11 +123,12 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
    - https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html
    - https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/
    - https://github.com/sunqm/libcint/blob/master/src/cart2sph.c
+   - https://shorturl.at/er248
 
   Returns:
     all translated GTOs.
   """
-  pgto = []
+  pgtos = []
   atom_splits = []
   cgto_splits = []
   coeffs = []
@@ -138,48 +136,53 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coords[i]
-    n_pgtos = 0
+    n_pgtos_atom = 0
+    # iter atoms
     for cgto_i in mol.basis[element]:
-      shell = Shell(cgto_i[0])
+      total_angular = cgto_i[0]  # shell
       assert not isinstance(
         cgto_i[1], float
       ), "basis with kappa is not supported yet"
       pgtos_i = cgto_i[1:]  # [[exp, c_1, c_2, ..], [exp, c_1, c_2, ..], ... ]]
       n_coeffs = len(pgtos_i[0][1:])
       # TODO: do not create separate PGTO for each c_1, c_2, ...
+      # iter contractions
       for cid in range(1, 1 + n_coeffs):  # 0-idx is exponent
-        for angular in SHELL_TO_ANGULAR_VEC[shell]:
+        # iter cartesian monomials for the given shell
+        for angular in get_cart_angular_vec(total_angular):
           cgto_splits.append(len(pgtos_i))
+          # iter PGTOs in the given CGTO. If n_coeffs > 1, we have
+          # the general contraction, i.e. each PGTO appears in multiple
+          # CGTOs.
+          pgto_is = []
+          coeffs_i = []
           for pgto_i in pgtos_i:
+            n_pgtos_atom += 1
             exponent = pgto_i[0]
             coeff = pgto_i[cid]
-            n_pgtos += 1
-            pgto.append(PGTO(angular, coord, exponent))
-            coeffs.append(coeff)
+            pgto_is.append(PGTO(angular, coord, exponent))
+            coeffs_i.append(coeff)
             shells.append(cgto_i[0])
 
-    atom_splits.append(n_pgtos)
+          pgto_i = PGTO.apply(np.stack, pgto_is)
+          pgtos.append(pgto_i)
 
-  # NOTE: do not use jnp for angular as it will cause tracing error
-  pgto = PGTO.concat(pgto)
+          # normalize each PGTO in cartesian coordinate
+          N = pgto_i.norm_inv()
+          normalized_coeffs_i = normalize_cgto_coeff(
+            pgto_i,
+            jnp.array(coeffs_i) * N
+          ) / N
+          coeffs.append(normalized_coeffs_i)
+
+    atom_splits.append(n_pgtos_atom)
+
+  pgto = PGTO.apply(np.concatenate, pgtos)
+  coeffs = jnp.concatenate(coeffs)
 
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
 
-  # normalize each PGTO in cartesian coordinate
-  cart_coeffs = jnp.array(coeffs) * pgto.norm_inv()
-  normalized_cart_coeff = jnp.array([])
-  # normalize each CGTO in cartesian coordinate
-  cur_ptr = 0
-  for lgto in cgto_splits:  # get one monomial with different exponents
-    n = normalize_cgto_coeff(
-      pgto.at(slice(cur_ptr, cur_ptr + lgto)),
-      cart_coeffs[cur_ptr:cur_ptr + lgto]
-    )
-    normalized_cart_coeff = jnp.concatenate([normalized_cart_coeff, n])
-    cur_ptr += lgto
-
-  coeffs = normalized_cart_coeff / pgto.norm_inv()
   cgto = CGTO(
     pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
     jnp.array(atom_splits), mol.atom_charges, mol.nocc, shells
@@ -622,7 +625,7 @@ def build_cgto_sph_from_mol(cgto_cart: CGTO) -> CGTO:
       atom_ptr += 1
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
-  pgto = PGTO.concat(pgto)
+  pgto = PGTO.apply(np.stack, pgto)
   cgto_sph = CGTO(
     pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
     jnp.array(atom_splits), cgto_cart.charge, cgto_cart.nocc, shells
@@ -639,7 +642,8 @@ class PGTO(NamedTuple):
     =N_n(r_x-c_x)^{n_x} (r_y-c_y)^{n_y} (r_z-c_z)^{n_z}
      \exp(-\alpha \norm{\vb{r}-\vb{c}}^2)
 
-  where N is the normalization factor
+  where N is the normalization factor, which is just the
+  inverse of L2 norm of the unnormalized primitive.
 
   Analytical integral are calculated in this basis.
   """
@@ -664,11 +668,11 @@ class PGTO(NamedTuple):
     return PGTO(self.angular[i], self.center[i], self.exponent[i])
 
   @staticmethod
-  def concat(pgtos: Sequence[PGTO]) -> PGTO:
+  def apply(f: Callable, pgtos: Sequence[PGTO]) -> PGTO:
     """Return the concatenation of a sequence of PGTO singletons.
     Note that the angular needs to be a numpy array to avoid tracing error.
     """
-    angular, center, exponent = map(np.stack, zip(*pgtos))
+    angular, center, exponent = map(f, zip(*pgtos))
     return PGTO(angular, jnp.array(center), jnp.array(exponent))
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "*batch"]:
