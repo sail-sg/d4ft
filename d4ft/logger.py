@@ -37,11 +37,12 @@ class RunLogger:
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     self.data_df.to_csv(csv_path)
 
-  def log_step(self, metrics: NamedTuple, t: int) -> None:
+  def log_step(self, metrics: NamedTuple, t: int, thresh: float) -> None:
     step_df = pd.DataFrame([metrics], index=[t])
     # log step time
     now = time.time()
     step_df['time'] = now - self._time
+    step_df['threshold'] = thresh
     self._time = now
     self.data_df = pd.concat([self.data_df, step_df])
 

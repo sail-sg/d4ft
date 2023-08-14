@@ -92,6 +92,7 @@ def sgd(
   traj = []
   converged = False
   logger = RunLogger()
+  e_total_std = 0.
   # mo_grad_norm_fn = jax.jit(jax.vmap(partial(jnp.linalg.norm, ord=2), 0, 0))
   for step in range(gd_cfg.epochs):
 
@@ -101,7 +102,7 @@ def sgd(
       meta_state, new_state, energies, mo_grads = meta_step(state, meta_state)
       logging.info(f"cur lr: {jax.nn.sigmoid(meta_state.params):.4f}")
 
-    logger.log_step(energies, step)
+    logger.log_step(energies, step, e_total_std)
     logger.get_segment_summary()
 
     # logging.info(mo_grads[-1])
