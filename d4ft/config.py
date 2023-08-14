@@ -105,6 +105,7 @@ class D4FTConfig(ConfigDict):
   gd_cfg: GDConfig
   scf_cfg: SCFConfig
   uuid: str
+  save_dir: str
 
   def __init__(self, config_string: str) -> None:
     super().__init__(
@@ -115,6 +116,7 @@ class D4FTConfig(ConfigDict):
         "gd_cfg": GDConfig(),
         "scf_cfg": SCFConfig(),
         "uuid": "",
+        "save_dir": "_exp",
       }
     )
 
@@ -124,7 +126,7 @@ class D4FTConfig(ConfigDict):
         "RKS only supports closed-shell molecules"
 
   def get_save_dir(self) -> Path:
-    return Path(f"_exp/{self.uuid}/{self.mol_cfg.mol}")
+    return Path(f"{self.save_dir}/{self.uuid}/{self.mol_cfg.mol}")
 
   def get_core_cfg_str(self) -> str:
     return "+".join([self.mol_cfg.basis, self.dft_cfg.xc_type])

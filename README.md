@@ -212,6 +212,13 @@ The `incore_cgto_direct_opt_dft` is just an example of how to use the low level 
 # Benchmark Against Psi4 and PySCF
 
 We have benchmarked the calculation against well known open-sourced quantum chemsitry libraries: [Psi4](https://psicode.org/) and [PySCF](https://pyscf.org/). 
+
+To run systems from `refdata` benchmark sets, 
+
+``` shell
+python main.py --benchmark bh76 --use_f64 --config.mol_cfg.basis <basis> --config.dft_cfg.xc_type <xc> --save --config.mol_cfg.geometry_source refdata --pyscf --config.save_dir <path>
+```
+
 As shown below, currently D4FT aligns well under the `lda+sto-3g` setting, but it align less well for more complex basis set and / or XC functional. 
 D4FT is still undergoing intensive development, so expect these number to improve quite a lot! 
 
