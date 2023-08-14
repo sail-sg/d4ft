@@ -65,7 +65,7 @@ def main(_: Any) -> None:
     systems, _, _ = get_refdata_benchmark_set(FLAGS.benchmark)
     for system in systems:
       with cfg.unlocked():
-        cfg.mol_cfg.mol = system
+        cfg.mol_cfg.mol = "-".join([FLAGS.benchmark, system])
 
       try:
         if FLAGS.run == "direct":
