@@ -112,10 +112,11 @@ def main(_: Any) -> None:
     pyscf_df = pyscf_df.rename(columns={
       'Unnamed: 0': 'steps',
     })
-    diff_df = (pyscf_df - direct_df) * HARTREE_TO_KCAL_PER_MOL
+    diff_df = (direct_df - pyscf_df) * HARTREE_TO_KCAL_PER_MOL
     diff_df['e_total'].dropna().sort_values().plot(kind='bar')
-    plt.title("BH76 benchmark set")
-    plt.ylabel("energy difference (kcal/mol)")
+    plt.title("BH76 benchmark set energy difference (direct - pyscf)")
+    plt.ylabel("dE (kcal/mol)")
+    plt.plot(diff_df.index, [1] * len(diff_df.index), 'r--')
     plt.show()
 
 
