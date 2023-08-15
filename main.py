@@ -13,8 +13,11 @@
 # limitations under the License.
 """Entrypoint for D4FT."""
 import string
+from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
+import pandas as pd
 import shortuuid
 from absl import app, flags, logging
 from jax.config import config
@@ -30,7 +33,7 @@ from d4ft.system.refdata import get_refdata_benchmark_set
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
-  "run", "direct", ["direct", "scf", "pyscf", "reaction"],
+  "run", "direct", ["direct", "scf", "pyscf", "reaction", "viz"],
   "which routine to run"
 )
 flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
@@ -85,6 +88,29 @@ def main(_: Any) -> None:
 
   elif FLAGS.run == "pyscf":
     incore_cgto_pyscf_dft_benchmark(cfg)
+
+  elif FLAGS.run == "viz":
+    p = Path(cfg.save_dir)
+    runs = [f for f in p.iterdir() if f.is_dir()]
+    direct_df = pd.DataFrame()
+    pyscf_df = pd.DataFrame()
+    for run in runs:
+      direct_df_i = pd.read_csv(run / "direct_opt.csv").iloc[-1:]
+      pyscf_df_i = pd.read_csv(run / "pyscf.csv")
+      direct_df_i.index = [run.name]
+      pyscf_df_i.index = [run.name]
+      direct_df = pd.concat([direct_df, direct_df_i])
+      pyscf_df = pd.concat([pyscf_df, pyscf_df_i])
+
+    direct_df = direct_df.rename(columns={
+      'Unnamed: 0': 'steps',
+    })
+    pyscf_df = pyscf_df.rename(columns={
+      'Unnamed: 0': 'steps',
+    })
+    diff_df = pyscf_df - direct_df
+    diff_df['e_total'].dropna().sort_values().plot(kind='bar')
+    plt.show()
 
 
 if __name__ == "__main__":
