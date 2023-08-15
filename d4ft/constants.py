@@ -15,5 +15,5 @@
 ANGSTRONG_TO_BOHR = 1.8897259886
 """Conversion factor from Angstrom to Bohr"""
 
-HARTREE_TO_KCALMOL = 627.503
+HARTREE_TO_KCAL_PER_MOL = 627.503
 """Conversion factor from Hartree to kcal/mol"""

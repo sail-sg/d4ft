@@ -24,6 +24,7 @@ from jax.config import config
 from ml_collections.config_flags import config_flags
 
 from d4ft.config import D4FTConfig
+from d4ft.constants import HARTREE_TO_KCAL_PER_MOL
 from d4ft.solver.drivers import (
   incore_cgto_direct_opt_dft,
   incore_cgto_pyscf_dft_benchmark,
@@ -108,8 +109,10 @@ def main(_: Any) -> None:
     pyscf_df = pyscf_df.rename(columns={
       'Unnamed: 0': 'steps',
     })
-    diff_df = pyscf_df - direct_df
+    diff_df = (pyscf_df - direct_df) * HARTREE_TO_KCAL_PER_MOL
     diff_df['e_total'].dropna().sort_values().plot(kind='bar')
+    plt.title("BH76 benchmark set")
+    plt.ylabel("energy difference (kcal/mol)")
     plt.show()
 
 
