@@ -143,8 +143,8 @@ def incore_cgto_direct_opt_dft(
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
     # TODO: out-of-core + basis optimization
-    # cgto_hk = cgto.to_hk()
-    cgto_hk = cgto
+    cgto_hk = cgto.to_hk(["coeff"])
+    # cgto_hk = cgto
     cgto_intor = get_cgto_intor(
       cgto_hk, intor="obsa", incore_energy_tensors=incore_e_tensors
     )
