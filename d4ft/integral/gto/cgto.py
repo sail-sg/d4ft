@@ -16,13 +16,12 @@ from __future__ import annotations  # forward declaration
 import math
 from typing import (
   Callable,
-  Mapping,
+  Literal,
   NamedTuple,
   Optional,
   Sequence,
   Tuple,
   Union,
-  Literal,
 )
 
 import haiku as hk
@@ -329,7 +328,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   # map basis into d4ft format
 
   basis = []
-  for i, element in enumerate(mol.elements):
+  for element in mol.elements:
     element_basis = []
     for cgto_i in mol.basis[element]:
       element_basis.append(cgto_i)
@@ -520,7 +519,7 @@ class CGTO(NamedTuple):
       "center",
       "exponent",
       "coeff",
-    ]] = ["coeff"],
+    ]] = ("coeff",),
   ) -> CGTO:
     """Convert optimizable parameters to hk.Params. Must be haiku transformed.
     Can be used for basis optimization.
