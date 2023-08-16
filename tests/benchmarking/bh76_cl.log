@@ -1,0 +1,186 @@
+2023-08-16:17:03:20,309 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:20,311 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=0.0
+2023-08-16:17:03:20,479 INFO     [psi4.driver.driver:527] Return energy(): -459.9219029577091
+2023-08-16:17:03:20,493 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:20,494 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=0.0
+2023-08-16:17:03:20,684 INFO     [psi4.driver.driver:527] Return energy(): -99.6485435276645
+2023-08-16:17:03:20,698 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:20,699 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=66.36612656488387
+2023-08-16:17:03:22,42 INFO     [psi4.driver.driver:527] Return energy(): -239.25119631433938
+2023-08-16:17:03:22,56 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:22,58 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=64.36223016571341
+2023-08-16:17:03:23,511 INFO     [psi4.driver.driver:527] Return energy(): -239.25093606361833
+2023-08-16:17:03:23,525 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:23,527 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=51.378491498294785
+2023-08-16:17:03:24,414 INFO     [psi4.driver.driver:527] Return energy(): -499.81283963321914
+2023-08-16:17:03:24,428 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:24,430 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=0.0
+2023-08-16:17:03:24,610 INFO     [psi4.driver.driver:527] Return energy(): -460.03804209361846
+2023-08-16:17:03:24,624 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:24,626 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=110.27956407508161
+2023-08-16:17:03:25,933 INFO     [psi4.driver.driver:527] Return energy(): -959.8769921290948
+2023-08-16:17:03:25,947 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:25,949 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=107.04222587457664
+2023-08-16:17:03:27,275 INFO     [psi4.driver.driver:527] Return energy(): -959.874379614754
+2023-08-16:17:03:27,289 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:27,291 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=86.10071450592389
+2023-08-16:17:03:28,827 INFO     [psi4.driver.driver:527] Return energy(): -599.553832755855
+2023-08-16:17:03:28,842 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:28,844 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=86.07628532889652
+2023-08-16:17:03:30,474 INFO     [psi4.driver.driver:527] Return energy(): -599.5321097385475
+2023-08-16:17:03:30,488 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:30,490 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=79.9097137398686
+2023-08-16:17:03:31,788 INFO     [psi4.driver.driver:527] Return energy(): -599.6038220126102
+2023-08-16:17:03:31,801 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:31,803 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=4.400439719237861
+2023-08-16:17:03:32,148 INFO     [psi4.driver.driver:527] Return energy(): -75.61681480292509
+2023-08-16:17:03:32,161 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:32,162 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=69.00549294172835
+2023-08-16:17:03:33,881 INFO     [psi4.driver.driver:527] Return energy(): -215.21367889325748
+2023-08-16:17:03:33,895 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:33,897 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=40.393360115891845
+2023-08-16:17:03:35,27 INFO     [psi4.driver.driver:527] Return energy(): -115.53417460203914
+2023-08-16:17:03:35,41 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:35,43 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=67.43070994571914
+2023-08-16:17:03:36,710 INFO     [psi4.driver.driver:527] Return energy(): -215.20259608566144
+2023-08-16:17:03:36,723 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:36,725 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=73.17392352132298
+2023-08-16:17:03:38,275 INFO     [psi4.driver.driver:527] Return energy(): -215.28148559788607
+2023-08-16:17:03:38,289 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:38,291 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=27.37486676426973
+2023-08-16:17:03:38,909 INFO     [psi4.driver.driver:527] Return energy(): -109.8460183833177
+2023-08-16:17:03:38,922 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:38,924 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=27.504374129938448
+2023-08-16:17:03:39,499 INFO     [psi4.driver.driver:527] Return energy(): -109.86271106061415
+2023-08-16:17:03:39,512 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:39,514 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=22.48610975881791
+2023-08-16:17:03:39,847 INFO     [psi4.driver.driver:527] Return energy(): -113.1341778613275
+2023-08-16:17:03:39,860 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:39,862 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=25.766448568942977
+2023-08-16:17:03:40,483 INFO     [psi4.driver.driver:527] Return energy(): -113.63621838256537
+2023-08-16:17:03:40,496 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:40,498 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=26.509846561865864
+2023-08-16:17:03:41,79 INFO     [psi4.driver.driver:527] Return energy(): -113.68095285165145
+2023-08-16:17:03:41,92 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:41,94 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=33.42349791379886
+2023-08-16:17:03:42,141 INFO     [psi4.driver.driver:527] Return energy(): -78.45284711072492
+2023-08-16:17:03:42,154 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:42,156 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=36.85246415243162
+2023-08-16:17:03:43,759 INFO     [psi4.driver.driver:527] Return energy(): -78.95086729201356
+2023-08-16:17:03:43,772 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:43,774 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=36.97781159279831
+2023-08-16:17:03:45,126 INFO     [psi4.driver.driver:527] Return energy(): -79.01594791596635
+2023-08-16:17:03:45,140 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:45,142 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=70.26835347415805
+2023-08-16:17:03:47,885 INFO     [psi4.driver.driver:527] Return energy(): -118.21390735635464
+2023-08-16:17:03:47,900 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:47,902 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=75.86161511790341
+2023-08-16:17:03:50,643 INFO     [psi4.driver.driver:527] Return energy(): -118.2628391663502
+2023-08-16:17:03:50,657 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:50,659 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=23.92418023833424
+2023-08-16:17:03:51,221 INFO     [psi4.driver.driver:527] Return energy(): -93.27949800626126
+2023-08-16:17:03:51,234 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:51,236 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=24.046369404640927
+2023-08-16:17:03:51,802 INFO     [psi4.driver.driver:527] Return energy(): -93.18356550401174
+2023-08-16:17:03:51,816 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:51,818 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=24.19728214962071
+2023-08-16:17:03:52,336 INFO     [psi4.driver.driver:527] Return energy(): -93.25336233886327
+2023-08-16:17:03:52,351 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:52,353 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=10.39162911643907
+2023-08-16:17:03:52,919 INFO     [psi4.driver.driver:527] Return energy(): -461.07634810833486
+2023-08-16:17:03:52,933 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:52,935 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=0.7132952100298694
+2023-08-16:17:03:53,183 INFO     [psi4.driver.driver:527] Return energy(): -1.1619304827521058
+2023-08-16:17:03:53,198 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:53,200 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=10.737859833311314
+2023-08-16:17:03:53,968 INFO     [psi4.driver.driver:527] Return energy(): -76.78727594232654
+2023-08-16:17:03:53,982 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:53,984 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=9.197728477745958
+2023-08-16:17:03:54,468 INFO     [psi4.driver.driver:527] Return energy(): -76.29802792690725
+2023-08-16:17:03:54,482 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:54,484 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=15.3286190698903
+2023-08-16:17:03:55,656 INFO     [psi4.driver.driver:527] Return energy(): -40.91964448125376
+2023-08-16:17:03:55,670 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:55,672 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=13.466947997169925
+2023-08-16:17:03:56,479 INFO     [psi4.driver.driver:527] Return energy(): -40.438283345588545
+2023-08-16:17:03:56,493 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:56,495 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=37.118780315539084
+2023-08-16:17:03:58,3 INFO     [psi4.driver.driver:527] Return energy(): -116.06313815402224
+2023-08-16:17:03:58,18 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:58,20 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=1.423325352981061
+2023-08-16:17:03:58,432 INFO     [psi4.driver.driver:527] Return energy(): -1.652975609499136
+2023-08-16:17:03:58,447 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:58,449 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=11.972307255768923
+2023-08-16:17:03:59,80 INFO     [psi4.driver.driver:527] Return energy(): -56.4514377376608
+2023-08-16:17:03:59,94 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:03:59,96 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=37.138983772639946
+2023-08-16:17:04:00,391 INFO     [psi4.driver.driver:527] Return energy(): -132.09697244514282
+2023-08-16:17:04:00,406 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:00,408 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=7.564300153539535
+2023-08-16:17:04:00,946 INFO     [psi4.driver.driver:527] Return energy(): -55.776978921436196
+2023-08-16:17:04:00,960 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:00,963 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=46.25147771793767
+2023-08-16:17:04:02,308 INFO     [psi4.driver.driver:527] Return energy(): -500.35117760988464
+2023-08-16:17:04:02,323 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:02,326 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=42.29530328503578
+2023-08-16:17:04:03,867 INFO     [psi4.driver.driver:527] Return energy(): -79.68359909466207
+2023-08-16:17:04:03,883 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:03,885 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=76.62128242981753
+2023-08-16:17:04:06,640 INFO     [psi4.driver.driver:527] Return energy(): -155.3142429413194
+2023-08-16:17:04:06,655 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:06,657 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=36.98161633088199
+2023-08-16:17:04:08,76 INFO     [psi4.driver.driver:527] Return energy(): -79.0159716309154
+2023-08-16:17:04:08,90 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:08,93 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=6.115402535149997
+2023-08-16:17:04:08,667 INFO     [psi4.driver.driver:527] Return energy(): -100.78567813795115
+2023-08-16:17:04:08,682 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:08,684 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=0.0
+2023-08-16:17:04:08,865 INFO     [psi4.driver.driver:527] Return energy(): -74.97125270148936
+2023-08-16:17:04:08,878 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:08,880 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=30.91033043056771
+2023-08-16:17:04:10,162 INFO     [psi4.driver.driver:527] Return energy(): -115.39931310172419
+2023-08-16:17:04:10,176 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:10,178 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=17.630590615429824
+2023-08-16:17:04:10,791 INFO     [psi4.driver.driver:527] Return energy(): -342.9120503952043
+2023-08-16:17:04:10,805 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:10,807 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=21.010635256814556
+2023-08-16:17:04:11,899 INFO     [psi4.driver.driver:527] Return energy(): -343.4145024420001
+2023-08-16:17:04:11,919 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:11,921 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=11.46497101998533
+2023-08-16:17:04:12,543 INFO     [psi4.driver.driver:527] Return energy(): -342.28915935880946
+2023-08-16:17:04:12,560 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:12,563 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=6.155049926073115
+2023-08-16:17:04:13,238 INFO     [psi4.driver.driver:527] Return energy(): -76.12370152519118
+2023-08-16:17:04:13,255 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:13,257 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=12.94846838489495
+2023-08-16:17:04:13,800 INFO     [psi4.driver.driver:527] Return energy(): -399.1556776957666
+2023-08-16:17:04:13,816 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:13,819 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=16.45754429286351
+2023-08-16:17:04:14,762 INFO     [psi4.driver.driver:527] Return energy(): -399.65930418573566
+2023-08-16:17:04:14,780 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:14,782 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=6.317575378839913
+2023-08-16:17:04:15,213 INFO     [psi4.driver.driver:527] Return energy(): -398.52448047300305
+2023-08-16:17:04:15,231 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:15,233 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=38.629831120978764
+2023-08-16:17:04:16,152 INFO     [psi4.driver.driver:527] Return energy(): -535.5565722445411
+2023-08-16:17:04:16,169 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:16,171 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=33.459542530708724
+2023-08-16:17:04:17,983 INFO     [psi4.driver.driver:527] Return energy(): -95.54936439365632
+2023-08-16:17:04:18,0 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:18,2 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=3.5729923875799194
+2023-08-16:17:04:18,391 INFO     [psi4.driver.driver:527] Return energy(): -55.13334936836197
+2023-08-16:17:04:18,408 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:18,411 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=71.85719663693224
+2023-08-16:17:04:21,590 INFO     [psi4.driver.driver:527] Return energy(): -134.79904196369426
+2023-08-16:17:04:21,607 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:21,610 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=78.78490172099029
+2023-08-16:17:04:25,303 INFO     [psi4.driver.driver:527] Return energy(): -135.45872365863295
+2023-08-16:17:04:25,321 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:25,323 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=39.42841350535838
+2023-08-16:17:04:27,353 INFO     [psi4.driver.driver:527] Return energy(): -96.20882249861945
+2023-08-16:17:04:27,369 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:27,371 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=155.81513841887298
+2023-08-16:17:04:33,391 INFO     [psi4.driver.driver:527] Return energy(): -194.9910078994495
+2023-08-16:17:04:33,408 INFO     [psi4.driver.task_planner:283] PLANNING Atomic:  keywords={'E_CONVERGENCE': 1e-08, 'GUESS': 'SAD', 'SCF__INTS_TOLERANCE': 1e-12, 'MAXITER': 200, 'REFERENCE': 'UKS', 'SOSCF': 0, 'function_kwargs': {}}
+2023-08-16:17:04:33,410 INFO     [psi4.driver.driver:524] Compute energy(): method=scf, basis=6-31g, molecule=default, nre=164.936618324582
+2023-08-16:17:04:39,823 INFO     [psi4.driver.driver:527] Return energy(): -194.94004113828692
