@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Entrypoint for D4FT."""
+import pickle
 import string
 from pathlib import Path
 from typing import Any
@@ -98,6 +99,8 @@ def main(_: Any) -> None:
     runs = [f for f in p.iterdir() if f.is_dir()]
     direct_df = pd.DataFrame()
     pyscf_df = pd.DataFrame()
+    pyscf_mos = []
+    direct_mos = []
     for run in runs:
       direct_df_i = pd.read_csv(run / "direct_opt.csv").iloc[-1:]
       pyscf_df_i = pd.read_csv(run / "pyscf.csv")
@@ -106,6 +109,13 @@ def main(_: Any) -> None:
       direct_df = pd.concat([direct_df, direct_df_i])
       pyscf_df = pd.concat([pyscf_df, pyscf_df_i])
 
+      with open(run / "pyscf_mo_coeff.pkl", "rb") as f:
+        pyscf_mos.append(pickle.load(f))
+
+      with open(run / "traj.pkl", "rb") as f:
+        traj = pickle.load(f)
+        direct_mos.append(traj.mo_coeff)
+
     direct_df = direct_df.rename(columns={
       'Unnamed: 0': 'steps',
     })
@@ -113,10 +123,15 @@ def main(_: Any) -> None:
       'Unnamed: 0': 'steps',
     })
     diff_df = (direct_df - pyscf_df) * HARTREE_TO_KCAL_PER_MOL
-    diff_df['e_total'].dropna().sort_values().plot(kind='bar')
-    plt.title("BH76 benchmark set energy difference (direct - pyscf)")
+    diff_df['e_total'].dropna().sort_values().plot(
+      kind='bar', label='direct - pyscf (kcal/mol)'
+    )
+    plt.title("BH76 benchmark set energy difference")
     plt.ylabel("dE (kcal/mol)")
-    plt.plot(diff_df.index, [1] * len(diff_df.index), 'r--')
+    plt.plot(
+      diff_df.index, [1] * len(diff_df.index), 'r--', label='chemical accuracy'
+    )
+    plt.legend()
     plt.show()
 
 
