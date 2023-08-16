@@ -59,7 +59,7 @@ def gaussian_integral(
   https://en.wikipedia.org/wiki/Gaussian_integral#Relation_to_the_gamma_function
   """
   np1_half = (n + 1) * .5
-  return scipy.special.gamma(np1_half) / (2. * alpha**np1_half)
+  return jax.scipy.special.gamma(np1_half) / (2. * alpha**np1_half)
 
 
 def pgto_norm_inv(
@@ -207,10 +207,6 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
             coeffs_sph.append(
               coeffs_monomials[monomial_idx] * m_prefac * p_m * r_l_inv
             )
-            # coeffs_sph.append(
-            #   coeffs_monomials[monomial_idx] * m_prefac *
-            #   SPH_PREFAC[shell][abs(m)]
-            # )
             n_pgto_sph_i = len(pgtos_monomials[monomial_idx].angular)
             n_pgto_sph += n_pgto_sph_i
           cgto_splits.append(n_pgto_sph)

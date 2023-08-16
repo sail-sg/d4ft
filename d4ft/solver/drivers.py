@@ -246,7 +246,7 @@ def pyscf_dft_benchmark(
   e1 = energies.e_kin + energies.e_ext
 
   logger = RunLogger()  # start timer
-  logger.log_step(energies, 0)
+  logger.log_step(energies, 0, 0)
   logger.get_segment_summary()
   logging.info(f"1e energy:{e1}")
 
