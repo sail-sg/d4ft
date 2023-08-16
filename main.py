@@ -47,6 +47,18 @@ flags.DEFINE_bool("save", False, "whether to save results and trajectories")
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
 
+def get_rxn_energy(rxn: str, benchmark: str, df: pd.DataFrame) -> float:
+  reactants, products = rxn.replace("-", "").split(">")
+  rxn_energy = 0.
+  for reactant in reactants.split("+"):
+    ratio, system = reactant.split("*")
+    rxn_energy -= float(ratio) * df.loc[f"{benchmark}-{system}", "e_total"]
+  for product in products.split("+"):
+    ratio, system = product.split("*")
+    rxn_energy += float(ratio) * df.loc[f"{benchmark}-{system}", "e_total"]
+  return rxn_energy
+
+
 def main(_: Any) -> None:
   config.update("jax_enable_x64", FLAGS.use_f64)
 
@@ -96,6 +108,7 @@ def main(_: Any) -> None:
 
   elif FLAGS.run == "viz":
     p = Path(cfg.save_dir)
+    benchmark = p.name.split(',')[0]
     runs = [f for f in p.iterdir() if f.is_dir()]
     direct_df = pd.DataFrame()
     pyscf_df = pd.DataFrame()
@@ -126,10 +139,46 @@ def main(_: Any) -> None:
     diff_df['e_total'].dropna().sort_values().plot(
       kind='bar', label='direct - pyscf (kcal/mol)'
     )
-    plt.title("BH76 benchmark set energy difference")
+    plt.title(f"{benchmark} benchmark set energy difference")
     plt.ylabel("dE (kcal/mol)")
     plt.plot(
       diff_df.index, [1] * len(diff_df.index), 'r--', label='chemical accuracy'
+    )
+    plt.legend()
+    plt.show()
+
+    # HACK: currently H has nan in xc gradient so cannot be computed
+    direct_df.loc['bh76-bh76_h'] = pyscf_df.loc['bh76-bh76_h']
+
+    systems, rxns, ref_energy = get_refdata_benchmark_set(benchmark)
+    rxn_df = pd.DataFrame(columns=['direct', 'pyscf', 'ref'])
+    for rxn, ref in zip(rxns, ref_energy):
+      rxn_e_pyscf = get_rxn_energy(rxn, benchmark, pyscf_df)
+      rxn_e_pyscf *= HARTREE_TO_KCAL_PER_MOL
+      rxn_e_direct = get_rxn_energy(rxn, benchmark, direct_df)
+      rxn_e_direct *= HARTREE_TO_KCAL_PER_MOL
+      rxn_df.loc[rxn] = [rxn_e_direct, rxn_e_pyscf, ref]
+
+    rxn_diff_df = pd.DataFrame(columns=['direct', 'pyscf'])
+    rxn_diff_df['direct'] = rxn_df['direct'] - rxn_df['ref']
+    rxn_diff_df['pyscf'] = rxn_df['pyscf'] - rxn_df['ref']
+
+    rxn_diff_df.sort_values(by='direct').plot(kind='bar')
+    plt.title(
+      f"{benchmark} benchmark set reaction energy (calculated - reference)"
+    )
+    plt.ylabel("dE (kcal/mol)")
+    plt.show()
+
+    (rxn_df['direct'] - rxn_df['pyscf']).plot(
+      kind='bar', label='direct - pyscf (kcal/mol)'
+    )
+    plt.plot(
+      rxn_df.index, [1] * len(rxn_df.index), 'r--', label='chemical accuracy'
+    )
+    plt.plot(rxn_df.index, [-1] * len(rxn_df.index), 'r--')
+    plt.title(
+      f"{benchmark} benchmark set reaction energy difference (direct - pyscf)"
     )
     plt.legend()
     plt.show()
