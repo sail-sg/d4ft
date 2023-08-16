@@ -16,6 +16,7 @@ from __future__ import annotations  # forward declaration
 
 from typing import Dict, List, Literal, NamedTuple, Tuple
 
+import numpy as np
 import pyscf
 from absl import logging
 from jaxtyping import Array, Int
@@ -43,12 +44,19 @@ def get_pyscf_mol(
   basis: str,
   spin: int = -1,
   charge: int = 0,
-  source: Literal["cccdbd", "pubchem"] = "cccdbd"
+  source: Literal["cccdbd", "refdata", "pubchem"] = "cccdbd"
 ) -> pyscf.gto.mole.Mole:
-  """Construct a pyscf mole object from molecule name and basis name"""
-  geometry = get_mol_geometry(mol, source)
+  """Construct a pyscf mole object from molecule name and basis name.
+
+  NOTE: pyscf assumes the input file is in Angstrom, and it will converts
+  the geometry to Bohr, which is the correct unit for computing energy in
+  Hartree unit.
+  """
+  geometry, charge_, spin = get_mol_geometry(mol, source)
+  if not np.isnan(charge_):  # override charge from the given source
+    charge = charge_
   atoms = get_atom_from_geometry(geometry)
-  if spin == -1:
+  if spin == -1:  # the default: electrons are maximally paired
     spin = get_spin(atoms, charge)
   mol = pyscf.gto.M(atom=geometry, basis=basis, spin=spin, charge=charge)
   logging.info(f"spin: {spin}, charge: {charge}, geometry: {geometry}")

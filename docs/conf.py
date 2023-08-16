@@ -1,10 +1,13 @@
 # Configuration file for the Sphinx documentation builder.
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information
 
 project = 'D4FT'
 copyright = '2022, SEA AI LAB'
-# author = 'Tianbo Li'
 
 # release = '0.0'
 version = '0.0.0'
@@ -15,6 +18,7 @@ extensions = [
   'myst_parser',
   'sphinx.ext.duration',
   'sphinx.ext.doctest',
+  'sphinx.ext.napoleon',
   'sphinx.ext.autodoc',
   'sphinx.ext.autosummary',
   'sphinx.ext.intersphinx',
@@ -42,3 +46,22 @@ html_theme_options = {
   # 'style_nav_header_background': '#910f0f',
   'show_toc_level': 2,
 }
+
+# include the physics package
+# https://stackoverflow.com/questions/75459170
+mathjax3_config = {
+  'loader': {
+    'load': ['[tex]/physics']
+  },
+  'tex': {
+    'packages': {
+      '[+]': ['physics']
+    }
+  },
+}
+
+# -- Options for reading type annotation
+napoleon_google_docstring = True
+# set this to True if you also use numpy-style docstrings
+napoleon_numpy_docstring = False
+napoleon_include_init_with_doc = True

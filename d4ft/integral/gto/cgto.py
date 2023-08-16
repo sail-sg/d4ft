@@ -14,7 +14,7 @@
 from __future__ import annotations  # forward declaration
 
 import math
-from typing import Callable, NamedTuple, Optional, Tuple, Union
+from typing import Callable, NamedTuple, Optional, Sequence, Tuple, Union
 
 import haiku as hk
 import jax
@@ -24,7 +24,13 @@ import scipy.special
 from absl import logging
 from jaxtyping import Array, Float, Int
 
-from d4ft.constants import SHELL_TO_ANGULAR_VEC, Shell
+from d4ft.integral.gto.utils import (
+  MONOMIALS_TO_REAL_SOLID_HARMONICS,
+  REAL_SOLID_HARMONICS_PREFAC,
+  Shell,
+  get_cart_angular_vec,
+  racah_norm,
+)
 from d4ft.system.mol import Mol
 from d4ft.types import MoCoeff
 from d4ft.utils import inv_softplus, make_constant_fn
@@ -35,12 +41,31 @@ perm_2n_n = jnp.array(scipy.special.perm(2 * _r25, _r25))
  Used in GTO normalization and OS horizontal recursion."""
 
 
-# TODO: is it good to vmap here? this code only works if vmapped
-@jax.vmap
-def gto_normalization_constant(
+def gaussian_integral(
+  n: Int[Array, "*batch"],
+  alpha: Float[Array, "*batch"],
+) -> Float[Array, "*batch"]:
+  r"""Evaluate gaussian integral using the gamma function.
+
+  .. math::
+    \int_0^\infty x^n \exp(-\alpha x^2) dx
+    = \frac{\Gamma((n+1)/2)}{2 \alpha^{(n+1)/2}}
+
+  Args:
+    n: power of x
+    alpha: exponent
+
+  Ref:
+  https://en.wikipedia.org/wiki/Gaussian_integral#Relation_to_the_gamma_function
+  """
+  np1_half = (n + 1) * .5
+  return jax.scipy.special.gamma(np1_half) / (2. * alpha**np1_half)
+
+
+def pgto_norm_inv(
   angular: Int[Array, "*batch 3"], exponent: Float[Array, "*batch"]
 ) -> Int[Array, "*batch"]:
-  """Normalization constant of GTO.
+  """Normalization constant of PGTO, i.e. the inverse of its norm.
 
   Ref: https://en.wikipedia.org/wiki/Gaussian_orbital
   """
@@ -49,55 +74,182 @@ def gto_normalization_constant(
   )
 
 
-def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_gtos"]:
-  n_gtos = sum(cgto_splits)
+def normalize_cgto_coeff(
+  pgto: PGTO, coeff: Float[Array, "*n_pgtos"]
+) -> Float[Array, "*n_pgtos"]:
+  r"""Normalize the contraction coefficients of CGTO such that the
+  CGTO with normalized coefficients has norm of 1.
+
+  The input should be a batch of PGTOs corresponding to one CGTO.
+  Therefore all PGTOs has the same angular.
+  """
+  # total angular momentum,
+  l = jnp.sum(pgto.angular[0])
+  # multipy exp funcs equals to sum exponents
+  ee: Float[Array, "n_pgtos n_pgtos"]
+  ee = pgto.exponent.reshape(-1, 1) + pgto.exponent.reshape(1, -1)
+  overlap = gaussian_integral(l * 2 + 2, ee)  # TODO: why l * 2 + 2
+  cgto_norm = jnp.einsum('p,pq,q->', coeff, overlap, coeff)
+  normalized_coeff = coeff / jnp.sqrt(cgto_norm)
+  return normalized_coeff
+
+
+def get_cgto_segment_id(cgto_splits: tuple) -> Int[Array, "n_pgtos"]:
+  n_pgtos = sum(cgto_splits)
   cgto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
-  seg_id = jnp.argmax(jnp.arange(n_gtos)[:, None] < cgto_seg_len, axis=-1)
+  seg_id = jnp.argmax(jnp.arange(n_pgtos)[:, None] < cgto_seg_len, axis=-1)
   return seg_id
 
 
 def build_cgto_from_mol(mol: Mol) -> CGTO:
-  """Transform pyscf mol object to CGTO.
+  """Build CGTO from the basis information in Mol.
+
+  Example PySCF basis (cc-pvdz)
+  {'O': [
+    [0, [11720.0, 0.00071, -0.00016],
+        [1759.0, 0.00547, -0.001263],
+        [400.8, 0.027837, -0.006267],
+        [113.7, 0.1048, -0.025716],
+        [37.03, 0.283062, -0.070924],
+        [13.27, 0.448719, -0.165411],
+        [5.025, 0.270952, -0.116955],
+        [1.013, 0.015458, 0.557368]],
+    [0, [0.3023, 1.0]],
+    [1, [17.7, 0.043018],
+        [3.854, 0.228913],
+        [1.046, 0.508728]],
+    [1, [0.2753, 1.0]],
+    [2, [1.185, 1.0]]]}
+
+  Basically each CGTO is represented as
+  [[angular, kappa, [[exp, c_1, c_2, ..],
+                     [exp, c_1, c_2, ..],
+                     ... ]],
+   [angular, kappa, [[exp, c_1, c_2, ..],
+                     [exp, c_1, c_2, ..]
+                     ... ]]]
+
+  To convert the monomials to real solid harmonics, we need to know the
+  monomials used by the harmonics, which is provided by the table
+  MONOMIALS_TO_REAL_SOLID_HARMONICS. And we also need to multiply the
+  common prefactor (REAL_SOLID_HARMONICS_PREFAC) to the monomials, and
+  the inverse of Racah's normalization (can be calculated with racah_norm)
+  for total angular momentum of :math:`l`: :math:`R(l)`.
+
+  Reference:
+   - https://pyscf.org/user/gto.html#basis-set
+   - https://theochem.github.io/horton/2.0.1/tech_ref_gaussian_basis.html
+   - https://onlinelibrary.wiley.com/iucr/itc/Bb/ch1o2v0001/table1o2o7o1/
+   - https://github.com/sunqm/libcint/blob/master/src/cart2sph.c
+   - https://shorturl.at/er248
 
   Returns:
-    all translated GTOs. STO TO GTO
+    all translated GTOs.
   """
-  primitives = []
+  pgtos = []
   atom_splits = []
   cgto_splits = []
   coeffs = []
+
+  # iter atoms
   for i, element in enumerate(mol.elements):
     coord = mol.atom_coords[i]
-    n_gtos = 0
-    for sto in mol.basis[element]:
-      shell = Shell(sto[0])
-      gtos = sto[1:]
-      for angular in SHELL_TO_ANGULAR_VEC[shell]:
-        cgto_splits.append(len(gtos))
-        for exponent, coeff in gtos:
-          n_gtos += 1
-          primitives.append((angular, coord, exponent))
-          coeffs.append(coeff)
-    atom_splits.append(n_gtos)
-  primitives = PrimitiveGaussian(
-    *[
-      np.array(np.stack(a, axis=0)) if i ==
-      0 else jnp.array(np.stack(a, axis=0))
-      for i, a in enumerate(zip(*primitives))
-    ]
-  )
+    n_pgtos_atom = 0
+    # iter shells
+    for cgto_i in mol.basis[element]:
+      total_angular = cgto_i[0]  # l/shell
+      assert not isinstance(
+        cgto_i[1], float
+      ), "basis with kappa is not supported yet"
+      pgtos_i = cgto_i[1:]  # [[exp, c_1, c_2, ..], [exp, c_1, c_2, ..], ... ]]
+      n_coeffs = len(pgtos_i[0][1:])
+      # TODO: do not create separate PGTO for each c_1, c_2, ...
+      # iter contractions
+      for cid in range(1, 1 + n_coeffs):  # 0-idx is exponent
+        # iter cartesian monomials for the given shell
+        pgtos_monomials = []
+        coeffs_monomials = []
+        pgtos_sph = []
+        coeffs_sph = []
+        for angular in get_cart_angular_vec(total_angular):
+          # iter PGTOs in the given CGTO. If n_coeffs > 1, we have
+          # the general contraction, i.e. each PGTO appears in multiple
+          # CGTOs.
+          pgto_i_ = []
+          coeffs_i = []
+          for pgto_i in pgtos_i:
+            exponent = pgto_i[0]
+            coeff = pgto_i[cid]
+            pgto_i_.append(PGTO(angular, coord, exponent))
+            coeffs_i.append(coeff)
+
+          pgto_i = PGTO.apply(np.stack, pgto_i_)
+          pgtos_monomials.append(pgto_i)
+
+          # normalize each PGTO in cartesian coordinate
+          N = pgto_i.norm_inv()
+          normalized_coeffs_i = normalize_cgto_coeff(
+            pgto_i,
+            jnp.array(coeffs_i) * N
+          ) / N
+          coeffs_monomials.append(normalized_coeffs_i)
+
+        # convert to spherical
+        r_l_inv = 1 / racah_norm(total_angular)
+        shell = Shell(total_angular)
+        prefacs = REAL_SOLID_HARMONICS_PREFAC[shell]
+        for mpl, sph in enumerate(MONOMIALS_TO_REAL_SOLID_HARMONICS[shell]):
+          m = mpl - total_angular  # magnetic quantum number
+          p_m = prefacs[abs(m)]
+          n_pgto_sph = 0
+          for monomial_idx, m_prefac in sph:
+            pgtos_sph.append(pgtos_monomials[monomial_idx])
+            coeffs_sph.append(
+              coeffs_monomials[monomial_idx] * m_prefac * p_m * r_l_inv
+            )
+            n_pgto_sph_i = len(pgtos_monomials[monomial_idx].angular)
+            n_pgto_sph += n_pgto_sph_i
+          cgto_splits.append(n_pgto_sph)
+
+        pgto_sph_ = PGTO.apply(np.concatenate, pgtos_sph)
+        pgtos.append(pgto_sph_)
+        coeffs.append(jnp.concatenate(coeffs_sph))
+        n_pgto_sph = len(pgto_sph_.angular)
+        n_pgtos_atom += n_pgto_sph
+
+    atom_splits.append(n_pgtos_atom)
+
+  pgto = PGTO.apply(np.concatenate, pgtos)
+  coeffs = jnp.concatenate(coeffs)
+
   cgto_splits = tuple(cgto_splits)
   cgto_seg_id = get_cgto_segment_id(cgto_splits)
-  cgto = CGTO(
-    primitives, primitives.normalization_constant(), jnp.array(coeffs),
-    cgto_splits, cgto_seg_id, jnp.array(atom_splits), mol.atom_charges, mol.nocc
+
+  logging.info(
+    f"there are {sum(cgto_splits)} (non-unique) PGTOs in spherical form"
   )
-  logging.info(f"there are {sum(cgto_splits)} GTOs")
+
+  cgto = CGTO(
+    pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
+    jnp.array(atom_splits), mol.atom_charges, mol.nocc
+  )
+
   return cgto
 
 
-class PrimitiveGaussian(NamedTuple):
-  """Batch of Primitive Gaussians / Gaussian-Type Orbitals (GTO)."""
+class PGTO(NamedTuple):
+  r"""Batch of Primitive Gaussian-Type Orbitals (PGTO).
+
+  .. math::
+    PGTO_{nlm}(\vb{r})
+    =N_n(r_x-c_x)^{n_x} (r_y-c_y)^{n_y} (r_z-c_z)^{n_z}
+     \exp(-\alpha \norm{\vb{r}-\vb{c}}^2)
+
+  where N is the normalization factor, which is just the
+  inverse of L2 norm of the unnormalized primitive.
+
+  Analytical integral are calculated in this basis.
+  """
   angular: Int[np.ndarray, "*batch 3"]
   """angular momentum vector, e.g. (0,1,0). Note that it is stored as
   numpy array to avoid tracing error, which is okay since it is not
@@ -111,46 +263,60 @@ class PrimitiveGaussian(NamedTuple):
   def n_orbs(self) -> int:
     return self.angular.shape[0]
 
-  def normalization_constant(self) -> Int[Array, "*batch"]:
-    return gto_normalization_constant(self.angular, self.exponent)
+  def norm_inv(self) -> Int[Array, "*batch"]:
+    return jax.vmap(pgto_norm_inv)(self.angular, self.exponent)
+
+  def at(self, i: Union[slice, int]) -> PGTO:
+    """get one PGTO out of the batch"""
+    return PGTO(self.angular[i], self.center[i], self.exponent[i])
+
+  @staticmethod
+  def apply(f: Callable, pgtos: Sequence[PGTO]) -> PGTO:
+    """Return the concatenation of a sequence of PGTO singletons.
+    Note that the angular needs to be a numpy array to avoid tracing error.
+    """
+    angular, center, exponent = map(f, zip(*pgtos))
+    return PGTO(angular, jnp.array(center), jnp.array(exponent))
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "*batch"]:
-    """Evaluate GTO (unnormalized) with given real space coordinate.
+    """Evaluate PGTO (unnormalized) with given real space coordinate.
 
     Args:
       r: 3D real space coordinate
 
     Returns:
-      unnormalized gto (x-c_x)^l (y-c_y)^m (z-c_z)^n exp{-alpha |r-c|^2}
+      batch of unnormalized pgto
     """
-    xyz_lmn = []
+    angular_cart = []
     for i in range(self.n_orbs):
-      xyz_lmn_i = 1.0
+      angular_cart_i = 1.0
       for d in range(3):  # x, y, z
         if self.angular[i, d] > 0:
-          xyz_lmn_i *= jnp.power(r[d] - self.center[i, d], self.angular[i, d])
-      xyz_lmn.append(xyz_lmn_i)
-    xyz_lmn = jnp.array(xyz_lmn)
+          angular_cart_i *= jnp.power(
+            r[d] - self.center[i, d], self.angular[i, d]
+          )
+      angular_cart.append(angular_cart_i)
+    angular_cart = jnp.array(angular_cart)
     exp = jnp.exp(-self.exponent * jnp.sum((r - self.center)**2, axis=1))
-    return xyz_lmn * exp
+    return angular_cart * exp
 
 
 class CGTO(NamedTuple):
-  """Linear Combination of Contracted Gaussian-Type Orbitals.
-  Can be used to represent AO.
+  """Contracted GTO, i.e. linear combinations of PGTO.
+  Stored as a batch of PGTOs, and a list of contraction coefficients.
   """
-  primitives: PrimitiveGaussian
-  """GTO basis functions."""
-  N: Int[Array, "n_gtos"]
-  """Store computed GTO normalization constant."""
-  coeff: Float[Array, "*n_gtos"]
+  pgto: PGTO
+  """PGTO basis functions."""
+  N: Int[Array, "n_pgtos"]
+  """Store computed PGTO normalization constant."""
+  coeff: Float[Array, "*n_pgtos"]
   """CGTO contraction coefficient. n_cgto is usually the number of AO."""
   cgto_splits: Union[Int[Array, "*n_cgtos"], tuple]
-  """CGTO segment lengths. e.g. (3, 3, 3, 3, 3, 3, 3, 3, 3, 3) for O2 in sto-3g.
-  Store it in tuple form so that it is hashable, and can be passed to a jitted
-  function as static arg."""
-  cgto_seg_id: Int[Array, "n_gtos"]
-  """Segment ids for contracting tensors in GTO basis to CGTO basis.
+  """Contraction segment lengths. e.g. (3, 3, 3, 3, 3, 3, 3, 3, 3, 3) for
+  O2 in sto-3g. Store it in tuple form so that it is hashable, and can be
+  passed to a jitted function as static arg."""
+  cgto_seg_id: Int[Array, "n_pgtos"]
+  """Segment ids for contracting tensors in PGTO basis to CGTO basis.
   e.g. [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7,
   8, 8, 8, 9, 9, 9] for O2 in sto-3g.
   """
@@ -163,7 +329,7 @@ class CGTO(NamedTuple):
   """occupation mask for alpha and beta spin"""
 
   @property
-  def n_gtos(self) -> int:
+  def n_pgtos(self) -> int:
     return sum(self.cgto_splits)
 
   @property
@@ -180,26 +346,23 @@ class CGTO(NamedTuple):
 
   @property
   def atom_coords(self) -> Float[Array, "n_atoms 3"]:
-    return self.primitives.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
+    return self.pgto.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
 
-  def map_params(
-    self, f: Callable
-  ) -> Tuple[PrimitiveGaussian, Float[Array, "*batch"]]:
-    """Apply function f to primitive gaussian parameters and contraction coeffs.
+  def map_pgto_params(self, f: Callable) -> Tuple[PGTO, Float[Array, "*batch"]]:
+    """Apply function f to PGTO parameters and contraction coeffs.
     Can be used to get a tensor slice of the parameters for contraction or
     tensorization.
     """
     angular, center, exponent, coeff = map(
-      f, [
-        self.primitives.angular, self.primitives.center,
-        self.primitives.exponent, self.coeff
-      ]
+      f, [self.pgto.angular, self.pgto.center, self.pgto.exponent, self.coeff]
     )
-    return PrimitiveGaussian(angular, center, exponent), coeff
+    return PGTO(angular, center, exponent), coeff
 
   def eval(self, r: Float[Array, "3"]) -> Float[Array, "n_cgtos"]:
     """Evaluate CGTO given real space coordinate by first evaluate
-    all primitives, normalize it then contract them.
+    all pgto, normalize it then contract them.
+
+    TODO: support generalized contraction.
 
     Args:
       r: 3D real space coordinate
@@ -207,7 +370,7 @@ class CGTO(NamedTuple):
     Returns:
       contracted normalized gtos.
     """
-    gto_val = self.coeff * self.N * self.primitives.eval(r)
+    gto_val = self.coeff * self.N * self.pgto.eval(r)
     n_cgtos = len(self.cgto_splits)
     return jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
 
@@ -215,6 +378,10 @@ class CGTO(NamedTuple):
   def from_mol(mol: Mol) -> CGTO:
     """Build CGTO from pyscf mol."""
     return build_cgto_from_mol(mol)
+
+  @staticmethod
+  def from_cart(cgto_cart: CGTO) -> CGTO:
+    return build_cgto_sph_from_mol(cgto_cart)
 
   def to_hk(self) -> CGTO:
     """Convert optimizable parameters to hk.Params. Must be haiku transformed.
@@ -228,7 +395,7 @@ class CGTO(NamedTuple):
       center,
       jnp.array(self.atom_splits),
       axis=0,
-      total_repeat_length=self.n_gtos
+      total_repeat_length=self.n_pgtos
     )
     # NOTE: we want to have some activation function here to make sure
     # that exponent > 0. However softplus is not good as inv_softplus
@@ -236,17 +403,15 @@ class CGTO(NamedTuple):
     exponent = jax.nn.softplus(
       hk.get_parameter(
         "exponent",
-        self.primitives.exponent.shape,
-        init=make_constant_fn(inv_softplus(self.primitives.exponent))
+        self.pgto.exponent.shape,
+        init=make_constant_fn(inv_softplus(self.pgto.exponent))
       )
     )
     coeff = hk.get_parameter(
       "coeff", self.coeff.shape, init=make_constant_fn(self.coeff)
     )
-    primitives = PrimitiveGaussian(
-      self.primitives.angular, center_rep, exponent
-    )
-    return self._replace(primitives=primitives, coeff=coeff)
+    pgto = PGTO(self.pgto.angular, center_rep, exponent)
+    return self._replace(pgto=pgto, coeff=coeff)
 
   # TODO: instead of using occupation mask, we can orthogonalize a non-square
   # matrix directly

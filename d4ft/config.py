@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 from typing import Literal
 
 from ml_collections import ConfigDict
@@ -26,7 +27,7 @@ class GDConfig:
   """Config for direct minimization with gradient descent solver."""
   lr: float = 1e-2
   """learning rate"""
-  lr_decay: Literal["none", "piecewise", "cosine"] = "piecewise"
+  lr_decay: Literal["none", "piecewise", "cosine"] = "none"
   """learning rate schedule"""
   optimizer: Literal["adam", "sgd", "rmsprop"] = "adam"
   """which optimizer to use"""
@@ -67,7 +68,7 @@ class IntorConfig:
 @dataclass(config=pydantic_config)
 class MoleculeConfig:
   """Config for molecule"""
-  mol: str = "o2"
+  mol: str = "O2"
   """name of the molecule, or the path to the geometry file, which
   specifies the geometry in the format
   <atom_type> <xyz coordinate in angstrom>.
@@ -81,7 +82,7 @@ class MoleculeConfig:
   maximally paired, so the spin is 0 or 1."""
   charge: int = 0
   """charge multiplicity"""
-  geometry_source: Literal["cccdbd", "pubchem"] = "cccdbd"
+  geometry_source: Literal["cccdbd", "refdata", "pubchem"] = "cccdbd"
   """where to query the geometry from."""
 
 
@@ -103,6 +104,8 @@ class D4FTConfig(ConfigDict):
   mol_cfg: MoleculeConfig
   gd_cfg: GDConfig
   scf_cfg: SCFConfig
+  uuid: str
+  save_dir: str
 
   def __init__(self, config_string: str) -> None:
     super().__init__(
@@ -112,6 +115,8 @@ class D4FTConfig(ConfigDict):
         "mol_cfg": MoleculeConfig(),
         "gd_cfg": GDConfig(),
         "scf_cfg": SCFConfig(),
+        "uuid": "",
+        "save_dir": "_exp",
       }
     )
 
@@ -119,6 +124,18 @@ class D4FTConfig(ConfigDict):
     if self.dft_cfg.rks and self.mol_cfg.mol not in ["bh76_h", "h"]:
       assert spin == 0 and charge == 0, \
         "RKS only supports closed-shell molecules"
+
+  def get_save_dir(self) -> Path:
+    return Path(f"{self.save_dir}/{self.uuid}/{self.mol_cfg.mol}")
+
+  def get_core_cfg_str(self) -> str:
+    return "+".join([self.mol_cfg.basis, self.dft_cfg.xc_type])
+
+  def save(self):
+    save_path = self.get_save_dir().parent
+    save_path.mkdir(parents=True, exist_ok=True)
+    with open(save_path / "config.txt", "w") as f:
+      f.write(str(self))
 
 
 def get_config(config_string: str = "") -> D4FTConfig:

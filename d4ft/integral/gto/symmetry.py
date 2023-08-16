@@ -11,7 +11,7 @@
 
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Utility code to compute symmetry reduced index for GTO integrals.
+"""Utility code to compute symmetry reduced index for PGTO integrals.
 2c integrals (a|b) has 2-fold symmetry, whereas 4c integrals (ab|cd)
 has 8-fold symmetry.
 """
@@ -27,7 +27,7 @@ from jaxtyping import Array, Float, Int
 from d4ft.types import IdxCount, IdxCount2C, IdxCount4C
 
 # TODO: An idea, can we use API like
-# sym_2c = Sym2C(n_gtos)
+# sym_2c = Sym2C(n_pgtos)
 # uniq_idx = sym_2c.encode(i, j)
 # i, j = sym_2c.decode(uniq_idx)
 # sym_2c.repetition_count(i, j)
@@ -124,20 +124,20 @@ def triu_idx_range(
   return idx
 
 
-@partial(jax.jit, static_argnames=['n_gtos'])
-def get_2c_sym_idx(n_gtos: int) -> IdxCount2C:
+@partial(jax.jit, static_argnames=['n_pgtos'])
+def get_2c_sym_idx(n_pgtos: int) -> IdxCount2C:
   """2-fold symmetry for 2c integral (a|b)"""
-  ab_idx = jnp.vstack(jnp.triu_indices(n_gtos)).T
+  ab_idx = jnp.vstack(jnp.triu_indices(n_pgtos)).T
   offdiag_ab = ab_idx[:, 0] != ab_idx[:, 1]
   counts_ab = offdiag_ab + jnp.ones(len(ab_idx))
   ab_idx_count = jnp.hstack([ab_idx, counts_ab[..., None]]).astype(int)
   return ab_idx_count
 
 
-@partial(jax.jit, static_argnames=['n_gtos'])
-def get_4c_sym_idx(n_gtos: int, for_j: bool = False) -> IdxCount4C:
+@partial(jax.jit, static_argnames=['n_pgtos'])
+def get_4c_sym_idx(n_pgtos: int, for_j: bool = False) -> IdxCount4C:
   """8-fold symmetry for 4c integral (ab|cd)"""
-  ab_idx_counts = get_2c_sym_idx(n_gtos)
+  ab_idx_counts = get_2c_sym_idx(n_pgtos)
   ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
 
   # block idx of (ab|cd)
@@ -217,31 +217,31 @@ def utr_4c_idx(n: int, ijkl: Int[Array, "4"]) -> Int[Array, ""]:
 
 @partial(jax.jit, static_argnames=["cgto_splits", "four_center"])
 def get_cgto_segment_id_sym(
-  gto_idx_counts: IdxCount,
+  pgto_idx_counts: IdxCount,
   cgto_splits: tuple,
   four_center: bool = False
 ) -> Int[Array, "batch"]:
-  """Compute the segment id for contracting GTO tensor in
-  symmetry reduced form to AO/STO tensor using segment_sum.
+  """Compute the segment id for contracting PGTO tensor in
+  symmetry reduced form to CGTO tensor using segment_sum.
 
-  For example, for STO-3g, every AO has 3 GTO, so the
+  For example, for STO-3g, every CGTO has 3 PGTO, so the
   conversion can be computed as cgto_idx = gto_idx // 3.
   """
   n_cgtos = len(cgto_splits)
-  cgto_seg_len = jnp.cumsum(jnp.array(cgto_splits))
+  cgto_seg_idx = jnp.cumsum(jnp.array(cgto_splits))
 
   if four_center:
-    # translate to sto seg id
-    gto_idx_segmented = jnp.argmax(
-      gto_idx_counts[:, :4, None] < cgto_seg_len, axis=-1
+    # translate to cgto seg id
+    pgto_idx_segmented = jnp.argmax(
+      pgto_idx_counts[:, :4, None] < cgto_seg_idx, axis=-1
     )
     seg_ids = jax.vmap(lambda ijkl: utr_4c_idx(n_cgtos, ijkl))(
-      gto_idx_segmented
+      pgto_idx_segmented
     )
   else:  # two center
-    # translate to sto seg id
-    gto_idx_segmented = jnp.argmax(
-      gto_idx_counts[:, :2, None] < cgto_seg_len, axis=-1
+    # translate to cgto seg id
+    pgto_idx_segmented = jnp.argmax(
+      pgto_idx_counts[:, :2, None] < cgto_seg_idx, axis=-1
     )
-    seg_ids = jax.vmap(lambda ij: utr_2c_idx(n_cgtos, ij))(gto_idx_segmented)
+    seg_ids = jax.vmap(lambda ij: utr_2c_idx(n_cgtos, ij))(pgto_idx_segmented)
   return seg_ids

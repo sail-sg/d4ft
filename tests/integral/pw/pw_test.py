@@ -43,8 +43,8 @@ class PWTest(parameterized.TestCase):
 
     pw = PW.from_crystal(
       crystal=crystal,
-      n_g_pts=to_3dvec(16, int),
-      n_k_pts=to_3dvec(1, int),
+      reciprocal_lattice_dim=to_3dvec(16, int),
+      direct_lattice_dim=to_3dvec(1, int),
       e_cut=10.0
     )
 
@@ -54,7 +54,7 @@ class PWTest(parameterized.TestCase):
     params = pw_coeff_fn.init(137)
     pw_coeff = pw_coeff_fn.apply(params)
     logging.info(pw_coeff.shape)
-    nr, nG = pw.eval(pw_coeff)
+    nr, nG = pw.density(pw_coeff)
     logging.info(nr.shape)
     logging.info(nG.shape)
 

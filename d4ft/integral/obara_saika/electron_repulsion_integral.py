@@ -19,7 +19,7 @@ import jax
 import jax.numpy as jnp
 from jax import lax
 
-from d4ft.integral.gto.cgto import PrimitiveGaussian
+from d4ft.integral.gto.cgto import PGTO
 from d4ft.integral.obara_saika import angular_stats, boys, terms, utils
 from d4ft.types import AngularStats
 
@@ -35,10 +35,10 @@ else:
 
 
 def electron_repulsion_integral(
-  a: PrimitiveGaussian,
-  b: PrimitiveGaussian,
-  c: PrimitiveGaussian,
-  d: PrimitiveGaussian,
+  a: PGTO,
+  b: PGTO,
+  c: PGTO,
+  d: PGTO,
   static_args: Optional[AngularStats] = None,
 ):
   r"""Electron repulsion integral using obara saika

@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import os
-from typing import Literal, Optional
+from typing import Literal, Optional, Tuple
 
+import numpy as np
 import pubchempy
 import requests
 from absl import logging
@@ -22,6 +23,7 @@ from absl import logging
 import d4ft.system.cccdbd
 import d4ft.system.fake_fullerene
 from d4ft.system.cccdbd import query_geometry_from_cccbdb
+from d4ft.system.refdata import get_refdata_geometry
 from d4ft.system.utils import periodic_table
 
 
@@ -66,8 +68,9 @@ def get_fullerene_geometry(name: str) -> Optional[str]:
 
 
 def get_mol_geometry(
-  name: str, source: Literal["cccdbd", "pubchem"] = "cccdbd"
-) -> str:
+  name: str,
+  source: Literal["cccdbd", "refdata", "pubchem"] = "cccdbd"
+) -> Tuple[str, int, int]:
   geometry: Optional[str] = None
   if ".xyz" in name:
     with open(name, "r") as f:
@@ -91,11 +94,17 @@ def get_mol_geometry(
       with open(f"{xyz_path}/{offline_xyz[0]}", "r") as f:
         geometry = f.read()
 
+  charge = np.nan
+  spin = -1
   if geometry is None:
     if source == "cccdbd":
       geometry = query_geometry_from_cccbdb(name)
-    else:
+    elif source == "refdata":
+      geometry, charge, spin = get_refdata_geometry(name)
+    elif source == "refdata":
       geometry = get_pubchem_geometry(name)
+    else:
+      raise ValueError(f"source {source} not supported")
 
   assert geometry is not None
-  return geometry
+  return geometry, charge, spin

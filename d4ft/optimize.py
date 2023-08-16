@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Dict, Tuple
+
 import haiku as hk
 import jax
 import jax.numpy as jnp
@@ -20,8 +22,6 @@ import optax
 
 from d4ft.config import GDConfig
 from d4ft.types import TrainingState
-
-from typing import Dict, Tuple
 
 
 def get_optimizer(

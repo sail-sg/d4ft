@@ -1,10 +1,13 @@
 D4FT: A differantiable Jax implementation for density functional theory
 =======================================================================
 
+.. automodule:: d4ft.constants
+   :members:
+
+.. automodule:: d4ft.integral.gto.cgto
+   :members:
 
 This project is a `JAX <https://github.com/google/jax/>`_-based package for differantiable density functional theory and quantum chemistry.
-
-
 
 It has many great features for quantum chemistry calculation including:
 

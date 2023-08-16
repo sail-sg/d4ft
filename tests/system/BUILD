@@ -13,6 +13,7 @@
 # limitations under the License.
 
 load("@rules_python//python:defs.bzl", "py_test")
+load("@pip_requirements//:requirements.bzl", "requirement")
 
 py_test(
     name = "crystal_test",
@@ -21,5 +22,6 @@ py_test(
     deps = [
         "//d4ft:utils",
         "//d4ft/system:crystal",
+        requirement("numpy"),
     ],
 )

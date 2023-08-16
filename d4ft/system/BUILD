@@ -34,6 +34,7 @@ py_library(
     deps = [
         "//d4ft:constants",
         "//d4ft:types",
+        requirement("ase"),
     ],
 )
 
@@ -49,6 +50,7 @@ py_library(
     deps = [
         ":cccdbd",
         ":fake_fullerene",
+        ":refdata",
         ":utils",
         requirement("pubchempy"),
     ],
@@ -62,13 +64,24 @@ py_library(
         ":occupation",
         ":utils",
         "//d4ft:types",
+        requirement("pyscf"),
     ],
 )
 
 py_library(
     name = "cccdbd",
     srcs = ["cccdbd.py"],
-    deps = [],
+    deps = [
+        requirement("bs4"),
+    ],
+)
+
+py_library(
+    name = "refdata",
+    srcs = ["refdata.py"],
+    deps = [
+        requirement("pandas"),
+    ],
 )
 
 py_library(

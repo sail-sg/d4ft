@@ -12,22 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
-
-
-class Shell(Enum):
-  """https://pyscf.org/user/gto.html#basis-set"""
-  s = 0
-  p = 1
-  d = 2
-  f = 3
-
-
-SHELL_TO_ANGULAR_VEC = {
-  Shell.s: [[0, 0, 0]],
-  Shell.p: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-}
-
 ANGSTRONG_TO_BOHR = 1.8897259886
+"""Conversion factor from Angstrom to Bohr"""
 
-HARTREE_TO_KCALMOL = 627.503
+HARTREE_TO_KCAL_PER_MOL = 627.503
+"""Conversion factor from Hartree to kcal/mol"""

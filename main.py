@@ -12,27 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Entrypoint for D4FT."""
+import pickle
+import string
+from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
+import pandas as pd
+import shortuuid
 from absl import app, flags, logging
 from jax.config import config
 from ml_collections.config_flags import config_flags
 
 from d4ft.config import D4FTConfig
-from d4ft.constants import HARTREE_TO_KCALMOL
+from d4ft.constants import HARTREE_TO_KCAL_PER_MOL
 from d4ft.solver.drivers import (
   incore_cgto_direct_opt_dft,
   incore_cgto_pyscf_dft_benchmark,
   incore_cgto_scf_dft,
 )
+from d4ft.system.refdata import get_refdata_benchmark_set
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
-  "run", "direct", ["direct", "scf", "pyscf", "reaction"],
+  "run", "direct", ["direct", "scf", "pyscf", "reaction", "viz"],
   "which routine to run"
 )
 flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
+flags.DEFINE_string("benchmark", "", "the refdata benchmark set to run")
 flags.DEFINE_bool("use_f64", False, "whether to use float64")
+flags.DEFINE_bool("pyscf", False, "whether to benchmark against pyscf results")
+flags.DEFINE_bool("save", False, "whether to save results and trajectories")
 
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
@@ -43,8 +53,40 @@ def main(_: Any) -> None:
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
 
+  if FLAGS.save:
+    with cfg.unlocked():
+      cfg.uuid = shortuuid.ShortUUID(
+        alphabet=string.ascii_lowercase + string.digits
+      ).random(8)
+
+  if FLAGS.benchmark != "":
+    assert FLAGS.save
+
+    with cfg.unlocked():
+      cfg.uuid = ",".join([FLAGS.benchmark, cfg.get_core_cfg_str(), cfg.uuid])
+
+    cfg.save()
+
+    systems, _, _ = get_refdata_benchmark_set(FLAGS.benchmark)
+    for system in systems:
+      if system == "bh76_h":  # TODO: fix the xc grad NaN issue
+        continue
+
+      with cfg.unlocked():
+        cfg.mol_cfg.mol = "-".join([FLAGS.benchmark, system])
+
+      try:
+        if FLAGS.run == "direct":
+          incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf)
+        else:
+          raise NotImplementedError
+      except Exception as e:
+        logging.error(e)
+
+    return
+
   if FLAGS.run == "direct":
-    incore_cgto_direct_opt_dft(cfg)
+    incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf)
 
   elif FLAGS.run == "scf":
     incore_cgto_scf_dft(cfg)
@@ -52,21 +94,45 @@ def main(_: Any) -> None:
   elif FLAGS.run == "pyscf":
     incore_cgto_pyscf_dft_benchmark(cfg)
 
-  elif FLAGS.run == "reaction":
-    systems = FLAGS.reaction.split("_")
+  elif FLAGS.run == "viz":
+    p = Path(cfg.save_dir)
+    runs = [f for f in p.iterdir() if f.is_dir()]
+    direct_df = pd.DataFrame()
+    pyscf_df = pd.DataFrame()
+    pyscf_mos = []
+    direct_mos = []
+    for run in runs:
+      direct_df_i = pd.read_csv(run / "direct_opt.csv").iloc[-1:]
+      pyscf_df_i = pd.read_csv(run / "pyscf.csv")
+      direct_df_i.index = [run.name]
+      pyscf_df_i.index = [run.name]
+      direct_df = pd.concat([direct_df, direct_df_i])
+      pyscf_df = pd.concat([pyscf_df, pyscf_df_i])
 
-    e = {}
-    for system in systems:
-      cfg.mol_cfg.mol = f"bh76_{system}"
-      e[system] = incore_cgto_direct_opt_dft(cfg)
+      with open(run / "pyscf_mo_coeff.pkl", "rb") as f:
+        pyscf_mos.append(pickle.load(f))
 
-    e_barrier = e[systems[2]] - e[systems[1]] - e[systems[0]]
+      with open(run / "traj.pkl", "rb") as f:
+        traj = pickle.load(f)
+        direct_mos.append(traj.mo_coeff)
 
-    for system in systems:
-      logging.info(f"e_{system} = {e[system]} Ha")
-    logging.info(
-      f"e_barrier = {e_barrier} Ha = {e_barrier * HARTREE_TO_KCALMOL} kcal/mol"
+    direct_df = direct_df.rename(columns={
+      'Unnamed: 0': 'steps',
+    })
+    pyscf_df = pyscf_df.rename(columns={
+      'Unnamed: 0': 'steps',
+    })
+    diff_df = (direct_df - pyscf_df) * HARTREE_TO_KCAL_PER_MOL
+    diff_df['e_total'].dropna().sort_values().plot(
+      kind='bar', label='direct - pyscf (kcal/mol)'
     )
+    plt.title("BH76 benchmark set energy difference")
+    plt.ylabel("dE (kcal/mol)")
+    plt.plot(
+      diff_df.index, [1] * len(diff_df.index), 'r--', label='chemical accuracy'
+    )
+    plt.legend()
+    plt.show()
 
 
 if __name__ == "__main__":

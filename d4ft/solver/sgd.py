@@ -18,46 +18,34 @@ from typing import Tuple
 import haiku as hk
 import jax
 import jax.numpy as jnp
-import numpy as np
 import optax
 from absl import logging
 
 from d4ft.config import GDConfig
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
-from d4ft.types import (
-  Hamiltonian,
-  HamiltonianHKFactory,
-  TrainingState,
-  Trajectory,
-  Transition,
-)
+from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
 
 
 def scipy_opt(
-  gd_cfg: GDConfig, H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
+  gd_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.random.KeyArray
 ) -> float:
 
-  H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
-  init_params = H_transformed.init(key)
+  # H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
+  # init_params = H_transformed.init(key)
+  # H = Hamiltonian(*H_transformed.apply)
 
-  H = Hamiltonian(*H_transformed.apply)
-
-  energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff)[0])
+  energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff, key)[0])
 
   import jaxopt
   solver = jaxopt.BFGS(fun=energy_fn_jit, maxiter=500)
-  res = solver.run(init_params)
+  res = solver.run(params)
   return res
 
 
 def sgd(
-  gd_cfg: GDConfig, H_factory: HamiltonianHKFactory, key: jax.random.KeyArray
-) -> Tuple[RunLogger, Trajectory, Hamiltonian]:
-
-  # H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
-  H_transformed = hk.multi_transform(H_factory)
-  H = Hamiltonian(*H_transformed.apply)
+  gd_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.random.KeyArray
+) -> Tuple[RunLogger, Trajectory]:
 
   @jax.jit
   def update(state: TrainingState) -> Tuple:
@@ -95,7 +83,6 @@ def sgd(
     ), new_state, energies, mo_grads
 
   # init state
-  params = H_transformed.init(key)
   opt_states = get_optimizer(gd_cfg, params, key)
   optimizer, state = opt_states["main"]
   if gd_cfg.meta_opt != "none":
@@ -105,6 +92,7 @@ def sgd(
   traj = []
   converged = False
   logger = RunLogger()
+  e_total_std = 0.
   # mo_grad_norm_fn = jax.jit(jax.vmap(partial(jnp.linalg.norm, ord=2), 0, 0))
   for step in range(gd_cfg.epochs):
 
@@ -114,7 +102,7 @@ def sgd(
       meta_state, new_state, energies, mo_grads = meta_step(state, meta_state)
       logging.info(f"cur lr: {jax.nn.sigmoid(meta_state.params):.4f}")
 
-    logger.log_step(energies, step)
+    logger.log_step(energies, step, e_total_std)
     logger.get_segment_summary()
 
     # logging.info(mo_grads[-1])
@@ -150,4 +138,4 @@ def sgd(
 
   logging.info(f"Converged: {converged}")
 
-  return logger, traj, H
+  return logger, traj

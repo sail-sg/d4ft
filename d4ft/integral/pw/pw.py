@@ -116,7 +116,7 @@ class PW(NamedTuple):
 
     # TODO: fermi-dirac distribution above zero temp
     nocc = get_occupation_mask(
-      tot_electrons, tot_electrons * tot_kpts, crystal.spin
+      tot_electrons, tot_electrons * tot_kpts, crystal.spin, charge=0
     ).reshape(2, tot_electrons, tot_kpts)
 
     reciprocal_lattice_vec = tile_cell_to_lattice(
@@ -173,9 +173,8 @@ class PW(NamedTuple):
     if ortho_fn:  # orthogonalize the plane wave coefficients
       # vmap over k-axis, and make g points coefficients between different
       # electron orthogonal.
-      pw_coeff = einops.rearrange(pw_coeff, "spin ele k g -> spin g k ele")
-      pw_coeff = jax.vmap(ortho_fn, in_axes=2, out_axes=2)(pw_coeff)
-      pw_coeff = einops.rearrange(pw_coeff, "spin g k ele -> spin ele k g")
+      pw_coeff_t = einops.rearrange(pw_coeff, "spin ele k g -> spin g k ele")
+      pw_coeff = jax.vmap(ortho_fn, in_axes=2, out_axes=2)(pw_coeff_t)
 
     @vmap_3D_lattice
     def select_g_pts(
