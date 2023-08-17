@@ -80,8 +80,8 @@ def main(_: Any) -> None:
       logging.info(f"resuming {FLAGS.benchmark} benchmark set")
       with cfg.unlocked():
         cfg.uuid = p.name
-        cfg.save_dir = p.parent
-      system_done = [f.name for f in p.iterdir() if f.is_dir()]
+        cfg.save_dir = str(p.parent)
+      system_done = [f.name.split("-")[-1] for f in p.iterdir() if f.is_dir()]
     else:
       with cfg.unlocked():
         cfg.uuid = ",".join([FLAGS.benchmark, cfg.get_core_cfg_str(), cfg.uuid])
