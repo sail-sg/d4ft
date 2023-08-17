@@ -574,7 +574,7 @@ class CGTO(NamedTuple):
   # matrix directly
   def get_mo_coeff(
     self,
-    rks: bool,
+    restricted: bool,
     ortho_fn: Optional[Callable] = None,
     ovlp_sqrt_inv: Optional[Float[Array, "nao nao"]] = None,
     apply_spin_mask: bool = True,
@@ -583,7 +583,7 @@ class CGTO(NamedTuple):
   ) -> MoCoeff:
     """Function to return MO coefficient. Must be haiku transformed."""
     nmo = self.nao
-    shape = ([nmo, nmo] if rks else [2, nmo, nmo])
+    shape = ([nmo, nmo] if restricted else [2, nmo, nmo])
 
     if use_hk:
       mo_params = hk.get_parameter(
@@ -602,7 +602,7 @@ class CGTO(NamedTuple):
     else:
       mo_coeff = mo_params
 
-    if rks:  # restrictied mo
+    if restricted:  # restrictied mo
       mo_coeff_spin = jnp.repeat(mo_coeff[None], 2, 0)  # add spin axis
     else:
       mo_coeff_spin = mo_coeff

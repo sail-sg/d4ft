@@ -104,9 +104,9 @@ D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage c
 
 The configuration used for the calculation will be printed to the console at the start of the run. For example when you run the calculation for Oxygen above using the default configuration, you should see the following:
 ``` shell
-dft_cfg: !!python/object:config_config.DFTConfig
+algo_cfg: !!python/object:config_config.AlgoConfig
   __pydantic_initialised__: true
-  rks: false
+  restricted: false
   rng_seed: 137
   xc_type: lda_x
 gd_cfg: !!python/object:config_config.GDConfig
@@ -147,9 +147,9 @@ python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.spin 2
 ```
 
 ## Specifying XC functional
-D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.dft_cfg.xc_type` to specify XC functional to use, for example:
+D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.algo_cfg.xc_type` to specify XC functional to use, for example:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.dft_cfg.xc_type lda_x
+python main.py --run direct --config.mol_cfg.mol O2 --config.algo_cfg.xc_type lda_x
 ```
 
 
@@ -216,7 +216,7 @@ We have benchmarked the calculation against well known open-sourced quantum chem
 To run systems from `refdata` benchmark sets, 
 
 ``` shell
-python main.py --benchmark bh76 --use_f64 --config.mol_cfg.basis <basis> --config.dft_cfg.xc_type <xc> --save --config.mol_cfg.geometry_source refdata --pyscf --config.save_dir <path>
+python main.py --benchmark bh76 --use_f64 --config.mol_cfg.basis <basis> --config.algo_cfg.xc_type <xc> --save --config.mol_cfg.geometry_source refdata --pyscf --config.save_dir <path>
 ```
 
 To visualize the run:

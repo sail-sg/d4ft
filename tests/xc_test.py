@@ -39,7 +39,7 @@ class XCTest(parameterized.TestCase):
   )
   def test_xc_grad(self, xc_name: str) -> None:
     cfg = get_config()
-    key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
+    key = jax.random.PRNGKey(cfg.algo_cfg.rng_seed)
     cfg.mol_cfg.mol = "h2"
     cfg.mol_cfg.basis = "sto-3g"
 
@@ -63,12 +63,12 @@ class XCTest(parameterized.TestCase):
     # function maps mo coefficients to xc energy
     mo_coeff_fn = partial(
       cgto.get_mo_coeff,
-      rks=cfg.dft_cfg.rks,
+      restricted=cfg.algo_cfg.restricted,
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
-    polarized = not cfg.dft_cfg.rks
-    xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+    polarized = not cfg.algo_cfg.restricted
+    xc_func = get_xc_functional(cfg.algo_cfg.xc_type, polarized)
     xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
 
     mo_xc_fn = hk.without_apply_rng(hk.transform(compose(xc_fn, mo_coeff_fn)))

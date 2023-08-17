@@ -87,10 +87,13 @@ class MoleculeConfig:
 
 
 @dataclass(config=pydantic_config)
-class DFTConfig:
-  """Config for DFT."""
-  rks: bool = False
-  """Whether to run RKS, i.e. use the same coefficients for both spins"""
+class AlgoConfig:
+  """Config for Algorithms."""
+  algo: Literal["HF", "KS"] = "KS"
+  """Which algorithm to use. HF for Hartree-Fock, KS for Kohn-Sham DFT."""
+  restricted: bool = False
+  """Whether to run restricted calculation, i.e. enforcing symmetry by using the
+  same coefficients for both spins"""
   xc_type: str = "lda_x"
   """Name of the xc functional to use. To mix two XC functional, use the
   syntax a*xc_name_1+b*xc_name_2 where a, b are numbers."""
@@ -99,7 +102,7 @@ class DFTConfig:
 
 
 class D4FTConfig(ConfigDict):
-  dft_cfg: DFTConfig
+  algo_cfg: AlgoConfig
   intor_cfg: IntorConfig
   mol_cfg: MoleculeConfig
   gd_cfg: GDConfig
@@ -110,7 +113,7 @@ class D4FTConfig(ConfigDict):
   def __init__(self, config_string: str) -> None:
     super().__init__(
       {
-        "dft_cfg": DFTConfig(),
+        "algo_cfg": AlgoConfig(),
         "intor_cfg": IntorConfig(),
         "mol_cfg": MoleculeConfig(),
         "gd_cfg": GDConfig(),
@@ -121,15 +124,15 @@ class D4FTConfig(ConfigDict):
     )
 
   def validate(self, spin: int, charge: int) -> None:
-    if self.dft_cfg.rks and self.mol_cfg.mol not in ["bh76_h", "h"]:
+    if self.algo_cfg.restricted and self.mol_cfg.mol not in ["bh76_h", "h"]:
       assert spin == 0 and charge == 0, \
-        "RKS only supports closed-shell molecules"
+        "RESTRICTED only supports closed-shell molecules"
 
   def get_save_dir(self) -> Path:
     return Path(f"{self.save_dir}/{self.uuid}/{self.mol_cfg.mol}")
 
   def get_core_cfg_str(self) -> str:
-    return "+".join([self.mol_cfg.basis, self.dft_cfg.xc_type])
+    return "+".join([self.mol_cfg.basis, self.algo_cfg.xc_type])
 
   def save(self):
     save_path = self.get_save_dir().parent

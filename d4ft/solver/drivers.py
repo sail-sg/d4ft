@@ -74,21 +74,23 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
 
   NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
   """
-  key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
+  key = jax.random.PRNGKey(cfg.algo_cfg.rng_seed)
   incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_hf_cgto(cfg)
 
-  vxc_fn = get_lda_vxc(grids_and_weights, cgto, polarized=not cfg.dft_cfg.rks)
+  vxc_fn = get_lda_vxc(
+    grids_and_weights, cgto, polarized=not cfg.algo_cfg.restricted
+  )
   cgto_fock_fn = get_cgto_fock_fn(cgto, incore_e_tensors, vxc_fn)
   cgto_fock_jit = jax.jit(cgto_fock_fn)
 
   # get initial mo_coeff
-  mo_coeff_fn = partial(cgto.get_mo_coeff, rks=cfg.dft_cfg.rks)
+  mo_coeff_fn = partial(cgto.get_mo_coeff, restricted=cfg.algo_cfg.restricted)
   mo_coeff_fn = hk.without_apply_rng(hk.transform(mo_coeff_fn))
   params = mo_coeff_fn.init(key)
   mo_coeff = mo_coeff_fn.apply(params, apply_spin_mask=False)
 
-  polarized = not cfg.dft_cfg.rks
-  xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+  polarized = not cfg.algo_cfg.restricted
+  xc_func = get_xc_functional(cfg.algo_cfg.xc_type, polarized)
   xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
   kin_fn, ext_fn, har_fn = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_e_tensors
@@ -105,7 +107,7 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
     return energies
 
-  transpose_axis = (1, 0) if cfg.dft_cfg.rks else (0, 2, 1)
+  transpose_axis = (1, 0) if cfg.algo_cfg.restricted else (0, 2, 1)
 
   @jax.jit
   def update(mo_coeff, fock):
@@ -127,13 +129,14 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
 def incore_cgto_direct_opt_dft(
   cfg: D4FTConfig,
   run_pyscf_benchmark: bool = False,
+  basis_optim: bool = True,
 ) -> float:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
-  key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
+  key = jax.random.PRNGKey(cfg.algo_cfg.rng_seed)
 
-  polarized = not cfg.dft_cfg.rks
-  xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+  polarized = not cfg.algo_cfg.restricted
+  xc_func = get_xc_functional(cfg.algo_cfg.xc_type, polarized)
 
   incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_hf_cgto(cfg)
 
@@ -143,14 +146,16 @@ def incore_cgto_direct_opt_dft(
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
     # TODO: out-of-core + basis optimization
-    cgto_hk = cgto.to_hk(["coeff"])
-    # cgto_hk = cgto
+    if basis_optim:
+      cgto_hk = cgto.to_hk(["coeff"])
+    else:
+      cgto_hk = cgto
     cgto_intor = get_cgto_intor(
       cgto_hk, intor="obsa", incore_energy_tensors=incore_e_tensors
     )
     mo_coeff_fn = partial(
       cgto_hk.get_mo_coeff,
-      rks=cfg.dft_cfg.rks,
+      restricted=cfg.algo_cfg.restricted,
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
@@ -174,9 +179,10 @@ def incore_cgto_direct_opt_dft(
   # rdm1 = get_rdm1(traj[-1].mo_coeff)
   # scf_mo_coeff = pyscf_wrapper(
   #   pyscf_mol,
-  #   cfg.dft_cfg.rks,
-  #   cfg.dft_cfg.xc_type,
+  #   cfg.algo_cfg.restricted,
+  #   cfg.algo_cfg.xc_type,
   #   cfg.intor_cfg.quad_level,
+  #   algo="KS",
   #   rdm1=rdm1,
   # )
   # breakpoint()
@@ -225,13 +231,17 @@ def pyscf_dft_benchmark(
   cgto_intor = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_e_tensors
   )
-  polarized = not cfg.dft_cfg.rks
-  xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+  polarized = not cfg.algo_cfg.restricted
+  xc_func = get_xc_functional(cfg.algo_cfg.xc_type, polarized)
   xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
 
   # solve for ground state with PySCF and get the mo_coeff
   atom_mf, mo_coeff = pyscf_wrapper(
-    pyscf_mol, cfg.dft_cfg.rks, cfg.dft_cfg.xc_type, cfg.intor_cfg.quad_level
+    pyscf_mol,
+    cfg.algo_cfg.restricted,
+    cfg.algo_cfg.xc_type,
+    cfg.intor_cfg.quad_level,
+    algo=cfg.algo_cfg.algo
   )
 
   # add spin and apply occupation mask

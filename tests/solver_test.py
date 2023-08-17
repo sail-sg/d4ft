@@ -33,7 +33,7 @@ class SolverTest(parameterized.TestCase):
     cfg = get_config()
     cfg.mol_cfg.mol = system
     cfg.mol_cfg.basis = '6-31g'
-    e_total = incore_cgto_direct_opt_dft(cfg)
+    e_total = incore_cgto_direct_opt_dft(cfg, basis_optim=False)
     upper_bound, lower_bound = energy_bounds
     self.assertTrue(e_total < upper_bound and e_total > lower_bound)
 
