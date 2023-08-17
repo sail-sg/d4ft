@@ -74,14 +74,26 @@ def main(_: Any) -> None:
   if FLAGS.benchmark != "":
     assert FLAGS.save
 
-    with cfg.unlocked():
-      cfg.uuid = ",".join([FLAGS.benchmark, cfg.get_core_cfg_str(), cfg.uuid])
+    system_done = []
+    if FLAGS.benchmark in cfg.save_dir:
+      p = Path(cfg.save_dir)
+      logging.info(f"resuming {FLAGS.benchmark} benchmark set")
+      with cfg.unlocked():
+        cfg.uuid = p.name
+        cfg.save_dir = p.parent
+      system_done = [f.name for f in p.iterdir() if f.is_dir()]
+    else:
+      with cfg.unlocked():
+        cfg.uuid = ",".join([FLAGS.benchmark, cfg.get_core_cfg_str(), cfg.uuid])
 
     cfg.save()
 
     systems, _, _ = get_refdata_benchmark_set(FLAGS.benchmark)
+    # HACK: fix the xc grad NaN issue
+    system_done.append("bh76_h")
     for system in systems:
-      if system == "bh76_h":  # TODO: fix the xc grad NaN issue
+      if system in system_done:
+        logging.info(f"skipping {system}..")
         continue
 
       with cfg.unlocked():
