@@ -24,10 +24,13 @@ import jax.numpy as jnp
 import numpy as np
 import pyscf
 from absl import logging
-from jaxtyping import Array, Float
 
 from d4ft.config import D4FTConfig
-from d4ft.hamiltonian.cgto_intors import get_cgto_fock_fn, get_cgto_intor, get_ovlp
+from d4ft.hamiltonian.cgto_intors import (
+  get_cgto_fock_fn,
+  get_cgto_intor,
+  get_ovlp,
+)
 from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
