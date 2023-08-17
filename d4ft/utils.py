@@ -39,8 +39,11 @@ def compose(f: Callable, g: Callable) -> Callable:
   return lambda *a, **kw: f(g(*a, **kw))
 
 
-def inv_softplus(x: Num[Array, "*s"]) -> Num[Array, "*s"]:
-  return jnp.log(jnp.exp(x) - 1.)
+def inv_softplus(y: Num[Array, "*s"]) -> Num[Array, "*s"]:
+  if y < 20:  # This threshold is arbitrary and can be adjusted.
+    return jnp.log(jnp.exp(y) - 1.)
+  else:  # For large y, softplus(y) ~= y
+    return y
 
 
 def save_cfg(cfg: ConfigDict, save_path: Union[str, Path]) -> None:

@@ -115,6 +115,8 @@ def reparameterize(
   pgtos = []
   coeffs = []
 
+  pgto_count = 0
+
   # iter atoms
   for i, element_basis in enumerate(cgto.basis):
     coord = cgto.atom_coords[i]
@@ -148,7 +150,7 @@ def reparameterize(
             if optim_exp:
               exponent = jax.nn.softplus(
                 hk.get_parameter(
-                  "exponent",
+                  f"exponent/{pgto_count}",
                   shape=(),
                   init=make_constant_fn(inv_softplus(jnp.array(exponent)))
                 )
@@ -156,10 +158,13 @@ def reparameterize(
             coeff = pgto_i[cid]
             if optim_coeff:
               coeff = hk.get_parameter(
-                "coeff", shape=(), init=make_constant_fn(jnp.array(coeff))
+                f"coeff/{pgto_count}",
+                shape=(),
+                init=make_constant_fn(jnp.array(coeff))
               )
             pgto_i_.append(PGTO(angular, coord, exponent))
             coeffs_i.append(coeff)
+            pgto_count += 1
 
           # pgto_i = PGTO.apply(np.stack, pgto_i_)
           pgto_i = PGTO.stack(pgto_i_)
