@@ -30,13 +30,7 @@ from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
 def scipy_opt(
   gd_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.random.KeyArray
 ) -> float:
-
-  # H_transformed = hk.without_apply_rng(hk.multi_transform(H_factory))
-  # init_params = H_transformed.init(key)
-  # H = Hamiltonian(*H_transformed.apply)
-
   energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff, key)[0])
-
   import jaxopt
   solver = jaxopt.BFGS(fun=energy_fn_jit, maxiter=500)
   res = solver.run(params)
@@ -93,7 +87,6 @@ def sgd(
   converged = False
   logger = RunLogger()
   e_total_std = 0.
-  # mo_grad_norm_fn = jax.jit(jax.vmap(partial(jnp.linalg.norm, ord=2), 0, 0))
   for step in range(gd_cfg.epochs):
 
     if gd_cfg.meta_opt == "none":
@@ -105,36 +98,23 @@ def sgd(
     logger.log_step(energies, step, e_total_std)
     logger.get_segment_summary()
 
-    # logging.info(mo_grads[-1])
-    # breakpoint()
-
     mo_coeff = H.mo_coeff_fn(state.params, state.rng_key, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)
+
     traj.append(t)
 
-    # params = new_params
     state = new_state
 
     if step < gd_cfg.hist_len:  # don't check for convergence
       continue
 
-    # gradient norm for each spin
-    # mo_grad_norm = mo_grad_norm_fn(sum(mo_grads))
-    # logging.info(f"mo grad norm: {mo_grad_norm.mean()}")
-
     # check convergence
     e_total_std = jnp.stack(
       [t.energies.e_total for t in traj[-gd_cfg.hist_len:]]
     ).std()
-    logging.info(f"e_total std: {e_total_std}")
     if e_total_std < gd_cfg.converge_threshold:
       converged = True
       break
-
-    # if not improving, stop early
-    # recent_e_min = logger.data_df[-gd_cfg.hist_len:].e_total.min()
-    # if recent_e_min > logger.data_df.e_total.min():
-    #   break
 
   logging.info(f"Converged: {converged}")
 

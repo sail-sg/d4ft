@@ -78,6 +78,8 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   key = jax.random.PRNGKey(cfg.algo_cfg.rng_seed)
   incore_e_tensors, _, cgto, grids_and_weights = incore_hf_cgto(cfg)
 
+  ovlp = get_ovlp(cgto, incore_e_tensors)
+
   vxc_fn = get_lda_vxc(
     grids_and_weights, cgto, polarized=not cfg.algo_cfg.restricted
   )
@@ -111,19 +113,22 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   transpose_axis = (1, 0) if cfg.algo_cfg.restricted else (0, 2, 1)
 
   @jax.jit
-  def update(mo_coeff, fock):
-    _, mo_coeff = jnp.linalg.eigh(fock)
+  def scf_iter(fock):
+    e_orb, mo_coeff = jnp.linalg.eigh(fock)
     mo_coeff = jnp.transpose(mo_coeff, transpose_axis)
-    return mo_coeff
+    return e_orb, mo_coeff
 
   fock = jnp.eye(cgto.nao)  # initial guess
   logger = RunLogger()
   for step in range(cfg.scf_cfg.epochs):
     new_fock = cgto_fock_jit(mo_coeff)
     fock = (1 - cfg.scf_cfg.momentum) * new_fock + cfg.scf_cfg.momentum * fock
-    mo_coeff = update(mo_coeff, fock)
+    e_orb, mo_coeff = scf_iter(fock)
+    logging.info(f"{e_orb=}")
+    residual = jnp.eye(cgto.nao) - mo_coeff[0].T @ ovlp @ mo_coeff[0]
+    thresh = np.abs(residual).max()
     energies = energy_fn(mo_coeff * cgto.nocc[:, :, None])
-    logger.log_step(energies, step, 0)
+    logger.log_step(energies, step, thresh)
     logger.get_segment_summary()
 
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, List, NamedTuple, Tuple, Union
+from typing import Callable, List, NamedTuple, Optional, Tuple, Union
 
 import haiku as hk
 import jax
@@ -102,14 +102,14 @@ class Grads(NamedTuple):
   xc_grad: Array
 
 
-Aux = Tuple[Energies, Grads]
+Aux = Tuple[Energies, Optional[Grads]]
 
 
 class Transition(NamedTuple):
   """A transition on the DFT GD optimization trajectory"""
   mo_coeff: Array
   energies: Energies
-  grads: Grads
+  grads: Optional[Grads]
 
 
 Trajectory = List[Transition]

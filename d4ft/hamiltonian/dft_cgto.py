@@ -36,6 +36,7 @@ def dft_cgto(
   cgto_intors: CGTOIntors,
   xc_fn: Callable,
   mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]] = None,
+  ret_mo_grads: bool = False,
 ) -> Tuple[Callable, Hamiltonian]:
   """Electron Hamiltonian with single Slater determinant ansatz (Hartree-Fock),
   discretized the in CGTO/AO basis. All energy integral are computed
@@ -50,18 +51,21 @@ def dft_cgto(
   def nuc_fn() -> Float[Array, ""]:
     return e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
 
+  e_fns = [kin_fn, ext_fn, har_fn, xc_fn]
+
   def energy_fn(mo_coeff: MoCoeffFlat) -> Tuple[Float[Array, ""], Aux]:
-    val_and_grads = [
-      jax.value_and_grad(e_fn)(mo_coeff)
-      for e_fn in [kin_fn, ext_fn, har_fn, xc_fn]
-    ]
-    mo_energies, mo_grads = zip(*val_and_grads)
+    if ret_mo_grads:
+      val_and_grads = [jax.value_and_grad(e_fn)(mo_coeff) for e_fn in e_fns]
+      mo_energies, mo_grads = zip(*val_and_grads)
+      kin_grads, ext_grads, har_grads, xc_grads = mo_grads
+      grads = Grads(kin_grads, ext_grads, har_grads, xc_grads)
+    else:
+      mo_energies = [e_fn(mo_coeff) for e_fn in e_fns]
+      grads = None
     e_kin, e_ext, e_har, e_xc = mo_energies
-    kin_grads, ext_grads, har_grads, xc_grads = mo_grads
     e_nuc = nuc_fn()
     e_total = sum(mo_energies) + e_nuc
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
-    grads = Grads(kin_grads, ext_grads, har_grads, xc_grads)
     return e_total, (energies, grads)
 
   if mo_coeff_fn is None:
