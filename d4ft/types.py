@@ -53,8 +53,8 @@ PWCoeff: TypeAlias = Float[Array, "spin ele k g x y z"]
 
 Tensor2C: TypeAlias = Float[Array, "#ab"]
 Tensor4C: TypeAlias = Float[Array, "#abcd"]
-ETensorsIncore: TypeAlias = Tuple[Tensor2C, Tensor2C, Tensor4C]
-"""kin, ext and eri tensor incore"""
+ETensorsIncore: TypeAlias = Tuple[Tensor2C, Tensor2C, Tensor2C, Tensor4C]
+"""ovlp, kin, ext and eri tensor incore"""
 
 Cell = Float[NPArray, "3 3"]
 """real / reciprocal space cell represented by a 3x3 matrix consists of

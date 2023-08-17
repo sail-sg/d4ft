@@ -71,7 +71,7 @@ def get_cgto_intor(
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
 
   if incore_energy_tensors:
-    kin, ext, eri = incore_energy_tensors
+    _, kin, ext, eri = incore_energy_tensors
 
     def kin_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
       rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
@@ -116,6 +116,14 @@ def unreduce_symmetry_2c(
   return full_mat
 
 
+def get_ovlp(cgto: CGTO, incore_energy_tensors: ETensorsIncore):
+  nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
+  mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
+  ovlp_ab = incore_energy_tensors[0]
+  ovlp = unreduce_symmetry_2c(ovlp_ab, nmo, mo_ab_idx_counts)
+  return ovlp
+
+
 def get_cgto_fock_fn(
   cgto: CGTO, incore_energy_tensors: ETensorsIncore, vxc_fn: Callable
 ) -> Callable[[MoCoeff], Fock]:
@@ -124,7 +132,7 @@ def get_cgto_fock_fn(
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
 
-  kin, ext, eri = incore_energy_tensors
+  _, kin, ext, eri = incore_energy_tensors
 
   # unredce 2c integrals into full matrices, which can be precomputed
   kin_mat = unreduce_symmetry_2c(kin, nmo, mo_ab_idx_counts)

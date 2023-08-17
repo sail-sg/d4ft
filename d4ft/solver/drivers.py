@@ -27,7 +27,7 @@ from absl import logging
 from jaxtyping import Array, Float
 
 from d4ft.config import D4FTConfig
-from d4ft.hamiltonian.cgto_intors import get_cgto_fock_fn, get_cgto_intor
+from d4ft.hamiltonian.cgto_intors import get_cgto_fock_fn, get_cgto_intor, get_ovlp
 from d4ft.hamiltonian.dft_cgto import dft_cgto
 from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
@@ -52,8 +52,6 @@ def incore_hf_cgto(cfg: D4FTConfig):
   mol = Mol.from_pyscf_mol(pyscf_mol)
   cfg.validate(mol.spin, mol.charge)
   cgto = CGTO.from_mol(mol)
-  # cgto_cart = CGTO.from_mol(mol)
-  # cgto = CGTO.from_cart(cgto_cart)
 
   # TODO: intor.split() for pmap / batched
   s2 = obsa.angular_static_args(*[cgto.pgto.angular] * 2)
@@ -68,14 +66,14 @@ def incore_hf_cgto(cfg: D4FTConfig):
   return incore_e_tensors, pyscf_mol, cgto, grids_and_weights
 
 
-def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
+def incore_cgto_scf(cfg: D4FTConfig) -> None:
   """Solve for ground state of a molecular system with SCF KS-DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore.
 
   NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
   """
   key = jax.random.PRNGKey(cfg.algo_cfg.rng_seed)
-  incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_hf_cgto(cfg)
+  incore_e_tensors, _, cgto, grids_and_weights = incore_hf_cgto(cfg)
 
   vxc_fn = get_lda_vxc(
     grids_and_weights, cgto, polarized=not cfg.algo_cfg.restricted
@@ -122,11 +120,11 @@ def incore_cgto_scf_dft(cfg: D4FTConfig) -> None:
     fock = (1 - cfg.scf_cfg.momentum) * new_fock + cfg.scf_cfg.momentum * fock
     mo_coeff = update(mo_coeff, fock)
     energies = energy_fn(mo_coeff * cgto.nocc[:, :, None])
-    logger.log_step(energies, step)
+    logger.log_step(energies, step, 0)
     logger.get_segment_summary()
 
 
-def incore_cgto_direct_opt_dft(
+def incore_cgto_direct_opt(
   cfg: D4FTConfig,
   run_pyscf_benchmark: bool = False,
   basis_optim: bool = True,
@@ -140,11 +138,9 @@ def incore_cgto_direct_opt_dft(
 
   incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_hf_cgto(cfg)
 
-  # TODO: change this to use obsa
-  ovlp: Float[Array, "a a"] = pyscf_mol.intor('int1e_ovlp_sph')
-
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
+    ovlp = get_ovlp(cgto, incore_e_tensors)
     # TODO: out-of-core + basis optimization
     if basis_optim:
       cgto_hk = cgto.to_hk(["coeff"])
@@ -188,7 +184,7 @@ def incore_cgto_direct_opt_dft(
   # breakpoint()
 
   if run_pyscf_benchmark:
-    pyscf_logger = pyscf_dft_benchmark(
+    pyscf_logger = pyscf_benchmark(
       cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
     )
 
@@ -211,14 +207,14 @@ def incore_cgto_direct_opt_dft(
   return lowest_e
 
 
-def incore_cgto_pyscf_dft_benchmark(cfg: D4FTConfig) -> RunLogger:
+def incore_cgto_pyscf_benchmark(cfg: D4FTConfig) -> RunLogger:
   incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_hf_cgto(cfg)
-  return pyscf_dft_benchmark(
+  return pyscf_benchmark(
     cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
   )
 
 
-def pyscf_dft_benchmark(
+def pyscf_benchmark(
   cfg: D4FTConfig,
   pyscf_mol: pyscf.gto.mole.Mole,
   cgto: CGTO,

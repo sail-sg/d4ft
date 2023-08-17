@@ -44,7 +44,7 @@ def incore_int_sym(
   Args:
     batch_size: is tuned for A100
   """
-
+  ovlp_fn = partial(obsa.overlap_integral, use_horizontal=use_horizontal)
   kin_fn = partial(obsa.kinetic_integral, use_horizontal=use_horizontal)
   eri_fn = obsa.electron_repulsion_integral
 
@@ -61,6 +61,9 @@ def incore_int_sym(
   )
   n_cgto_segs_2c = symmetry.num_unique_ij(cgto.n_cgtos)
   n_cgto_segs_4c = symmetry.num_unique_ijkl(cgto.n_cgtos)
+  ovlp_ab = tensorization.tensorize_2c_cgto(ovlp_fn, s2)(
+    cgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
+  )
   kin_ab = tensorization.tensorize_2c_cgto(kin_fn, s2)(
     cgto, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
   )
@@ -112,4 +115,4 @@ def incore_int_sym(
     # )
     eri_abcd_cgto += eri_abcd_i
 
-  return kin_ab, ext_ab, eri_abcd_cgto
+  return ovlp_ab, kin_ab, ext_ab, eri_abcd_cgto

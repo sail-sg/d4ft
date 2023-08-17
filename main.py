@@ -27,9 +27,9 @@ from ml_collections.config_flags import config_flags
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCAL_PER_MOL
 from d4ft.solver.drivers import (
-  incore_cgto_direct_opt_dft,
-  incore_cgto_pyscf_dft_benchmark,
-  incore_cgto_scf_dft,
+  incore_cgto_direct_opt,
+  incore_cgto_pyscf_benchmark,
+  incore_cgto_scf,
 )
 from d4ft.system.refdata import get_refdata_benchmark_set
 
@@ -104,7 +104,7 @@ def main(_: Any) -> None:
 
       try:
         if FLAGS.run == "direct":
-          incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf, FLAGS.basis_optim)
+          incore_cgto_direct_opt(cfg, FLAGS.pyscf, FLAGS.basis_optim)
         else:
           raise NotImplementedError
       except Exception as e:
@@ -113,13 +113,13 @@ def main(_: Any) -> None:
     return
 
   if FLAGS.run == "direct":
-    incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf, FLAGS.basis_optim)
+    incore_cgto_direct_opt(cfg, FLAGS.pyscf, FLAGS.basis_optim)
 
   elif FLAGS.run == "scf":
-    incore_cgto_scf_dft(cfg)
+    incore_cgto_scf(cfg)
 
   elif FLAGS.run == "pyscf":
-    incore_cgto_pyscf_dft_benchmark(cfg)
+    incore_cgto_pyscf_benchmark(cfg)
 
   elif FLAGS.run == "viz":
     p = Path(cfg.save_dir)
