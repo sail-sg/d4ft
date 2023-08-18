@@ -456,10 +456,6 @@ class CGTO(NamedTuple):
   """Charges of the atoms"""
   nocc: Int[Array, "2 nao"]
   """Cccupation mask for alpha and beta spin"""
-  # elements: Sequence[str]
-  # """List of atoms in the systems"""
-  # atom_coords: Float[np.ndarray, "n_atoms 3"]
-  # """List of atoms coordinates in the systems"""
   basis: Sequence[Sequence[Tuple[int, Sequence[Sequence[float]]]]]
   """basis in PySCF format"""
 

@@ -67,12 +67,10 @@ def incore_mf_cgto(cfg: D4FTConfig):
   if cfg.method_cfg.name == "KS":
     dg = DifferentiableGrids(pyscf_mol)
     dg.level = cfg.intor_cfg.quad_level
-    # TODO: test geometry optimization
-    grids_and_weights = dg.build(pyscf_mol.atom_coords())
   else:
-    grids_and_weights = None
+    dg = None
 
-  return incore_e_tensors, pyscf_mol, cgto, grids_and_weights
+  return incore_e_tensors, pyscf_mol, cgto, dg
 
 
 def incore_cgto_scf(cfg: D4FTConfig) -> None:
@@ -82,7 +80,8 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
   """
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
-  incore_e_tensors, _, cgto, grids_and_weights = incore_mf_cgto(cfg)
+  incore_e_tensors, pyscf_mol, cgto, dg = incore_mf_cgto(cfg)
+  grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   ovlp = get_ovlp(cgto, incore_e_tensors)
 
@@ -143,20 +142,21 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
 def incore_cgto_direct_opt(
   cfg: D4FTConfig,
   run_pyscf_benchmark: bool = False,
-  basis_optim: bool = True,
 ) -> float:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
 
-  incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_mf_cgto(cfg)
+  incore_e_tensors, pyscf_mol, cgto, dg = incore_mf_cgto(cfg)
+  grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
     ovlp = get_ovlp(cgto, incore_e_tensors)
     # TODO: out-of-core + basis optimization
-    if basis_optim:
-      cgto_hk = cgto.to_hk(["coeff"])
+    if cfg.solver_cfg.basis_optim != "":
+      optimizable_params = cfg.solver_cfg.basis_optim.split(",")
+      cgto_hk = cgto.to_hk(optimizable_params)
     else:
       cgto_hk = cgto
     cgto_intor = get_cgto_intor(
@@ -172,6 +172,8 @@ def incore_cgto_direct_opt(
     if cfg.method_cfg.name == "KS":
       polarized = not cfg.method_cfg.restricted
       xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
+      # TODO: fix this to enable geometry optimization
+      # grids_and_weights = dg.build(cgto_hk.atom_coords)
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
       return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
@@ -225,7 +227,8 @@ def incore_cgto_direct_opt(
 
 
 def incore_cgto_pyscf_benchmark(cfg: D4FTConfig) -> RunLogger:
-  incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_mf_cgto(cfg)
+  incore_e_tensors, pyscf_mol, cgto, dg = incore_mf_cgto(cfg)
+  grids_and_weights = dg.build(pyscf_mol.atom_coords())
   return pyscf_benchmark(
     cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
   )
@@ -254,7 +257,7 @@ def pyscf_benchmark(
     cfg.method_cfg.restricted,
     cfg.method_cfg.xc_type,
     cfg.intor_cfg.quad_level,
-    algo=cfg.method_cfg.algo
+    method=cfg.method_cfg.name
   )
 
   # add spin and apply occupation mask

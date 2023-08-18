@@ -42,9 +42,6 @@ flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
 flags.DEFINE_string("benchmark", "", "the refdata benchmark set to run")
 flags.DEFINE_bool("use_f64", False, "whether to use float64")
 flags.DEFINE_bool("pyscf", False, "whether to benchmark against pyscf results")
-flags.DEFINE_bool(
-  "basis_optim", False, "whether to optimize contraction coeff of the GTO basis"
-)
 flags.DEFINE_bool("save", False, "whether to save results and trajectories")
 
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
@@ -100,11 +97,11 @@ def main(_: Any) -> None:
         continue
 
       with cfg.unlocked():
-        cfg.mol_cfg.mol = "-".join([FLAGS.benchmark, system])
+        cfg.sys_cfg.mol = "-".join([FLAGS.benchmark, system])
 
       try:
         if FLAGS.run == "direct":
-          incore_cgto_direct_opt(cfg, FLAGS.pyscf, FLAGS.basis_optim)
+          incore_cgto_direct_opt(cfg, FLAGS.pyscf)
         else:
           raise NotImplementedError
       except Exception as e:
@@ -113,7 +110,7 @@ def main(_: Any) -> None:
     return
 
   if FLAGS.run == "direct":
-    incore_cgto_direct_opt(cfg, FLAGS.pyscf, FLAGS.basis_optim)
+    incore_cgto_direct_opt(cfg, FLAGS.pyscf)
 
   elif FLAGS.run == "scf":
     incore_cgto_scf(cfg)

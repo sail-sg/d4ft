@@ -43,6 +43,10 @@ class GDConfig:
   """meta learning rate"""
   meta_opt: Literal["none", "adam", "sgd", "rmsprop"] = "none"
   """meta optimizer to use, none to disable"""
+  basis_optim: str = ""
+  """whether to enable basis optimization. Format is comma separated list of
+  attributes to optimized in the basis set. For example, 'coeff,exp' means
+  to optimize the contraction coefficients and exponents of the GTO basis."""
 
 
 @dataclass(config=pydantic_config)

@@ -33,16 +33,16 @@ def pyscf_wrapper(
   verbose: int = 2,
   max_cycle: int = 50,
   rdm1: Optional[RDM1] = None,
-  algo: Literal["HF", "KS"] = "KS",
+  method: Literal["HF", "KS"] = "KS",
 ) -> Tuple[Any, MoCoeff]:
 
-  if algo == "HF":
+  if method == "HF":
     if restricted:
       atom_mf = scf.RHF(mol)
     else:
       atom_mf = scf.UHF(mol)
 
-  elif algo == "KS":
+  elif method == "KS":
     if restricted:
       atom_mf = scf.RKS(mol)
     else:
