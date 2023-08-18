@@ -17,12 +17,12 @@ from .drivers import (
   dft_cgto,
   incore_cgto_direct_opt,
   incore_cgto_scf,
-  incore_hf_cgto,
+  incore_mf_cgto,
 )
 
 __all__ = [
   "dft_cgto",
   "incore_cgto_direct_opt",
   "incore_cgto_scf",
-  "incore_hf_cgto",
+  "incore_mf_cgto",
 ]

@@ -28,7 +28,8 @@ from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
 
 
 def scipy_opt(
-  gd_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.random.KeyArray
+  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
+  key: jax.random.KeyArray
 ) -> float:
   energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff, key)[0])
   import jaxopt
@@ -38,7 +39,8 @@ def scipy_opt(
 
 
 def sgd(
-  gd_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.random.KeyArray
+  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
+  key: jax.random.KeyArray
 ) -> Tuple[RunLogger, Trajectory]:
 
   @jax.jit
@@ -77,9 +79,9 @@ def sgd(
     ), new_state, energies, mo_grads
 
   # init state
-  opt_states = get_optimizer(gd_cfg, params, key)
+  opt_states = get_optimizer(solver_cfg, params, key)
   optimizer, state = opt_states["main"]
-  if gd_cfg.meta_opt != "none":
+  if solver_cfg.meta_opt != "none":
     meta_opt, meta_state = opt_states["meta"]
 
   # GD loop
@@ -87,9 +89,9 @@ def sgd(
   converged = False
   logger = RunLogger()
   e_total_std = 0.
-  for step in range(gd_cfg.epochs):
+  for step in range(solver_cfg.epochs):
 
-    if gd_cfg.meta_opt == "none":
+    if solver_cfg.meta_opt == "none":
       new_state, energies, mo_grads = update(state)
     else:
       meta_state, new_state, energies, mo_grads = meta_step(state, meta_state)
@@ -105,14 +107,14 @@ def sgd(
 
     state = new_state
 
-    if step < gd_cfg.hist_len:  # don't check for convergence
+    if step < solver_cfg.hist_len:  # don't check for convergence
       continue
 
     # check convergence
     e_total_std = jnp.stack(
-      [t.energies.e_total for t in traj[-gd_cfg.hist_len:]]
+      [t.energies.e_total for t in traj[-solver_cfg.hist_len:]]
     ).std()
-    if e_total_std < gd_cfg.converge_threshold:
+    if e_total_std < solver_cfg.converge_threshold:
       converged = True
       break
 

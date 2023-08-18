@@ -31,8 +31,8 @@ class SolverTest(parameterized.TestCase):
     self, system: str, energy_bounds: Tuple[float, float]
   ) -> None:
     cfg = get_config()
-    cfg.mol_cfg.mol = system
-    cfg.mol_cfg.basis = '6-31g'
+    cfg.sys_cfg.mol = system
+    cfg.sys_cfg.basis = '6-31g'
     e_total = incore_cgto_direct_opt(cfg, basis_optim=False)
     upper_bound, lower_bound = energy_bounds
     self.assertTrue(e_total < upper_bound and e_total > lower_bound)

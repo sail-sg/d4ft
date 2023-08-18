@@ -26,7 +26,7 @@ D4FT also provides examples for standard algorithms, similar to the "train" scri
 ## Calculating the ground state energy of Oxygen molecule
 Let's calculate the ground state energy of Oxygen molecule with direct minimization DFT:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2
+python main.py --run direct --config.sys_cfg.mol O2
 ```
 
 and you should see the following log after the calculation has converged:
@@ -48,7 +48,7 @@ where each component of the ground state energy is printed.
 ## Benchmarking against PySCF
 Now let's test the accuracy of the calculated ground state energy against well-established open-source QC library PySCF. D4FT provides a thin wrapper around PySCF's API: to run the same calculation above of the Oxygen molecule but with PySCF, run:
 ``` shell
-python main.py --run pyscf --config.mol_cfg.mol O2                             
+python main.py --run pyscf --config.sys_cfg.mol O2                             
 ```
 This will call PySCF to perform SCF calculation with the setting stated in `d4ft/config.py`. Two sets of energy will be printed: 
 1. the energy calculated with PySCF's integral engine `libcint`, which uses Rys quadrature:
@@ -77,7 +77,7 @@ where `1e energy` is the sum of kinetic and external potential energy. We see th
 ## Calculate energy barrier for reaction
 
 ``` shell
-python main.py --run reaction --reaction hf_h_hfhts --config.gd_cfg.gd_cfg.lr_decay cosine
+python main.py --run reaction --reaction hf_h_hfhts --config.solver_cfg.solver_cfg.lr_decay cosine
 ```
 This calculate the ground state energy for each system, then compute the energy barrier:
 ``` shell
@@ -104,12 +104,12 @@ D4FT uses [ml_collections](https://github.com/google/ml_collections) to manage c
 
 The configuration used for the calculation will be printed to the console at the start of the run. For example when you run the calculation for Oxygen above using the default configuration, you should see the following:
 ``` shell
-algo_cfg: !!python/object:config_config.AlgoConfig
+method_cfg: !!python/object:config_config.MethodConfig
   __pydantic_initialised__: true
   restricted: false
   rng_seed: 137
   xc_type: lda_x
-gd_cfg: !!python/object:config_config.GDConfig
+solver_cfg: !!python/object:config_config.GDConfig
   __pydantic_initialised__: true
   converge_threshold: 0.0001
   epochs: 4000
@@ -124,32 +124,32 @@ intor_cfg: !!python/object:config_config.IntorConfig
   incore: true
   intor: obsa
   quad_level: 1
-mol_cfg: !!python/object:config_config.MoleculeConfig
+sys_cfg: !!python/object:config_config.MoleculeConfig
   __pydantic_initialised__: true
   basis: sto-3g
   charge: 0
   geometry_source: cccdbd
   mol: o2
   spin: -1
-scf_cfg: !!python/object:config_config.SCFConfig
+solver_cfg: !!python/object:config_config.SCFConfig
   __pydantic_initialised__: true
   epochs: 100
   momentum: 0.5
 ```
 
-All configuration stated in `d4ft/config.py` can be overridden by providing an appropriate flag (of the form `--config.<cfg_field>`). For example, to change the basis set to `6-31g`, use the flag `--config.mol_cfg.basis 6-31g`. You can directly change the 
+All configuration stated in `d4ft/config.py` can be overridden by providing an appropriate flag (of the form `--config.<cfg_field>`). For example, to change the basis set to `6-31g`, use the flag `--config.sys_cfg.basis 6-31g`. You can directly change the 
 `d4ft/config.py` file, or specify a custom config file by supplying the flag `--config <your config file path>`.
 
 ## Specifying spin multiplicity
-By default all electrons are maximally paired, so the spin is 0 or 1. To specify the spin multiplicity, use the flag `--config.mol_cfg.spin`, for example
+By default all electrons are maximally paired, so the spin is 0 or 1. To specify the spin multiplicity, use the flag `--config.sys_cfg.spin`, for example
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.mol_cfg.spin 2
+python main.py --run direct --config.sys_cfg.mol O2 --config.sys_cfg.spin 2
 ```
 
 ## Specifying XC functional
-D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.algo_cfg.xc_type` to specify XC functional to use, for example:
+D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.method_cfg.xc_type` to specify XC functional to use, for example:
 ``` shell
-python main.py --run direct --config.mol_cfg.mol O2 --config.algo_cfg.xc_type lda_x
+python main.py --run direct --config.sys_cfg.mol O2 --config.method_cfg.xc_type lda_x
 ```
 
 
@@ -161,7 +161,7 @@ O 0.0000 0.0000 0.0000;
 O 0.0000 0.0000 1.2075;
 """
 ```
-For geometries not cached in the above file, D4FT will query the `cccdbd` website, and you shall see the following logs (using `--config.mol_cfg.mol ch4` in this example):
+For geometries not cached in the above file, D4FT will query the `cccdbd` website, and you shall see the following logs (using `--config.sys_cfg.mol ch4` in this example):
 ``` shell
 I0630 11:12:49.016396 140705043318592 cccdbd.py:108] **** Posting formula
 I0630 11:12:50.397949 140705043318592 cccdbd.py:116] **** Fetching data
@@ -179,7 +179,7 @@ H 0.0000 0.0000 0.7414;
 then pass it through the config flag as follows
 
 ``` shell
---config.mol_cfg.mol <path_to_geometry_file>
+--config.sys_cfg.mol <path_to_geometry_file>
 ```
 
 # Using the D4FT API directly
@@ -200,8 +200,8 @@ logging.set_verbosity(logging.INFO)
 
 # load the default configuration, then override it
 cfg = get_config()
-cfg.mol_cfg.mol = 'H2'
-cfg.mol_cfg.basis = '6-31g'
+cfg.sys_cfg.mol = 'H2'
+cfg.sys_cfg.basis = '6-31g'
 
 # Calculation
 e_total, _, _ = incore_cgto_direct_opt(cfg)
@@ -216,7 +216,7 @@ We have benchmarked the calculation against well known open-sourced quantum chem
 To run systems from `refdata` benchmark sets, 
 
 ``` shell
-python main.py --benchmark bh76 --use_f64 --config.mol_cfg.basis <basis> --config.algo_cfg.xc_type <xc> --save --config.mol_cfg.geometry_source refdata --pyscf --config.save_dir <path>
+python main.py --benchmark bh76 --use_f64 --config.sys_cfg.basis <basis> --config.method_cfg.xc_type <xc> --save --config.sys_cfg.geometry_source refdata --pyscf --config.save_dir <path>
 ```
 
 To visualize the run:

@@ -47,10 +47,13 @@ from d4ft.utils import make_constant_fn
 from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
 
 
-def incore_hf_cgto(cfg: D4FTConfig):
+def incore_mf_cgto(cfg: D4FTConfig):
+  """Build the CGTO basis with in-core intor for the mean-field calculations
+  (i.e. HF and KS-DFT). For KS-DFT we also need to build the grids for the
+  numerical integration of the XC functional"""
   pyscf_mol = get_pyscf_mol(
-    cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin, cfg.mol_cfg.charge,
-    cfg.mol_cfg.geometry_source
+    cfg.sys_cfg.mol, cfg.sys_cfg.basis, cfg.sys_cfg.spin, cfg.sys_cfg.charge,
+    cfg.sys_cfg.geometry_source
   )
   mol = Mol.from_pyscf_mol(pyscf_mol)
   cfg.validate(mol.spin, mol.charge)
@@ -61,10 +64,13 @@ def incore_hf_cgto(cfg: D4FTConfig):
   s4 = obsa.angular_static_args(*[cgto.pgto.angular] * 4)
   incore_e_tensors = incore_int_sym(cgto, s2, s4)
 
-  dg = DifferentiableGrids(pyscf_mol)
-  dg.level = cfg.intor_cfg.quad_level
-  # TODO: test geometry optimization
-  grids_and_weights = dg.build(pyscf_mol.atom_coords())
+  if cfg.method_cfg.name == "KS":
+    dg = DifferentiableGrids(pyscf_mol)
+    dg.level = cfg.intor_cfg.quad_level
+    # TODO: test geometry optimization
+    grids_and_weights = dg.build(pyscf_mol.atom_coords())
+  else:
+    grids_and_weights = None
 
   return incore_e_tensors, pyscf_mol, cgto, grids_and_weights
 
@@ -75,25 +81,25 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
 
   NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
   """
-  key = jax.random.PRNGKey(cfg.algo_cfg.rng_seed)
-  incore_e_tensors, _, cgto, grids_and_weights = incore_hf_cgto(cfg)
+  key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
+  incore_e_tensors, _, cgto, grids_and_weights = incore_mf_cgto(cfg)
 
   ovlp = get_ovlp(cgto, incore_e_tensors)
 
   vxc_fn = get_lda_vxc(
-    grids_and_weights, cgto, polarized=not cfg.algo_cfg.restricted
+    grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
   )
   cgto_fock_fn = get_cgto_fock_fn(cgto, incore_e_tensors, vxc_fn)
   cgto_fock_jit = jax.jit(cgto_fock_fn)
 
   # get initial mo_coeff
-  mo_coeff_fn = partial(cgto.get_mo_coeff, restricted=cfg.algo_cfg.restricted)
+  mo_coeff_fn = partial(cgto.get_mo_coeff, restricted=cfg.method_cfg.restricted)
   mo_coeff_fn = hk.without_apply_rng(hk.transform(mo_coeff_fn))
   params = mo_coeff_fn.init(key)
   mo_coeff = mo_coeff_fn.apply(params, apply_spin_mask=False)
 
-  polarized = not cfg.algo_cfg.restricted
-  xc_func = get_xc_functional(cfg.algo_cfg.xc_type, polarized)
+  polarized = not cfg.method_cfg.restricted
+  xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
   xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
   kin_fn, ext_fn, har_fn = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_e_tensors
@@ -110,7 +116,7 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
     return energies
 
-  transpose_axis = (1, 0) if cfg.algo_cfg.restricted else (0, 2, 1)
+  transpose_axis = (1, 0) if cfg.method_cfg.restricted else (0, 2, 1)
 
   @jax.jit
   def scf_iter(fock):
@@ -120,9 +126,11 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
 
   fock = jnp.eye(cgto.nao)  # initial guess
   logger = RunLogger()
-  for step in range(cfg.scf_cfg.epochs):
+  for step in range(cfg.solver_cfg.epochs):
     new_fock = cgto_fock_jit(mo_coeff)
-    fock = (1 - cfg.scf_cfg.momentum) * new_fock + cfg.scf_cfg.momentum * fock
+    fock = (
+      1 - cfg.solver_cfg.momentum
+    ) * new_fock + cfg.solver_cfg.momentum * fock
     e_orb, mo_coeff = scf_iter(fock)
     logging.info(f"{e_orb=}")
     residual = jnp.eye(cgto.nao) - mo_coeff[0].T @ ovlp @ mo_coeff[0]
@@ -139,12 +147,9 @@ def incore_cgto_direct_opt(
 ) -> float:
   """Solve for ground state of a molecular system with direct optimization DFT,
   where CGTO basis are used and the energy tensors are precomputed/incore."""
-  key = jax.random.PRNGKey(cfg.algo_cfg.rng_seed)
+  key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
 
-  polarized = not cfg.algo_cfg.restricted
-  xc_func = get_xc_functional(cfg.algo_cfg.xc_type, polarized)
-
-  incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_hf_cgto(cfg)
+  incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_mf_cgto(cfg)
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
@@ -159,21 +164,25 @@ def incore_cgto_direct_opt(
     )
     mo_coeff_fn = partial(
       cgto_hk.get_mo_coeff,
-      restricted=cfg.algo_cfg.restricted,
+      restricted=cfg.method_cfg.restricted,
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
-    xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
-    return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
 
-  # e_total = scipy_opt(cfg.gd_cfg, H_factory, key)
+    if cfg.method_cfg.name == "KS":
+      polarized = not cfg.method_cfg.restricted
+      xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
+      xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
+      return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
+
+  # e_total = scipy_opt(cfg.solver_cfg, H_factory, key)
   # breakpoint()
 
   H_transformed = hk.multi_transform(H_factory)
   params = H_transformed.init(key)
   H = Hamiltonian(*H_transformed.apply)
 
-  logger, traj = sgd(cfg.gd_cfg, H, params, key)
+  logger, traj = sgd(cfg.solver_cfg, H, params, key)
 
   min_e_step = logger.data_df.e_total.astype(float).idxmin()
   logging.info(f"lowest total energy: \n {logger.data_df.iloc[min_e_step]}")
@@ -183,8 +192,8 @@ def incore_cgto_direct_opt(
   # rdm1 = get_rdm1(traj[-1].mo_coeff)
   # scf_mo_coeff = pyscf_wrapper(
   #   pyscf_mol,
-  #   cfg.algo_cfg.restricted,
-  #   cfg.algo_cfg.xc_type,
+  #   cfg.method_cfg.restricted,
+  #   cfg.method_cfg.xc_type,
   #   cfg.intor_cfg.quad_level,
   #   algo="KS",
   #   rdm1=rdm1,
@@ -216,7 +225,7 @@ def incore_cgto_direct_opt(
 
 
 def incore_cgto_pyscf_benchmark(cfg: D4FTConfig) -> RunLogger:
-  incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_hf_cgto(cfg)
+  incore_e_tensors, pyscf_mol, cgto, grids_and_weights = incore_mf_cgto(cfg)
   return pyscf_benchmark(
     cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
   )
@@ -235,17 +244,17 @@ def pyscf_benchmark(
   cgto_intor = get_cgto_intor(
     cgto, intor="obsa", incore_energy_tensors=incore_e_tensors
   )
-  polarized = not cfg.algo_cfg.restricted
-  xc_func = get_xc_functional(cfg.algo_cfg.xc_type, polarized)
+  polarized = not cfg.method_cfg.restricted
+  xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
   xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
 
   # solve for ground state with PySCF and get the mo_coeff
   atom_mf, mo_coeff = pyscf_wrapper(
     pyscf_mol,
-    cfg.algo_cfg.restricted,
-    cfg.algo_cfg.xc_type,
+    cfg.method_cfg.restricted,
+    cfg.method_cfg.xc_type,
     cfg.intor_cfg.quad_level,
-    algo=cfg.algo_cfg.algo
+    algo=cfg.method_cfg.algo
   )
 
   # add spin and apply occupation mask
