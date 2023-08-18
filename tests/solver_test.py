@@ -24,8 +24,8 @@ class SolverTest(parameterized.TestCase):
 
   @parameterized.parameters(
     ("h2", (-1., -1.1)),
-    # ("o", (-72., -75.)),
-    # ("h2o", (-74., -80.)),
+    ("o", (-72., -75.)),
+    ("h2o", (-74., -80.)),
   )
   def test_incore_sgd(
     self, system: str, energy_bounds: Tuple[float, float]
@@ -33,7 +33,7 @@ class SolverTest(parameterized.TestCase):
     cfg = get_config()
     cfg.sys_cfg.mol = system
     cfg.sys_cfg.basis = '6-31g'
-    e_total = incore_cgto_direct_opt(cfg, basis_optim=False)
+    e_total = incore_cgto_direct_opt(cfg)
     upper_bound, lower_bound = energy_bounds
     self.assertTrue(e_total < upper_bound and e_total > lower_bound)
 
