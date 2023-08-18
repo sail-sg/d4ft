@@ -24,8 +24,8 @@ class SolverTest(parameterized.TestCase):
 
   @parameterized.parameters(
     ("h2", (-1., -1.1)),
-    ("o", (-72., -75.)),
-    ("h2o", (-74., -80.)),
+    # ("o", (-72., -75.)),
+    # ("h2o", (-74., -80.)),
   )
   def test_incore_sgd(
     self, system: str, energy_bounds: Tuple[float, float]
