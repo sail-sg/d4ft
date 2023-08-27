@@ -31,7 +31,8 @@ from d4ft.hamiltonian.cgto_intors import (
   get_cgto_intor,
   get_ovlp,
 )
-from d4ft.hamiltonian.dft_cgto import dft_cgto
+from d4ft.hamiltonian.ksdft_cgto import ksdft_cgto
+from d4ft.hamiltonian.hf_cgto import hf_cgto
 from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
@@ -175,7 +176,10 @@ def incore_cgto_direct_opt(
       # TODO: fix this to enable geometry optimization
       # grids_and_weights = dg.build(cgto_hk.atom_coords)
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
-      return dft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
+      return ksdft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
+
+    elif cfg.method_cfg.name == "HF":
+      return hf_cgto(cgto_hk, cgto_intor, mo_coeff_fn)
 
   # e_total = scipy_opt(cfg.solver_cfg, H_factory, key)
   # breakpoint()
@@ -264,7 +268,7 @@ def pyscf_benchmark(
   mo_coeff *= cgto.nocc[:, :, None]
 
   # eval with d4ft
-  _, H = dft_cgto(
+  _, H = ksdft_cgto(
     cgto, cgto_intor, xc_fn, mo_coeff_fn=make_constant_fn(mo_coeff)
   )
 

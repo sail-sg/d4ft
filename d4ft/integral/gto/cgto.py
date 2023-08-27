@@ -501,7 +501,7 @@ class CGTO(NamedTuple):
     Returns:
       contracted normalized gtos.
     """
-    gto_val = self.coeff * self.N * self.pgto.eval(r)
+    gto_val = self.coeff * self.pgto.norm_inv() * self.pgto.eval(r)
     n_cgtos = len(self.cgto_splits)
     return jax.ops.segment_sum(gto_val, self.cgto_seg_id, n_cgtos)
 

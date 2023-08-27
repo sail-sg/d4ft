@@ -28,7 +28,7 @@ py_library(
         "//d4ft:utils",
         "//d4ft:xc",
         "//d4ft/hamiltonian:cgto_intors",
-        "//d4ft/hamiltonian:dft_cgto",
+        "//d4ft/hamiltonian:ksdft_cgto",
         "//d4ft/hamiltonian:ortho",
         "//d4ft/integral/gto:cgto",
         "//d4ft/integral/obara_saika:driver",

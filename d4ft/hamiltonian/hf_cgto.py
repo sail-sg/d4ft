@@ -31,7 +31,7 @@ from d4ft.types import (
 from d4ft.utils import compose
 
 
-def dft_cgto(
+def hf_cgto(
   cgto: CGTO,
   cgto_intors: CGTOIntors,
   xc_fn: Callable,

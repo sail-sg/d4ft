@@ -41,8 +41,8 @@ py_library(
 )
 
 py_library(
-    name = "dft_cgto",
-    srcs = ["dft_cgto.py"],
+    name = "ksdft_cgto",
+    srcs = ["ksdft_cgto.py"],
     deps = [
         ":cgto_intors",
         ":nuclear",
@@ -54,7 +54,7 @@ py_library(
     srcs = ["__init__.py"],
     deps = [
         ":cgto_intors",
-        ":dft_cgto",
+        ":ksdft_cgto",
         ":nuclear",
         ":ortho",
     ],
