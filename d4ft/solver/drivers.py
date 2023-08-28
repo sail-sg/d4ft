@@ -165,7 +165,10 @@ def cgto_direct_opt(
   else:
     cgto_e_tensors = None
 
-  grids_and_weights = dg.build(pyscf_mol.atom_coords())
+  if cfg.method_cfg.name == "KS":
+    dg = DifferentiableGrids(pyscf_mol)
+    dg.level = cfg.intor_cfg.quad_level
+    grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
