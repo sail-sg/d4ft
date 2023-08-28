@@ -139,10 +139,6 @@ def get_cgto_sym_tensor_fns(
       eri_abcd_i = cgto_4c_fn(
         cgto, abcd_idx_counts, cgto_4c_seg_id_i, n_cgto_segs_4c
       )
-      # eri_abcd_i = cgto_4c_fn(
-      #   gtos, ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size,
-      #   n_cgto_segs_4c
-      # )
       eri_abcd_cgto += eri_abcd_i
     return eri_abcd_cgto
 

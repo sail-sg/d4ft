@@ -30,6 +30,7 @@ from d4ft.hamiltonian.cgto_intors import (
   get_cgto_fock_fn,
   get_cgto_intor,
   get_ovlp,
+  get_ovlp_incore,
 )
 from d4ft.hamiltonian.mf_cgto import mf_cgto
 from d4ft.hamiltonian.nuclear import e_nuclear
@@ -156,10 +157,10 @@ def cgto_direct_opt(
 
   cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
 
-  if cfg.intor_cfg.incore:
-    cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
-  else:
-    cgto_e_tensors = None
+  # if cfg.intor_cfg.incore:
+  #   cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
+  # else:
+  #   cgto_e_tensors = None
 
   if cfg.method_cfg.name == "KS":
     dg = DifferentiableGrids(pyscf_mol)
@@ -168,18 +169,32 @@ def cgto_direct_opt(
   else:
     grids_and_weights = None
 
+  if cfg.intor_cfg.incore:
+    cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
+
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
-    ovlp = get_ovlp(cgto, cgto_e_tensors)
     # TODO: out-of-core + basis optimization
     if cfg.solver_cfg.basis_optim != "":
       optimizable_params = cfg.solver_cfg.basis_optim.split(",")
       cgto_hk = cgto.to_hk(optimizable_params)
     else:
       cgto_hk = cgto
-    cgto_intor = get_cgto_intor(
-      cgto_hk, intor="obsa", cgto_e_tensors=cgto_e_tensors
-    )
+    if cfg.intor_cfg.incore:
+      ovlp = get_ovlp_incore(cgto, cgto_e_tensors)
+      cgto_intor = get_cgto_intor(
+        cgto_hk,
+        cgto_tensor_fns,
+        cgto_e_tensors=cgto_e_tensors,
+        intor=cfg.intor_cfg.intor,
+      )
+    else:
+      cgto_intor = get_cgto_intor(
+        cgto_hk,
+        cgto_tensor_fns,
+        intor=cfg.intor_cfg.intor,
+      )
+      ovlp = get_ovlp(cgto_hk, cgto_tensor_fns)
     mo_coeff_fn = partial(
       cgto_hk.get_mo_coeff,
       restricted=cfg.method_cfg.restricted,
