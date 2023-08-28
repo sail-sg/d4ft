@@ -16,7 +16,7 @@
 
 import pickle
 from functools import partial
-from typing import Callable, Tuple
+from typing import Callable, Optional, Tuple
 
 import haiku as hk
 import jax
@@ -31,13 +31,15 @@ from d4ft.hamiltonian.cgto_intors import (
   get_cgto_intor,
   get_ovlp,
 )
-from d4ft.hamiltonian.ksdft_cgto import ksdft_cgto
-from d4ft.hamiltonian.hf_cgto import hf_cgto
+from d4ft.hamiltonian.mf_cgto import mf_cgto
 from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
-from d4ft.integral.obara_saika.driver import incore_int_sym
+from d4ft.integral.obara_saika.driver import (
+  CGTOSymTensorFns,
+  get_cgto_sym_tensor_fns,
+)
 from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
@@ -48,7 +50,14 @@ from d4ft.utils import make_constant_fn
 from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
 
 
-def incore_mf_cgto(cfg: D4FTConfig):
+def build_mf_cgto(
+  cfg: D4FTConfig
+) -> Tuple[
+  CGTOSymTensorFns,
+  pyscf.gto.mole.Mole,
+  CGTO,
+  Optional[DifferentiableGrids],
+]:
   """Build the CGTO basis with in-core intor for the mean-field calculations
   (i.e. HF and KS-DFT). For KS-DFT we also need to build the grids for the
   numerical integration of the XC functional"""
@@ -63,7 +72,7 @@ def incore_mf_cgto(cfg: D4FTConfig):
   # TODO: intor.split() for pmap / batched
   s2 = obsa.angular_static_args(*[cgto.pgto.angular] * 2)
   s4 = obsa.angular_static_args(*[cgto.pgto.angular] * 4)
-  incore_e_tensors = incore_int_sym(cgto, s2, s4)
+  cgto_tensor_fns = get_cgto_sym_tensor_fns(cgto, s2, s4)
 
   if cfg.method_cfg.name == "KS":
     dg = DifferentiableGrids(pyscf_mol)
@@ -71,7 +80,7 @@ def incore_mf_cgto(cfg: D4FTConfig):
   else:
     dg = None
 
-  return incore_e_tensors, pyscf_mol, cgto, dg
+  return cgto_tensor_fns, pyscf_mol, cgto, dg
 
 
 def incore_cgto_scf(cfg: D4FTConfig) -> None:
@@ -81,15 +90,16 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
   """
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
-  incore_e_tensors, pyscf_mol, cgto, dg = incore_mf_cgto(cfg)
+  cgto_tensor_fns, pyscf_mol, cgto, dg = build_mf_cgto(cfg)
+  cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
-  ovlp = get_ovlp(cgto, incore_e_tensors)
+  ovlp = get_ovlp(cgto, cgto_e_tensors)
 
   vxc_fn = get_lda_vxc(
     grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
   )
-  cgto_fock_fn = get_cgto_fock_fn(cgto, incore_e_tensors, vxc_fn)
+  cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_fn)
   cgto_fock_jit = jax.jit(cgto_fock_fn)
 
   # get initial mo_coeff
@@ -102,7 +112,7 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
   xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
   kin_fn, ext_fn, har_fn = get_cgto_intor(
-    cgto, intor="obsa", incore_energy_tensors=incore_e_tensors
+    cgto, intor="obsa", cgto_e_tensors=cgto_e_tensors
   )
   e_nuc = e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
 
@@ -140,7 +150,7 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
     logger.get_segment_summary()
 
 
-def incore_cgto_direct_opt(
+def cgto_direct_opt(
   cfg: D4FTConfig,
   run_pyscf_benchmark: bool = False,
 ) -> float:
@@ -148,12 +158,18 @@ def incore_cgto_direct_opt(
   where CGTO basis are used and the energy tensors are precomputed/incore."""
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
 
-  incore_e_tensors, pyscf_mol, cgto, dg = incore_mf_cgto(cfg)
+  cgto_tensor_fns, pyscf_mol, cgto, dg = build_mf_cgto(cfg)
+
+  if cfg.intor_cfg.incore:
+    cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
+  else:
+    cgto_e_tensors = None
+
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
-    ovlp = get_ovlp(cgto, incore_e_tensors)
+    ovlp = get_ovlp(cgto, cgto_e_tensors)
     # TODO: out-of-core + basis optimization
     if cfg.solver_cfg.basis_optim != "":
       optimizable_params = cfg.solver_cfg.basis_optim.split(",")
@@ -161,7 +177,7 @@ def incore_cgto_direct_opt(
     else:
       cgto_hk = cgto
     cgto_intor = get_cgto_intor(
-      cgto_hk, intor="obsa", incore_energy_tensors=incore_e_tensors
+      cgto_hk, intor="obsa", cgto_e_tensors=cgto_e_tensors
     )
     mo_coeff_fn = partial(
       cgto_hk.get_mo_coeff,
@@ -174,12 +190,13 @@ def incore_cgto_direct_opt(
       polarized = not cfg.method_cfg.restricted
       xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
       # TODO: fix this to enable geometry optimization
+      # NOTE: geometry optimization is not working yet since the function
+      # treutler_atomic_radii_adjust is not differentiable yet
       # grids_and_weights = dg.build(cgto_hk.atom_coords)
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
-      return ksdft_cgto(cgto_hk, cgto_intor, xc_fn, mo_coeff_fn)
+      cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
 
-    elif cfg.method_cfg.name == "HF":
-      return hf_cgto(cgto_hk, cgto_intor, mo_coeff_fn)
+    return mf_cgto(cgto_hk, cgto_intor, mo_coeff_fn)
 
   # e_total = scipy_opt(cfg.solver_cfg, H_factory, key)
   # breakpoint()
@@ -208,7 +225,7 @@ def incore_cgto_direct_opt(
 
   if run_pyscf_benchmark:
     pyscf_logger = pyscf_benchmark(
-      cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
+      cfg, pyscf_mol, cgto, cgto_e_tensors, grids_and_weights
     )
 
     logging.info("energy diff")
@@ -231,10 +248,11 @@ def incore_cgto_direct_opt(
 
 
 def incore_cgto_pyscf_benchmark(cfg: D4FTConfig) -> RunLogger:
-  incore_e_tensors, pyscf_mol, cgto, dg = incore_mf_cgto(cfg)
+  cgto_tensor_fns, pyscf_mol, cgto, dg = build_mf_cgto(cfg)
+  cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
   return pyscf_benchmark(
-    cfg, pyscf_mol, cgto, incore_e_tensors, grids_and_weights
+    cfg, pyscf_mol, cgto, cgto_e_tensors, grids_and_weights
   )
 
 
@@ -242,18 +260,18 @@ def pyscf_benchmark(
   cfg: D4FTConfig,
   pyscf_mol: pyscf.gto.mole.Mole,
   cgto: CGTO,
-  incore_e_tensors,
+  cgto_e_tensors,
   grids_and_weights,
 ) -> RunLogger:
   """Call PySCF to solve for ground state of a molecular system with SCF DFT,
   then load the computed MO coefficients from PySCF and redo the energy integral
   with obsa, where the energy tensors are precomputed/incore."""
-  cgto_intor = get_cgto_intor(
-    cgto, intor="obsa", incore_energy_tensors=incore_e_tensors
-  )
-  polarized = not cfg.method_cfg.restricted
-  xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
-  xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
+  cgto_intor = get_cgto_intor(cgto, intor="obsa", cgto_e_tensors=cgto_e_tensors)
+  if cfg.method_cfg.name == "KS":
+    polarized = not cfg.method_cfg.restricted
+    xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
+    xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
+    cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
 
   # solve for ground state with PySCF and get the mo_coeff
   atom_mf, mo_coeff = pyscf_wrapper(
@@ -268,9 +286,7 @@ def pyscf_benchmark(
   mo_coeff *= cgto.nocc[:, :, None]
 
   # eval with d4ft
-  _, H = ksdft_cgto(
-    cgto, cgto_intor, xc_fn, mo_coeff_fn=make_constant_fn(mo_coeff)
-  )
+  _, H = mf_cgto(cgto, cgto_intor, mo_coeff_fn=make_constant_fn(mo_coeff))
 
   _, (energies, _) = H.energy_fn(mo_coeff)
   e1 = energies.e_kin + energies.e_ext

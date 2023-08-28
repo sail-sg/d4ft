@@ -13,16 +13,11 @@
 # limitations under the License.
 """Solvers"""
 
-from .drivers import (
-  ksdft_cgto,
-  incore_cgto_direct_opt,
-  incore_cgto_scf,
-  incore_mf_cgto,
-)
+from .drivers import cgto_direct_opt, incore_cgto_scf, mf_cgto
 
 __all__ = [
-  "ksdft_cgto",
-  "incore_cgto_direct_opt",
+  "mf_cgto",
+  "cgto_direct_opt",
   "incore_cgto_scf",
-  "incore_mf_cgto",
+  "mf_cgto",
 ]

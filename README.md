@@ -189,7 +189,7 @@ direct optimization DFT with D4FT:
 from absl import logging
 
 from d4ft.config import get_config
-from d4ft.solver.drivers import incore_cgto_direct_opt
+from d4ft.solver.drivers import cgto_direct_opt
 
 # enable float 64
 from jax.config import config
@@ -204,10 +204,10 @@ cfg.sys_cfg.mol = 'H2'
 cfg.sys_cfg.basis = '6-31g'
 
 # Calculation
-e_total, _, _ = incore_cgto_direct_opt(cfg)
+e_total, _, _ = cgto_direct_opt(cfg)
 print(e_total)
 ```
-The `incore_cgto_direct_opt` is just an example of how to use the low level API of `D4FT`, similar to the example models in deep learning libraries. If you want more granular control you should write your function, and you can start by modifying this example.
+The `cgto_direct_opt` is just an example of how to use the low level API of `D4FT`, similar to the example models in deep learning libraries. If you want more granular control you should write your function, and you can start by modifying this example.
 
 # Benchmark Against Psi4 and PySCF
 

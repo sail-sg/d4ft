@@ -23,7 +23,7 @@ from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import (
   CGTOIntors,
-  ETensorsIncore,
+  CGTOSymTensorIncore,
   Fock,
   IdxCount2C,
   IdxCount4C,
@@ -36,7 +36,7 @@ def libcint_incore(
   pyscf_mol: pyscf.gto.mole.Mole,
   mo_ab_idx_counts: IdxCount2C,
   mo_abcd_idx_counts: IdxCount4C,
-) -> ETensorsIncore:
+) -> CGTOSymTensorIncore:
   """Get tensor incore using libcint, then reduce symmetry."""
   kin = pyscf_mol.intor_symmetric('int1e_kin')
   ext = pyscf_mol.intor_symmetric('int1e_nuc')
@@ -58,26 +58,25 @@ def libcint_incore(
 def get_cgto_intor(
   cgto: CGTO,
   intor: Literal["obsa", "libcint", "quad"] = "obsa",
-  incore_energy_tensors: Optional[ETensorsIncore] = None,
+  cgto_e_tensors: Optional[CGTOSymTensorIncore] = None,
 ) -> CGTOIntors:
   """
   Args:
     intor: which integrator to use
-    incore_energy_tensors: if provided, calculate energy incore
+    cgto_e_tensors: if provided, calculate energy incore
   """
   # TODO: test join optimization with hk=True
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
 
-  if incore_energy_tensors:
-    _, kin, ext, eri = incore_energy_tensors
+  if cgto_e_tensors:
+    _, kin, ext, eri = cgto_e_tensors
 
     def kin_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
       rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
       rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
-      e_kin = jnp.sum(kin * rdm1_2c_ab)
-
+      e_kin = jnp.sum(cgto_e_tensors.kin_ab * rdm1_2c_ab)
       return e_kin
 
     def ext_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
@@ -95,13 +94,23 @@ def get_cgto_intor(
       # key = hk.next_rng_key()
       # mask = jax.random.bernoulli(key, rate, shape=eri.shape)
       # e_har = jnp.sum(eri * mask * rdm1_ab * rdm1_cd) / rate
+      # NOTE: 0.5 prefactor already included in the eri
       e_har = jnp.sum(eri * rdm1_ab * rdm1_cd)
       return e_har
 
-  else:  # TODO: out-of-core
+    def exc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+      rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
+      rdm1_ad = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 3]]
+      rdm1_cb = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 1]]
+      # NOTE: 0.5 prefactor already included in the eri
+      e_exc = -jnp.sum(eri * rdm1_ad * rdm1_cb)
+      return e_exc
+
+  # TODO: out-of-core
+  else:
     pass
 
-  return kin_fn, ext_fn, har_fn
+  return CGTOIntors(kin_fn, ext_fn, har_fn, exc_fn)
 
 
 def unreduce_symmetry_2c(
@@ -116,23 +125,23 @@ def unreduce_symmetry_2c(
   return full_mat
 
 
-def get_ovlp(cgto: CGTO, incore_energy_tensors: ETensorsIncore):
+def get_ovlp(cgto: CGTO, cgto_e_tensors: CGTOSymTensorIncore):
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
-  ovlp_ab = incore_energy_tensors[0]
+  ovlp_ab = cgto_e_tensors[0]
   ovlp = unreduce_symmetry_2c(ovlp_ab, nmo, mo_ab_idx_counts)
   return ovlp
 
 
 def get_cgto_fock_fn(
-  cgto: CGTO, incore_energy_tensors: ETensorsIncore, vxc_fn: Callable
+  cgto: CGTO, cgto_e_tensors: CGTOSymTensorIncore, vxc_fn: Callable
 ) -> Callable[[MoCoeff], Fock]:
   """Currently only support incore"""
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
 
-  _, kin, ext, eri = incore_energy_tensors
+  _, kin, ext, eri = cgto_e_tensors
 
   # unredce 2c integrals into full matrices, which can be precomputed
   kin_mat = unreduce_symmetry_2c(kin, nmo, mo_ab_idx_counts)
@@ -164,7 +173,7 @@ def get_cgto_fock_fn(
     Note that the K matrix can be computed as
 
     .. math::
-    sum_{cb} rho_{cb} (ab|cd) -> K_{cb}
+    sum_{cb} rho_{cb} (ab|cd) -> K_{ad}
 
     where rho is the 1-RDM.
     """

@@ -17,7 +17,7 @@ from typing import Tuple
 from absl.testing import absltest, parameterized
 
 from d4ft.config import get_config
-from d4ft.solver.drivers import incore_cgto_direct_opt
+from d4ft.solver.drivers import cgto_direct_opt
 
 
 class SolverTest(parameterized.TestCase):
@@ -33,7 +33,7 @@ class SolverTest(parameterized.TestCase):
     cfg = get_config()
     cfg.sys_cfg.mol = system
     cfg.sys_cfg.basis = '6-31g'
-    e_total = incore_cgto_direct_opt(cfg)
+    e_total = cgto_direct_opt(cfg)
     upper_bound, lower_bound = energy_bounds
     self.assertTrue(e_total < upper_bound and e_total > lower_bound)
 

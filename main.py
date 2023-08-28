@@ -27,7 +27,7 @@ from ml_collections.config_flags import config_flags
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCAL_PER_MOL
 from d4ft.solver.drivers import (
-  incore_cgto_direct_opt,
+  cgto_direct_opt,
   incore_cgto_pyscf_benchmark,
   incore_cgto_scf,
 )
@@ -101,7 +101,7 @@ def main(_: Any) -> None:
 
       try:
         if FLAGS.run == "direct":
-          incore_cgto_direct_opt(cfg, FLAGS.pyscf)
+          cgto_direct_opt(cfg, FLAGS.pyscf)
         else:
           raise NotImplementedError
       except Exception as e:
@@ -110,7 +110,7 @@ def main(_: Any) -> None:
     return
 
   if FLAGS.run == "direct":
-    incore_cgto_direct_opt(cfg, FLAGS.pyscf)
+    cgto_direct_opt(cfg, FLAGS.pyscf)
 
   elif FLAGS.run == "scf":
     incore_cgto_scf(cfg)
@@ -120,7 +120,7 @@ def main(_: Any) -> None:
 
   elif FLAGS.run == "viz":
     p = Path(cfg.save_dir)
-    benchmark = p.name.split(',')[0]
+    benchmark, run_cfg, _ = p.name.split(',')
     runs = [f for f in p.iterdir() if f.is_dir()]
     direct_df = pd.DataFrame()
     pyscf_df = pd.DataFrame()
@@ -151,12 +151,14 @@ def main(_: Any) -> None:
     diff_df['e_total'].dropna().sort_values().plot(
       kind='bar', label='direct - pyscf (kcal/mol)'
     )
-    plt.title(f"{benchmark} benchmark set energy difference")
+    title = f"{benchmark} benchmark set energy difference, {run_cfg}"
+    plt.title(title)
     plt.ylabel("dE (kcal/mol)")
     plt.plot(
       diff_df.index, [1] * len(diff_df.index), 'r--', label='chemical accuracy'
     )
     plt.legend()
+    plt.savefig(title + ".png", dpi=300)
     plt.show()
 
     # HACK: currently H has nan in xc gradient so cannot be computed
@@ -177,7 +179,8 @@ def main(_: Any) -> None:
 
     rxn_diff_df.sort_values(by='direct').plot(kind='bar')
     plt.title(
-      f"{benchmark} benchmark set reaction energy (calculated - reference)"
+      f"{benchmark} benchmark set reaction energy \
+      (calculated - reference), {run_cfg}"
     )
     plt.ylabel("dE (kcal/mol)")
     plt.show()
@@ -190,7 +193,8 @@ def main(_: Any) -> None:
     )
     plt.plot(rxn_df.index, [-1] * len(rxn_df.index), 'r--')
     plt.title(
-      f"{benchmark} benchmark set reaction energy difference (direct - pyscf)"
+      f"{benchmark} benchmark set reaction energy difference \
+      (direct - pyscf), {run_cfg}"
     )
     plt.legend()
     plt.show()
