@@ -103,7 +103,7 @@ def get_cgto_intor(
       rdm1_ad = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 3]]
       rdm1_cb = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 1]]
       # NOTE: 0.5 prefactor already included in the eri
-      e_exc = -jnp.sum(eri * rdm1_ad * rdm1_cb)
+      e_exc = -0.5 * jnp.sum(eri * rdm1_ad * rdm1_cb)
       return e_exc
 
   # TODO: out-of-core

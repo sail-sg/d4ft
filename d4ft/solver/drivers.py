@@ -45,19 +45,19 @@ from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
-from d4ft.types import Energies, Hamiltonian
+from d4ft.types import (
+  CGTOSymTensorIncore,
+  Energies,
+  Hamiltonian,
+  QuadGridsNWeights,
+)
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
 
 
 def build_mf_cgto(
   cfg: D4FTConfig
-) -> Tuple[
-  CGTOSymTensorFns,
-  pyscf.gto.mole.Mole,
-  CGTO,
-  Optional[DifferentiableGrids],
-]:
+) -> Tuple[CGTOSymTensorFns, pyscf.gto.mole.Mole, CGTO]:
   """Build the CGTO basis with in-core intor for the mean-field calculations
   (i.e. HF and KS-DFT). For KS-DFT we also need to build the grids for the
   numerical integration of the XC functional"""
@@ -73,14 +73,7 @@ def build_mf_cgto(
   s2 = obsa.angular_static_args(*[cgto.pgto.angular] * 2)
   s4 = obsa.angular_static_args(*[cgto.pgto.angular] * 4)
   cgto_tensor_fns = get_cgto_sym_tensor_fns(cgto, s2, s4)
-
-  if cfg.method_cfg.name == "KS":
-    dg = DifferentiableGrids(pyscf_mol)
-    dg.level = cfg.intor_cfg.quad_level
-  else:
-    dg = None
-
-  return cgto_tensor_fns, pyscf_mol, cgto, dg
+  return cgto_tensor_fns, pyscf_mol, cgto
 
 
 def incore_cgto_scf(cfg: D4FTConfig) -> None:
@@ -90,8 +83,11 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
   """
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
-  cgto_tensor_fns, pyscf_mol, cgto, dg = build_mf_cgto(cfg)
+  cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
   cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
+
+  dg = DifferentiableGrids(pyscf_mol)
+  dg.level = cfg.intor_cfg.quad_level
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
   ovlp = get_ovlp(cgto, cgto_e_tensors)
@@ -158,7 +154,7 @@ def cgto_direct_opt(
   where CGTO basis are used and the energy tensors are precomputed/incore."""
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
 
-  cgto_tensor_fns, pyscf_mol, cgto, dg = build_mf_cgto(cfg)
+  cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
 
   if cfg.intor_cfg.incore:
     cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
@@ -169,6 +165,8 @@ def cgto_direct_opt(
     dg = DifferentiableGrids(pyscf_mol)
     dg.level = cfg.intor_cfg.quad_level
     grids_and_weights = dg.build(pyscf_mol.atom_coords())
+  else:
+    grids_and_weights = None
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
@@ -251,8 +249,10 @@ def cgto_direct_opt(
 
 
 def incore_cgto_pyscf_benchmark(cfg: D4FTConfig) -> RunLogger:
-  cgto_tensor_fns, pyscf_mol, cgto, dg = build_mf_cgto(cfg)
+  cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
   cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
+  dg = DifferentiableGrids(pyscf_mol)
+  dg.level = cfg.intor_cfg.quad_level
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
   return pyscf_benchmark(
     cfg, pyscf_mol, cgto, cgto_e_tensors, grids_and_weights
@@ -263,24 +263,28 @@ def pyscf_benchmark(
   cfg: D4FTConfig,
   pyscf_mol: pyscf.gto.mole.Mole,
   cgto: CGTO,
-  cgto_e_tensors,
-  grids_and_weights,
+  cgto_e_tensors: CGTOSymTensorIncore,
+  grids_and_weights: Optional[QuadGridsNWeights] = None,
 ) -> RunLogger:
   """Call PySCF to solve for ground state of a molecular system with SCF DFT,
   then load the computed MO coefficients from PySCF and redo the energy integral
   with obsa, where the energy tensors are precomputed/incore."""
   cgto_intor = get_cgto_intor(cgto, intor="obsa", cgto_e_tensors=cgto_e_tensors)
   if cfg.method_cfg.name == "KS":
+    assert grids_and_weights is not None
     polarized = not cfg.method_cfg.restricted
     xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
     xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
     cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
+    xc_type = cfg.method_cfg.xc_type
+  else:
+    xc_type = ""
 
   # solve for ground state with PySCF and get the mo_coeff
   atom_mf, mo_coeff = pyscf_wrapper(
     pyscf_mol,
     cfg.method_cfg.restricted,
-    cfg.method_cfg.xc_type,
+    xc_type,
     cfg.intor_cfg.quad_level,
     method=cfg.method_cfg.name
   )
@@ -301,8 +305,14 @@ def pyscf_benchmark(
 
   # check results
   assert np.allclose(e1, atom_mf.scf_summary['e1'])
-  assert np.allclose(energies.e_har, atom_mf.scf_summary['coul'])
-  assert np.allclose(energies.e_xc, atom_mf.scf_summary['exc'])
+
+  if cfg.method_cfg.name == "KS":
+    assert np.allclose(energies.e_har, atom_mf.scf_summary['coul'])
+    assert np.allclose(energies.e_xc, atom_mf.scf_summary['exc'])
+  elif cfg.method_cfg.name == "HF":
+    assert np.allclose(
+      energies.e_har + energies.e_xc, atom_mf.scf_summary['e2']
+    )
 
   if cfg.uuid != "":
     logger.save(cfg, "pyscf")
