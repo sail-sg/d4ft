@@ -21,6 +21,7 @@ import einops
 import jax
 import jax.numpy as jnp
 import numpy as np
+from jax import lax
 from jaxtyping import Array, Num
 from ml_collections import ConfigDict
 
@@ -40,10 +41,13 @@ def compose(f: Callable, g: Callable) -> Callable:
 
 
 def inv_softplus(y: Num[Array, "*s"]) -> Num[Array, "*s"]:
-  if y < 20:  # This threshold is arbitrary and can be adjusted.
-    return jnp.log(jnp.exp(y) - 1.)
-  else:  # For large y, softplus(y) ~= y
-    return y
+  r"""Inverse of softplus.
+
+  We want to have some activation function here to make sure
+  that exponent > 0. However softplus is not good as inv_softplus
+  makes some exponent goes inf. For large y, softplus(y) ~= y.
+  """
+  return lax.cond(y < 20, lambda y: jnp.log(jnp.exp(y) - 1.), lambda y: y, y)
 
 
 def save_cfg(cfg: ConfigDict, save_path: Union[str, Path]) -> None:

@@ -157,11 +157,6 @@ def cgto_direct_opt(
 
   cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
 
-  # if cfg.intor_cfg.incore:
-  #   cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
-  # else:
-  #   cgto_e_tensors = None
-
   if cfg.method_cfg.name == "KS":
     dg = DifferentiableGrids(pyscf_mol)
     dg.level = cfg.intor_cfg.quad_level
@@ -181,17 +176,16 @@ def cgto_direct_opt(
     else:
       cgto_hk = cgto
     if cfg.intor_cfg.incore:
-      ovlp = get_ovlp_incore(cgto, cgto_e_tensors)
       cgto_intor = get_cgto_intor(
         cgto_hk,
-        cgto_tensor_fns,
         cgto_e_tensors=cgto_e_tensors,
         intor=cfg.intor_cfg.intor,
       )
+      ovlp = get_ovlp_incore(cgto, cgto_e_tensors)
     else:
       cgto_intor = get_cgto_intor(
         cgto_hk,
-        cgto_tensor_fns,
+        cgto_tensor_fns=cgto_tensor_fns,
         intor=cfg.intor_cfg.intor,
       )
       ovlp = get_ovlp(cgto_hk, cgto_tensor_fns)

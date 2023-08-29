@@ -540,20 +540,6 @@ class CGTO(NamedTuple):
       center = self.pgto.center
 
     if "exponent" in optimizable_params or "coeff" in optimizable_params:
-      # NOTE: we want to have some activation function here to make sure
-      # that exponent > 0. However softplus is not good as inv_softplus
-      # makes some exponent goes inf
-      # exponent = jax.nn.softplus(
-      #   hk.get_parameter(
-      #     "exponent",
-      #     self.pgto.exponent.shape,
-      #     init=make_constant_fn(inv_softplus(self.pgto.exponent))
-      #   )
-      # )
-      # coeff = hk.get_parameter(
-      #   "coeff", self.coeff.shape, init=make_constant_fn(self.coeff)
-      # )
-
       coeff, exponent = reparameterize(
         self,
         optim_exp="exponent" in optimizable_params,
