@@ -41,6 +41,7 @@ flags.DEFINE_enum(
 flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
 flags.DEFINE_string("benchmark", "", "the refdata benchmark set to run")
 flags.DEFINE_bool("use_f64", False, "whether to use float64")
+flags.DEFINE_bool("debug_nans", False, "whether to enable debug_nans")
 flags.DEFINE_bool("pyscf", False, "whether to benchmark against pyscf results")
 flags.DEFINE_bool("save", False, "whether to save results and trajectories")
 
@@ -61,6 +62,7 @@ def get_rxn_energy(rxn: str, benchmark: str, df: pd.DataFrame) -> float:
 
 def main(_: Any) -> None:
   config.update("jax_enable_x64", FLAGS.use_f64)
+  config.update("jax_debug_nans", FLAGS.debug_nans)
 
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
