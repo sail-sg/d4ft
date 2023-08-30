@@ -13,20 +13,49 @@
 # limitations under the License.
 """Functions for getting parametrized orthogonal matrices"""
 
-from typing import Optional
+from typing import Literal, Optional
 
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
 
 
-def sqrt_inv(mat: Float[Array, "a a"]) -> Float[Array, "a a"]:
+def sqrt_inv_eig(A: Float[Array, "a a"]) -> Float[Array, "a a"]:
+  """Compute square root of inverse with eigen-decomposition."""
+  v, u = jnp.linalg.eigh(A)
+  v = (v + jnp.abs(v)) / 2
+  v_sqrt = jnp.diag(v**(-1 / 2))
+  return v_sqrt @ u.T
+
+
+def sqrt_inv_cholesky(A: Float[Array, "a a"]) -> Float[Array, "a a"]:
   """Square root of inverse."""
-  v, u = jnp.linalg.eigh(mat)
-  v = jnp.clip(v, a_min=0)
-  v = jnp.diag(jnp.real(v)**(-1 / 2))
-  ut = jnp.real(u).transpose()
-  return jnp.matmul(v, ut)
+  A_inv = jnp.linalg.inv(A)
+  L = jnp.linalg.cholesky(A_inv)
+  return L.T
+
+
+def sqrt_inv_svd(A: Float[Array, "a a"]) -> Float[Array, "a a"]:
+  """Square root of inverse."""
+  u, s, _ = jnp.linalg.svd(A)
+  s = (s + jnp.abs(s)) / 2
+  s_sqrt = jnp.diag(s**(-1 / 2))
+  return s_sqrt @ u.T
+
+
+def sqrt_inv(
+  A: Float[Array, "a a"],
+  method: Literal["eig", "cholesky", "svd"] = "eig"
+) -> Float[Array, "a a"]:
+  """Square root of inverse."""
+  if method == "eig":
+    return sqrt_inv_eig(A)
+  elif method == "cholesky":
+    return sqrt_inv_cholesky(A)
+  elif method == "svd":
+    return sqrt_inv_svd(A)
+  else:
+    raise NotImplementedError(f"method {method} not implemented")
 
 
 def qr_factor(

@@ -28,6 +28,8 @@ py_library(
     srcs = ["ortho.py"],
     deps = [
         requirement("jaxtyping"),
+        requirement("jax"),
+        requirement("jaxlib"),
     ],
 )
 

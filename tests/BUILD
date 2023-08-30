@@ -37,3 +37,12 @@ py_test(
         requirement("jax-xc"),
     ],
 )
+
+py_test(
+    name = "ortho_test",
+    srcs = ["ortho_test.py"],
+    deps = [
+        "//d4ft/hamiltonian:ortho",
+        requirement("absl-py"),
+    ],
+)
