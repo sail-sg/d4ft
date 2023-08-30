@@ -25,7 +25,8 @@ BoysAsympoticConstant = jnp.array(boys_table.BoysAsympoticConstant)
 
 
 def Boys(m, T):
-  # return lax.cond(m > 26, lambda: BoysNeville(m, T), lambda: BoysPrecomp(m, T))
+  # return lax.cond(m > 26, lambda: BoysNeville(m, T),
+  # lambda: BoysPrecomp(m, T))
   return BoysIgamma(m, T)
 
 
