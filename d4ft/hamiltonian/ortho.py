@@ -45,7 +45,7 @@ def sqrt_inv_svd(A: Float[Array, "a a"]) -> Float[Array, "a a"]:
 
 def sqrt_inv(
   A: Float[Array, "a a"],
-  method: Literal["eig", "cholesky", "svd"] = "eig"
+  method: Literal["eig", "cholesky", "svd"] = "cholesky"
 ) -> Float[Array, "a a"]:
   """Square root of inverse."""
   if method == "eig":
