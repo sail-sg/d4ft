@@ -31,6 +31,7 @@ from d4ft.hamiltonian.cgto_intors import (
   get_cgto_intor,
   get_ovlp,
   get_ovlp_incore,
+  get_vxc_intor,
 )
 from d4ft.hamiltonian.mf_cgto import mf_cgto
 from d4ft.hamiltonian.nuclear import e_nuclear
@@ -196,6 +197,7 @@ def cgto_direct_opt(
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
 
+    vxc_fn = None
     if cfg.method_cfg.name == "KS":
       polarized = not cfg.method_cfg.restricted
       xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
@@ -206,7 +208,13 @@ def cgto_direct_opt(
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
       cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
 
-    return mf_cgto(cgto_hk, cgto_intor, mo_coeff_fn)
+      # TODO: figure out the correct loss for vxc
+      # vxc_ab_fn = get_lda_vxc(
+      #   grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
+      # )
+      # vxc_fn = get_vxc_intor(vxc_ab_fn)
+
+    return mf_cgto(cgto_hk, cgto_intor, mo_coeff_fn, vxc_fn=vxc_fn)
 
   # e_total = scipy_opt(cfg.solver_cfg, H_factory, key)
   # breakpoint()
@@ -221,14 +229,15 @@ def cgto_direct_opt(
   logging.info(f"lowest total energy: \n {logger.data_df.iloc[min_e_step]}")
   lowest_e = logger.data_df.e_total.astype(float).min()
 
-  # NOTE: diagonalize the fock matrix gives a different mo_coeff
+  # # NOTE: diagonalize the fock matrix gives a different mo_coeff
+  # from d4ft.utils import get_rdm1
   # rdm1 = get_rdm1(traj[-1].mo_coeff)
-  # scf_mo_coeff = pyscf_wrapper(
+  # atom_mf, scf_mo_coeff = pyscf_wrapper(
   #   pyscf_mol,
   #   cfg.method_cfg.restricted,
   #   cfg.method_cfg.xc_type,
   #   cfg.intor_cfg.quad_level,
-  #   algo="KS",
+  #   method="KS",
   #   rdm1=rdm1,
   # )
   # breakpoint()

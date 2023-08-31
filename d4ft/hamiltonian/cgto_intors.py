@@ -114,6 +114,17 @@ def get_cgto_intor(
   return CGTOIntors(kin_fn, ext_fn, har_fn, exc_fn)
 
 
+def get_vxc_intor(vxc_ab_fn: Callable[[MoCoeff], Fock]) -> Callable:
+
+  def vxc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    vxc_ab = vxc_ab_fn(mo_coeff)
+    rdm1 = get_rdm1(mo_coeff)
+    e_vxc = jnp.sum(vxc_ab * rdm1)
+    return e_vxc
+
+  return vxc_fn
+
+
 def unreduce_symmetry_2c(
   val: Float[Array, "nmo*(nmo+1)//2"], nmo: int, mo_ab_idx_counts: IdxCount2C
 ) -> Float[Array, "nmo nmo"]:

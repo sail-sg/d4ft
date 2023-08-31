@@ -48,11 +48,13 @@ def sgd(
     """update parameter, and accumulate gradients"""
     rng_key, next_rng_key = jax.random.split(state.rng_key)
     val_and_grads_fn = jax.value_and_grad(H.energy_fn, has_aux=True)
-    (_, aux), grad = val_and_grads_fn(state.params, rng_key)
+    (loss, aux), grad = val_and_grads_fn(state.params, rng_key)
     energies, mo_grads = aux
     updates, opt_state = optimizer.update(grad, state.opt_state, state.params)
     params = optax.apply_updates(state.params, updates)
-    return TrainingState(params, opt_state, next_rng_key), energies, mo_grads
+    return loss, TrainingState(
+      params, opt_state, next_rng_key
+    ), energies, mo_grads
 
   @jax.jit
   def meta_loss(meta_params: hk.Params, state: TrainingState):
@@ -92,7 +94,8 @@ def sgd(
   for step in range(solver_cfg.epochs):
 
     if solver_cfg.meta_opt == "none":
-      new_state, energies, mo_grads = update(state)
+      loss, new_state, energies, mo_grads = update(state)
+      logging.info(f"{loss=}")
     else:
       meta_state, new_state, energies, mo_grads = meta_step(state, meta_state)
       logging.info(f"cur lr: {jax.nn.sigmoid(meta_state.params):.4f}")

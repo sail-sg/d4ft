@@ -35,6 +35,7 @@ def mf_cgto(
   cgto: CGTO,
   cgto_intors: CGTOIntors,
   mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]] = None,
+  vxc_fn: Optional[Callable] = None,
   ret_mo_grads: bool = False,
 ) -> Tuple[Callable, Hamiltonian]:
   r"""Mean-field level calculation with CGTO, i.e. electron Hamiltonian
@@ -67,7 +68,12 @@ def mf_cgto(
     e_nuc = nuc_fn()
     e_total = sum(mo_energies) + e_nuc
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
-    return e_total, (energies, grads)
+    if vxc_fn is None:
+      loss = e_total
+    else:
+      vxc_loss = vxc_fn(mo_coeff)**2
+      loss = e_total + vxc_loss
+    return loss, (energies, grads)
 
   if mo_coeff_fn is None:
     return energy_fn, Hamiltonian(cgto_intors, nuc_fn, energy_fn, mo_coeff_fn)
