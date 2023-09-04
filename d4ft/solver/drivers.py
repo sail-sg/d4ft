@@ -31,7 +31,6 @@ from d4ft.hamiltonian.cgto_intors import (
   get_cgto_intor,
   get_ovlp,
   get_ovlp_incore,
-  get_vxc_intor,
 )
 from d4ft.hamiltonian.mf_cgto import mf_cgto
 from d4ft.hamiltonian.nuclear import e_nuclear

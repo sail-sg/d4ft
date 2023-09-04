@@ -63,7 +63,7 @@ def sgd(
     state = TrainingState(state.params, opt_state, state.rng_key)
 
     # for _ in range(10):
-    new_state, energies, mo_grads = update(state)
+    _, new_state, energies, mo_grads = update(state)
     # state = new_state
 
     loss = H.energy_fn(new_state.params, new_state.rng_key)[0]
