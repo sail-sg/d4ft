@@ -104,11 +104,16 @@ def get_cgto_intor(
     return e_har
 
   def exc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-    rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
-    rdm1_ad = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 3]]
-    rdm1_cb = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 1]]
+    """NOTE: for K matrix, we cannot sum over spin first.
+
+    Ref: https://psicode.org/psi4manual/master/scf.html
+    """
+    rdm1 = get_rdm1(mo_coeff)
+    rdm1_ad = rdm1[:, mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 3]]
+    rdm1_cb = rdm1[:, mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 1]]
     # NOTE: 0.5 prefactor already included in the eri
-    e_exc = -0.5 * jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ad * rdm1_cb)
+    # NOTE: sum over spin and contract (ab|cd)
+    e_exc = -jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ad * rdm1_cb)
     return e_exc
 
   return CGTOIntors(kin_fn, ext_fn, har_fn, exc_fn)

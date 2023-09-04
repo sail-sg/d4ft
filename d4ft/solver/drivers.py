@@ -327,9 +327,8 @@ def pyscf_benchmark(
     assert np.allclose(energies.e_har, atom_mf.scf_summary['coul'])
     assert np.allclose(energies.e_xc, atom_mf.scf_summary['exc'])
   elif cfg.method_cfg.name == "HF":
-    assert np.allclose(
-      energies.e_har + energies.e_xc, atom_mf.scf_summary['e2']
-    )
+    e2_hf = energies.e_har + energies.e_xc
+    assert np.allclose(e2_hf, atom_mf.scf_summary['e2'])
 
   if cfg.uuid != "":
     logger.save(cfg, "pyscf")
