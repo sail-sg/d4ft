@@ -20,12 +20,10 @@ from typing import Callable, Optional, Tuple
 
 import haiku as hk
 import jax
-import jax.numpy as jnp
 import numpy as np
 import pyscf
 from absl import logging
 
-from d4ft.solver.scf import scf
 from d4ft.config import D4FTConfig
 from d4ft.hamiltonian.cgto_intors import (
   get_cgto_fock_fn,
@@ -34,7 +32,6 @@ from d4ft.hamiltonian.cgto_intors import (
   get_ovlp_incore,
 )
 from d4ft.hamiltonian.mf_cgto import mf_cgto
-from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
@@ -45,11 +42,11 @@ from d4ft.integral.obara_saika.driver import (
 from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
+from d4ft.solver.scf import scf
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import (
   CGTOSymTensorIncore,
-  Energies,
   Hamiltonian,
   QuadGridsNWeights,
 )
