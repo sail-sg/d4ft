@@ -143,13 +143,13 @@ All configuration stated in `d4ft/config.py` can be overridden by providing an a
 ## Specifying spin multiplicity
 By default all electrons are maximally paired, so the spin is 0 or 1. To specify the spin multiplicity, use the flag `--config.sys_cfg.spin`, for example
 ``` shell
-python main.py --run direct --config.sys_cfg.mol O2 --config.sys_cfg.spin 2
+python main.py --config.sys_cfg.mol O2 --config.sys_cfg.spin 2
 ```
 
 ## Specifying XC functional
 D4FT uses [`jax-xc`](https://github.com/sail-sg/jax_xc) for XC functional. Use the flag `--config.method_cfg.xc_type` to specify XC functional to use, for example:
 ``` shell
-python main.py --run direct --config.sys_cfg.mol O2 --config.method_cfg.xc_type lda_x
+python main.py --config.sys_cfg.mol O2 --config.method_cfg.xc_type lda_x
 ```
 
 
@@ -182,6 +182,21 @@ then pass it through the config flag as follows
 --config.sys_cfg.mol <path_to_geometry_file>
 ```
 
+## Switching algorithms
+To load config for other algorithms, do
+``` shell
+--config d4ft/config.py:<config-string>
+```
+Some examples:
+1. Kohn-Sham DFT with SCF
+``` shell
+python main.py --run scf --config d4ft/config.py:KS-SCF-MOL --config.sys_cfg.mol O --config.method_cfg.xc_type "1*gga_c_pbe+1*gga_x_pbe" --use_f64 --config.solver_cfg.momentum 0.5
+```
+2. Direct optimization Hartree-Fock
+``` shell
+python main.py --config d4ft/config.py:HF-GD-MOL --use_f64 --pyscf --config.sys_cfg.mol bh76-bh76_n2 --config.sys_cfg.geometry_source refdata
+```
+
 # Using the D4FT API directly
 If you want to use D4FT inside your program, it is best to call the APIs directly instead of using the `main.py` script. For example, the following is a minimal example of call
 direct optimization DFT with D4FT:
@@ -189,7 +204,7 @@ direct optimization DFT with D4FT:
 from absl import logging
 
 from d4ft.config import get_config
-from d4ft.solver.drivers import cgto_direct_opt
+from d4ft.solver.drivers import cgto_direct
 
 # enable float 64
 from jax.config import config
@@ -204,10 +219,10 @@ cfg.sys_cfg.mol = 'H2'
 cfg.sys_cfg.basis = '6-31g'
 
 # Calculation
-e_total, _, _ = cgto_direct_opt(cfg)
+e_total, _, _ = cgto_direct(cfg)
 print(e_total)
 ```
-The `cgto_direct_opt` is just an example of how to use the low level API of `D4FT`, similar to the example models in deep learning libraries. If you want more granular control you should write your function, and you can start by modifying this example.
+The `cgto_direct` is just an example of how to use the low level API of `D4FT`, similar to the example models in deep learning libraries. If you want more granular control you should write your function, and you can start by modifying this example.
 
 # Benchmark Against Psi4 and PySCF
 

@@ -57,6 +57,8 @@ class SCFConfig:
   """fock matrix update momentum"""
   epochs: int = 100
   """number of updates/iterations"""
+  converge_threshold: float = 1e-8
+  """threshold for gradient descent convergence checking"""
 
 
 @dataclass(config=pydantic_config)

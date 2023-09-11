@@ -67,6 +67,7 @@ py_library(
         "//d4ft:logger",
         "//d4ft:optimize",
         "//d4ft:types",
+        "//d4ft/integral/gto:cgto",
     ],
 )
 

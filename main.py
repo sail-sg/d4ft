@@ -27,7 +27,7 @@ from ml_collections.config_flags import config_flags
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCAL_PER_MOL
 from d4ft.solver.drivers import (
-  cgto_direct_opt,
+  cgto_direct,
   incore_cgto_pyscf_benchmark,
   incore_cgto_scf,
 )
@@ -35,8 +35,7 @@ from d4ft.system.refdata import get_refdata_benchmark_set
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
-  "run", "direct", ["direct", "scf", "pyscf", "reaction", "viz"],
-  "which routine to run"
+  "run", "opt", ["opt", "pyscf", "reaction", "viz"], "which routine to run"
 )
 flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
 flags.DEFINE_string("benchmark", "", "the refdata benchmark set to run")
@@ -103,7 +102,7 @@ def main(_: Any) -> None:
 
       try:
         if FLAGS.run == "direct":
-          cgto_direct_opt(cfg, FLAGS.pyscf)
+          cgto_direct(cfg, FLAGS.pyscf)
         else:
           raise NotImplementedError
       except Exception as e:
@@ -111,11 +110,12 @@ def main(_: Any) -> None:
 
     return
 
-  if FLAGS.run == "direct":
-    cgto_direct_opt(cfg, FLAGS.pyscf)
-
-  elif FLAGS.run == "scf":
-    incore_cgto_scf(cfg)
+  if FLAGS.run == "opt":  # optimize for ground-state energy
+    if cfg.solver_cfg.name == "GD":
+      cgto_direct(cfg, FLAGS.pyscf)
+    elif cfg.solver_cfg.name == "SCF":
+      assert cfg.intor_cfg.incore
+      incore_cgto_scf(cfg)
 
   elif FLAGS.run == "pyscf":
     incore_cgto_pyscf_benchmark(cfg)

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import numpy as np
+import scipy
 from absl import logging
 from absl.testing import absltest, parameterized
 
@@ -35,6 +36,25 @@ class OrthoTest(parameterized.TestCase):
     B = sqrt_inv(A, method)
     A_inv = B.T @ B
     self.assertTrue(np.allclose(A_inv @ A, np.eye(dim), atol=1e-4))
+
+  def test_generalized_eigh(self) -> None:
+    # generate random fock and ovlp
+    A = np.random.randn(2, 5, 5)
+    F = A.transpose(0, 2, 1) @ A
+    B = np.random.randn(5, 5)
+    S = B.T @ B
+
+    S_sqrt_inv = sqrt_inv(S)
+
+    eig, C = map(np.stack, zip(*[scipy.linalg.eigh(F[i], S) for i in range(2)]))
+
+    eig_, P = np.linalg.eigh(S_sqrt_inv @ F @ S_sqrt_inv.T)
+    C_ = S_sqrt_inv.T @ P
+
+    self.assertTrue(np.allclose(eig, eig_, atol=1e-6))
+
+    # NOTE: currently the eigenvectors has a sign difference
+    self.assertTrue(np.allclose(np.abs(C), np.abs(C_), atol=1e-5))
 
 
 if __name__ == "__main__":

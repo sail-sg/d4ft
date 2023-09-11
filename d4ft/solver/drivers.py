@@ -25,6 +25,7 @@ import numpy as np
 import pyscf
 from absl import logging
 
+from d4ft.solver.scf import scf
 from d4ft.config import D4FTConfig
 from d4ft.hamiltonian.cgto_intors import (
   get_cgto_fock_fn,
@@ -91,7 +92,7 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   dg.level = cfg.intor_cfg.quad_level
   grids_and_weights = dg.build(pyscf_mol.atom_coords())
 
-  ovlp = get_ovlp(cgto, cgto_e_tensors)
+  ovlp = get_ovlp_incore(cgto, cgto_e_tensors)
 
   vxc_fn = get_lda_vxc(
     grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
@@ -105,49 +106,27 @@ def incore_cgto_scf(cfg: D4FTConfig) -> None:
   params = mo_coeff_fn.init(key)
   mo_coeff = mo_coeff_fn.apply(params, apply_spin_mask=False)
 
+  cgto_intor = get_cgto_intor(
+    cgto,
+    cgto_e_tensors=cgto_e_tensors,
+    intor=cfg.intor_cfg.intor,
+  )
+
   polarized = not cfg.method_cfg.restricted
   xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
   xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
-  kin_fn, ext_fn, har_fn = get_cgto_intor(
-    cgto, intor="obsa", cgto_e_tensors=cgto_e_tensors
+  cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
+
+  energy_fn, _ = mf_cgto(cgto, cgto_intor)
+  energy_fn_jit = jax.jit(energy_fn)
+
+  scf(
+    cfg.solver_cfg, cgto, mo_coeff, ovlp, cgto_fock_jit, energy_fn_jit,
+    cfg.method_cfg.restricted
   )
-  e_nuc = e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
-
-  @jax.jit
-  def energy_fn(mo_coeff):
-    e_kin = kin_fn(mo_coeff)
-    e_ext = ext_fn(mo_coeff)
-    e_har = har_fn(mo_coeff)
-    e_xc = xc_fn(mo_coeff)
-    e_total = e_kin + e_ext + e_har + e_xc + e_nuc
-    energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
-    return energies
-
-  transpose_axis = (1, 0) if cfg.method_cfg.restricted else (0, 2, 1)
-
-  @jax.jit
-  def scf_iter(fock):
-    e_orb, mo_coeff = jnp.linalg.eigh(fock)
-    mo_coeff = jnp.transpose(mo_coeff, transpose_axis)
-    return e_orb, mo_coeff
-
-  fock = jnp.eye(cgto.nao)  # initial guess
-  logger = RunLogger()
-  for step in range(cfg.solver_cfg.epochs):
-    new_fock = cgto_fock_jit(mo_coeff)
-    fock = (
-      1 - cfg.solver_cfg.momentum
-    ) * new_fock + cfg.solver_cfg.momentum * fock
-    e_orb, mo_coeff = scf_iter(fock)
-    logging.info(f"{e_orb=}")
-    residual = jnp.eye(cgto.nao) - mo_coeff[0].T @ ovlp @ mo_coeff[0]
-    thresh = np.abs(residual).max()
-    energies = energy_fn(mo_coeff * cgto.nocc[:, :, None])
-    logger.log_step(energies, step, thresh)
-    logger.get_segment_summary()
 
 
-def cgto_direct_opt(
+def cgto_direct(
   cfg: D4FTConfig,
   run_pyscf_benchmark: bool = False,
 ) -> float:
