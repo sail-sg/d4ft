@@ -45,11 +45,7 @@ from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.scf import scf
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
-from d4ft.types import (
-  CGTOSymTensorIncore,
-  Hamiltonian,
-  QuadGridsNWeights,
-)
+from d4ft.types import CGTOSymTensorIncore, Hamiltonian, QuadGridsNWeights
 from d4ft.utils import make_constant_fn
 from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
 
