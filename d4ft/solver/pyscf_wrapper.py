@@ -13,15 +13,15 @@
 # limitations under the License.
 
 import os
-from typing import Any, Literal, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import pyscf
 from pyscf import scf
 from pyscf.lib import logger
 
+from d4ft.config import D4FTConfig, HFConfig, KSDFTConfig
 from d4ft.types import RDM1, MoCoeff
-from d4ft.config import D4FTConfig, KSDFTConfig, HFConfig
 
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE'] = 'False'
 
