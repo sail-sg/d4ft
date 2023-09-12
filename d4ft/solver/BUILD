@@ -34,6 +34,7 @@ py_library(
         "//d4ft/integral/obara_saika:driver",
         "//d4ft/integral/quadrature:grids",
         "//d4ft/solver:pyscf_wrapper",
+        "//d4ft/solver:scf",
         "//d4ft/solver:sgd",
         "//d4ft/system:mol",
         requirement("dm-haiku"),
