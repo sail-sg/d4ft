@@ -59,6 +59,10 @@ class SCFConfig:
   """number of updates/iterations"""
   converge_threshold: float = 1e-8
   """threshold for gradient descent convergence checking"""
+  basis_optim: str = ""
+  """whether to enable basis optimization. Format is comma separated list of
+  attributes to optimized in the basis set. For example, 'coeff,exp' means
+  to optimize the contraction coefficients and exponents of the GTO basis."""
 
 
 @dataclass(config=pydantic_config)

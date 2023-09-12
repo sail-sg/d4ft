@@ -78,6 +78,8 @@ def get_cgto_intor(
     assert cgto_tensor_fns is not None
     cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
 
+  ovlp_fn = lambda: get_ovlp_incore(cgto, cgto_e_tensors)
+
   def kin_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
     rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
     rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
@@ -116,7 +118,7 @@ def get_cgto_intor(
     e_exc = -jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ad * rdm1_cb)
     return e_exc
 
-  return CGTOIntors(kin_fn, ext_fn, har_fn, exc_fn)
+  return CGTOIntors(ovlp_fn, kin_fn, ext_fn, har_fn, exc_fn)
 
 
 def get_vxc_intor(vxc_ab_fn: Callable[[MoCoeff], Fock]) -> Callable:

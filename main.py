@@ -114,8 +114,7 @@ def main(_: Any) -> None:
     if cfg.solver_cfg.name == "GD":
       cgto_direct(cfg, FLAGS.pyscf)
     elif cfg.solver_cfg.name == "SCF":
-      assert cfg.intor_cfg.incore
-      incore_cgto_scf(cfg)
+      incore_cgto_scf(cfg, FLAGS.pyscf)
 
   elif FLAGS.run == "pyscf":
     incore_cgto_pyscf_benchmark(cfg)

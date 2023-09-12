@@ -45,15 +45,12 @@ from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.scf import scf
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
-from d4ft.types import CGTOSymTensorIncore, Hamiltonian, QuadGridsNWeights
-from d4ft.utils import make_constant_fn
+from d4ft.types import Hamiltonian
 from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
 
 
-def build_mf_cgto(
-  cfg: D4FTConfig
-) -> Tuple[CGTOSymTensorFns, pyscf.gto.mole.Mole, CGTO]:
-  """Build the CGTO basis with in-core intor for the mean-field calculations
+def build_mf_cgto(cfg: D4FTConfig):
+  """Build the CGTO basis with intor for the mean-field calculations
   (i.e. HF and KS-DFT). For KS-DFT we also need to build the grids for the
   numerical integration of the XC functional"""
   pyscf_mol = get_pyscf_mol(
@@ -68,66 +65,6 @@ def build_mf_cgto(
   s2 = obsa.angular_static_args(*[cgto.pgto.angular] * 2)
   s4 = obsa.angular_static_args(*[cgto.pgto.angular] * 4)
   cgto_tensor_fns = get_cgto_sym_tensor_fns(cgto, s2, s4)
-  return cgto_tensor_fns, pyscf_mol, cgto
-
-
-def incore_cgto_scf(cfg: D4FTConfig) -> None:
-  """Solve for ground state of a molecular system with SCF KS-DFT,
-  where CGTO basis are used and the energy tensors are precomputed/incore.
-
-  NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
-  """
-  key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
-  cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
-  cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
-
-  dg = DifferentiableGrids(pyscf_mol)
-  dg.level = cfg.intor_cfg.quad_level
-  grids_and_weights = dg.build(pyscf_mol.atom_coords())
-
-  ovlp = get_ovlp_incore(cgto, cgto_e_tensors)
-
-  vxc_fn = get_lda_vxc(
-    grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
-  )
-  cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_fn)
-  cgto_fock_jit = jax.jit(cgto_fock_fn)
-
-  # get initial mo_coeff
-  mo_coeff_fn = partial(cgto.get_mo_coeff, restricted=cfg.method_cfg.restricted)
-  mo_coeff_fn = hk.without_apply_rng(hk.transform(mo_coeff_fn))
-  params = mo_coeff_fn.init(key)
-  mo_coeff = mo_coeff_fn.apply(params, apply_spin_mask=False)
-
-  cgto_intor = get_cgto_intor(
-    cgto,
-    cgto_e_tensors=cgto_e_tensors,
-    intor=cfg.intor_cfg.intor,
-  )
-
-  polarized = not cfg.method_cfg.restricted
-  xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
-  xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
-  cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
-
-  energy_fn, _ = mf_cgto(cgto, cgto_intor)
-  energy_fn_jit = jax.jit(energy_fn)
-
-  scf(
-    cfg.solver_cfg, cgto, mo_coeff, ovlp, cgto_fock_jit, energy_fn_jit,
-    cfg.method_cfg.restricted
-  )
-
-
-def cgto_direct(
-  cfg: D4FTConfig,
-  run_pyscf_benchmark: bool = False,
-) -> float:
-  """Solve for ground state of a molecular system with direct optimization DFT,
-  where CGTO basis are used and the energy tensors are precomputed/incore."""
-  key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
-
-  cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
 
   if cfg.method_cfg.name == "KS":
     dg = DifferentiableGrids(pyscf_mol)
@@ -139,9 +76,13 @@ def cgto_direct(
   if cfg.intor_cfg.incore:
     cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
 
-  def H_factory() -> Tuple[Callable, Hamiltonian]:
+  vxc_ab_fn = get_lda_vxc(
+    grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
+  )
+  cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
+
+  def H_factory(with_mo_coeff: bool = True) -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
-    # TODO: out-of-core + basis optimization
     if cfg.solver_cfg.basis_optim != "":
       optimizable_params = cfg.solver_cfg.basis_optim.split(",")
       cgto_hk = cgto.to_hk(optimizable_params)
@@ -153,21 +94,21 @@ def cgto_direct(
         cgto_e_tensors=cgto_e_tensors,
         intor=cfg.intor_cfg.intor,
       )
-      ovlp = get_ovlp_incore(cgto, cgto_e_tensors)
     else:
       cgto_intor = get_cgto_intor(
         cgto_hk,
         cgto_tensor_fns=cgto_tensor_fns,
         intor=cfg.intor_cfg.intor,
       )
-      ovlp = get_ovlp(cgto_hk, cgto_tensor_fns)
-    mo_coeff_fn = partial(
-      cgto_hk.get_mo_coeff,
-      restricted=cfg.method_cfg.restricted,
-      ortho_fn=qr_factor,
-      ovlp_sqrt_inv=sqrt_inv(ovlp),
-    )
-
+    if with_mo_coeff:
+      mo_coeff_fn = partial(
+        cgto_hk.get_mo_coeff,
+        restricted=cfg.method_cfg.restricted,
+        ortho_fn=qr_factor,
+        ovlp_sqrt_inv=sqrt_inv(cgto_intor.ovlp_fn()),
+      )
+    else:
+      mo_coeff_fn = None
     vxc_fn = None
     if cfg.method_cfg.name == "KS":
       polarized = not cfg.method_cfg.restricted
@@ -187,14 +128,54 @@ def cgto_direct(
 
     return mf_cgto(cgto_hk, cgto_intor, mo_coeff_fn, vxc_fn=vxc_fn)
 
-  # e_total = scipy_opt(cfg.solver_cfg, H_factory, key)
-  # breakpoint()
+  return pyscf_mol, H_factory, cgto, cgto_fock_fn
+
+
+def incore_cgto_scf(
+  cfg: D4FTConfig,
+  run_pyscf_benchmark: bool = False,
+) -> None:
+  """Solve for ground state of a molecular system with SCF KS-DFT,
+  where CGTO basis are used and the energy tensors are precomputed/incore.
+
+  NOTE: since jax-xc doesn't have vxc yet the vxc here is fixed to LDA
+  """
+  assert cfg.intor_cfg.incore
+  key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
+
+  pyscf_mol, H_factory, cgto, cgto_fock_fn = build_mf_cgto(cfg)
+  H = H_factory(with_mo_coeff=False)[1]
+  ovlp = H.cgto_intors.ovlp_fn()
+  cgto_fock_jit = jax.jit(cgto_fock_fn)
+
+  mo_coeff = cgto.get_mo_coeff(
+    cfg.method_cfg.restricted, use_hk=False, key=key, apply_spin_mask=False
+  )
+
+  energy_fn = H.energy_fn
+  energy_fn_jit = jax.jit(energy_fn)
+
+  scf(
+    cfg.solver_cfg, cgto, mo_coeff, ovlp, cgto_fock_jit, energy_fn_jit,
+    cfg.method_cfg.restricted
+  )
+
+
+def cgto_direct(
+  cfg: D4FTConfig,
+  run_pyscf_benchmark: bool = False,
+) -> float:
+  """Solve for ground state of a molecular system with direct optimization DFT,
+  where CGTO basis are used and the energy tensors are precomputed/incore."""
+  key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
+
+  pyscf_mol, H_factory, _, _ = build_mf_cgto(cfg)
 
   H_transformed = hk.multi_transform(H_factory)
   params = H_transformed.init(key)
-  H = Hamiltonian(*H_transformed.apply)
+  H_hk = Hamiltonian(*H_transformed.apply)
 
-  logger, traj = sgd(cfg.solver_cfg, H, params, key)
+  logger, traj = sgd(cfg.solver_cfg, H_hk, params, key)
 
   min_e_step = logger.data_df.e_total.astype(float).idxmin()
   logging.info(f"lowest total energy: \n {logger.data_df.iloc[min_e_step]}")
@@ -214,20 +195,10 @@ def cgto_direct(
   # breakpoint()
 
   if run_pyscf_benchmark:
-    pyscf_logger = pyscf_benchmark(
-      cfg, pyscf_mol, cgto, cgto_e_tensors, grids_and_weights
+    assert cfg.intor_cfg.incore
+    pyscf_benchmark(
+      cfg, pyscf_mol, H_factory(with_mo_coeff=False)[1], compare_logger=logger
     )
-
-    logging.info("energy diff")
-    logging.info(
-      pyscf_logger.data_df.iloc[-1] - logger.data_df.iloc[min_e_step]
-    )
-    logging.info("time diff")
-    pyscf_e_total = pyscf_logger.data_df.e_total[0]
-    e_lower_step = (logger.data_df.e_total < pyscf_e_total).argmax()
-    t_total = logger.data_df.iloc[:e_lower_step].time.sum()
-    logging.info(f"pyscf time: {pyscf_logger.data_df.time[0]}")
-    logging.info(f"d4ft time: {t_total}")
 
   if cfg.uuid != "":
     logger.save(cfg, "direct_opt")
@@ -238,51 +209,26 @@ def cgto_direct(
 
 
 def incore_cgto_pyscf_benchmark(cfg: D4FTConfig) -> RunLogger:
-  cgto_tensor_fns, pyscf_mol, cgto = build_mf_cgto(cfg)
-  cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
-  dg = DifferentiableGrids(pyscf_mol)
-  dg.level = cfg.intor_cfg.quad_level
-  grids_and_weights = dg.build(pyscf_mol.atom_coords())
-  return pyscf_benchmark(
-    cfg, pyscf_mol, cgto, cgto_e_tensors, grids_and_weights
-  )
+  assert cfg.intor_cfg.incore
+  pyscf_mol, H_factory, _, _ = build_mf_cgto(cfg)
+  return pyscf_benchmark(cfg, pyscf_mol, H_factory(with_mo_coeff=False)[1])
 
 
 def pyscf_benchmark(
   cfg: D4FTConfig,
   pyscf_mol: pyscf.gto.mole.Mole,
-  cgto: CGTO,
-  cgto_e_tensors: CGTOSymTensorIncore,
-  grids_and_weights: Optional[QuadGridsNWeights] = None,
+  H,
+  compare_logger: Optional[RunLogger] = None,
 ) -> RunLogger:
   """Call PySCF to solve for ground state of a molecular system with SCF DFT,
   then load the computed MO coefficients from PySCF and redo the energy integral
   with obsa, where the energy tensors are precomputed/incore."""
-  cgto_intor = get_cgto_intor(cgto, intor="obsa", cgto_e_tensors=cgto_e_tensors)
-  if cfg.method_cfg.name == "KS":
-    assert grids_and_weights is not None
-    polarized = not cfg.method_cfg.restricted
-    xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
-    xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
-    cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
-    xc_type = cfg.method_cfg.xc_type
-  else:
-    xc_type = ""
-
   # solve for ground state with PySCF and get the mo_coeff
-  atom_mf, mo_coeff = pyscf_wrapper(
-    pyscf_mol,
-    cfg.method_cfg.restricted,
-    xc_type,
-    cfg.intor_cfg.quad_level,
-    method=cfg.method_cfg.name
-  )
+  atom_mf, mo_coeff = pyscf_wrapper(pyscf_mol, cfg)
 
   # add spin and apply occupation mask
-  mo_coeff *= cgto.nocc[:, :, None]
-
-  # eval with d4ft
-  _, H = mf_cgto(cgto, cgto_intor, mo_coeff_fn=make_constant_fn(mo_coeff))
+  nocc = Mol.get_nocc(pyscf_mol)
+  mo_coeff *= nocc[:, :, None]
 
   _, (energies, _) = H.energy_fn(mo_coeff)
   e1 = energies.e_kin + energies.e_ext
@@ -306,5 +252,18 @@ def pyscf_benchmark(
     logger.save(cfg, "pyscf")
     with (cfg.get_save_dir() / "pyscf_mo_coeff.pkl").open("wb") as f:
       pickle.dump(mo_coeff, f)
+
+  if compare_logger is not None:
+    logging.info("energy diff")
+    min_e_step = compare_logger.data_df.e_total.astype(float).idxmin()
+    logging.info(
+      logger.data_df.iloc[-1] - compare_logger.data_df.iloc[min_e_step]
+    )
+    logging.info("time diff")
+    pyscf_e_total = logger.data_df.e_total[0]
+    e_lower_step = (compare_logger.data_df.e_total < pyscf_e_total).argmax()
+    t_total = compare_logger.data_df.iloc[:e_lower_step].time.sum()
+    logging.info(f"pyscf time: {logger.data_df.time[0]}")
+    logging.info(f"d4ft time: {t_total}")
 
   return logger

@@ -131,6 +131,8 @@ so it takes no argument."""
 class CGTOIntors(NamedTuple):
   """mean-field level intor for kinetic, external and electronic
   repulsion (eri)."""
+  ovlp_fn: Callable
+  """Maps mo_coeff to overlap matrix."""
   kin_fn: MoCoeffScalarFn
   """Maps mo_coeff to kinetic energy."""
   ext_fn: MoCoeffScalarFn
@@ -146,6 +148,7 @@ class CGTOIntors(NamedTuple):
 class Hamiltonian(NamedTuple):
   """CGTO hamiltonian"""
   cgto_intors: CGTOIntors
+  """function that calculates various related integrals"""
   nuc_fn: MoCoeffScalarFn
   """Nuclear repulsion energy fn, which only depends on the geometry."""
   energy_fn: MoCoeffScalarFn

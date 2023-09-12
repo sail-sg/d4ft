@@ -62,7 +62,8 @@ def mf_cgto(
       mo_energies, mo_grads = zip(*val_and_grads)
       grads = Grads(*mo_grads)
     else:
-      mo_energies = [e_fn(mo_coeff) for e_fn in cgto_intors]
+      # NOTE: first intor is the ovlp
+      mo_energies = [e_fn(mo_coeff) for e_fn in cgto_intors[1:]]
       grads = None
     e_kin, e_ext, e_har, e_xc = mo_energies
     e_nuc = nuc_fn()
