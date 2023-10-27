@@ -240,6 +240,12 @@ python main.py --run viz --config.save_dir _exp/bh76,6-31g+lda_x,3aahmyt0
 ```
 
 # CUDA dev guide
+First create the proper pip 
+``` shell
+cd third_party/pip_requirements
+ln -sf requirements-dev.txt requirements.txt
+```
+
 ``` shell
 bazel build //...
 bazel run //d4ft/native/obara_saika:eri_test

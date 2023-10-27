@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Tuple
 
 import jax
 from jax import core, dtypes
-from jax.abstract_arrays import ShapedArray
+from jax.core import ShapedArray
 from jax.interpreters import xla
 from jax.lib import xla_client
 
@@ -61,9 +61,10 @@ class CustomCallMeta(ABCMeta):
     cpu_capsule, gpu_capsule = base._capsules
 
     # Register the XLA custom calls
-    xla_client.register_cpu_custom_call_target(
+    xla_client.register_custom_call_target(
       f"{name}_cpu".encode(),
       fn=cpu_capsule,
+      platform="cpu",
     )
     xla_client.register_custom_call_target(
       f"{name}_gpu".encode(),
