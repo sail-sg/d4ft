@@ -25,7 +25,9 @@ from d4ft.utils import to_3dvec
 
 class PWTest(parameterized.TestCase):
 
-  @parameterized.parameters(("C2", 3.5667, 76.5484253352856),)
+  @parameterized.parameters(
+    ("C2", 3.5667, 76.5484253352856),
+  )
   def test_init_from_name_and_lattice(
     self, crystal_name: str, a: float, expected_vol: float
   ):
