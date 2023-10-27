@@ -1,8 +1,12 @@
 import jax
+import jaxlib
+
+print(jax.__version__)
+print(jax.devices())
+print(jaxlib.__version__)
 import numpy as np
 from absl import logging
 from absl.testing import absltest
-
 from d4ft.native.xla.custom_call import CustomCallMeta
 from tests.native.xla.example import Parent, _Example, _ExampleMember
 
