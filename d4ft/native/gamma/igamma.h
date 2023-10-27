@@ -129,7 +129,7 @@ HEMI_DEV_CALLABLE FLOAT IgammacContinuedFraction(FLOAT ax, FLOAT x, FLOAT a,
       dqkm2_da = dqkm2_da * HEMI_CONSTANT(eps)<FLOAT>;
       dqkm1_da = dqkm1_da * HEMI_CONSTANT(eps)<FLOAT>;
     }
-    FLOAT conditional;
+    // FLOAT conditional;
     if (mode == VALUE) {
       enabled = (enabled && t > HEMI_CONSTANT(eps) < FLOAT >);
     } else {

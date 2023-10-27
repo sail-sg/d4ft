@@ -239,6 +239,13 @@ To visualize the run:
 python main.py --run viz --config.save_dir _exp/bh76,6-31g+lda_x,3aahmyt0
 ```
 
+# CUDA dev guide
+``` shell
+bazel build //...
+bazel run //d4ft/native/obara_saika:eri_test
+bazel test --test_output=all //tests/native/xla:example_test 
+```
+
 ## Tutorial and Documentation
 
 ### Viewing in the Browser
