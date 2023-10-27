@@ -39,14 +39,14 @@ class XCTest(parameterized.TestCase):
   )
   def test_xc_grad(self, xc_name: str) -> None:
     cfg = get_config()
-    key = jax.random.PRNGKey(cfg.dft_cfg.rng_seed)
-    cfg.mol_cfg.mol = "h2"
-    cfg.mol_cfg.basis = "sto-3g"
+    key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
+    cfg.sys_cfg.mol = "h2"
+    cfg.sys_cfg.basis = "sto-3g"
 
     # build system
     pyscf_mol = get_pyscf_mol(
-      cfg.mol_cfg.mol, cfg.mol_cfg.basis, cfg.mol_cfg.spin, cfg.mol_cfg.charge,
-      cfg.mol_cfg.geometry_source
+      cfg.sys_cfg.mol, cfg.sys_cfg.basis, cfg.sys_cfg.spin, cfg.sys_cfg.charge,
+      cfg.sys_cfg.geometry_source
     )
     mol = Mol.from_pyscf_mol(pyscf_mol)
     cgto = CGTO.from_mol(mol)
@@ -63,12 +63,12 @@ class XCTest(parameterized.TestCase):
     # function maps mo coefficients to xc energy
     mo_coeff_fn = partial(
       cgto.get_mo_coeff,
-      rks=cfg.dft_cfg.rks,
+      restricted=cfg.method_cfg.restricted,
       ortho_fn=qr_factor,
       ovlp_sqrt_inv=sqrt_inv(ovlp),
     )
-    polarized = not cfg.dft_cfg.rks
-    xc_func = get_xc_functional(cfg.dft_cfg.xc_type, polarized)
+    polarized = not cfg.method_cfg.restricted
+    xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
     xc_fn = get_xc_intor(grids_and_weights, cgto, xc_func, polarized)
 
     mo_xc_fn = hk.without_apply_rng(hk.transform(compose(xc_fn, mo_coeff_fn)))

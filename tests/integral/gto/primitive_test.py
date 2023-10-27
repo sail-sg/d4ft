@@ -37,10 +37,7 @@ class HKTest(parameterized.TestCase):
     @hk.transform
     def cgto_transformed():
       cgto = CGTO.from_mol(mol)
-      # cgto = CGTO.from_cart(cgto_cart)
-      # cgto_cart = CGTO.from_mol(mol)
-      # cgto = CGTO.from_cart(cgto_cart)
-      return cgto.to_hk()
+      return cgto.to_hk(["center", "exponent", "coeff"])
 
     gparams = cgto_transformed.init(1)
     cgto = cgto_transformed.apply(gparams)
@@ -57,8 +54,8 @@ class HKTest(parameterized.TestCase):
 
     self.assertEqual(len(ao_val), n_cgtos)
 
-    print(cgto.pgto.center)
-    print(gparams)
+    print("center", cgto.pgto.center)
+    print("gparams", gparams)
 
     self.assertEqual(gparams['~']['center'].shape[0], n_atoms)
     self.assertEqual(cgto.pgto.center.shape[0], n_pgtos)

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, List, NamedTuple, Tuple, Union
+from typing import Callable, List, NamedTuple, Optional, Tuple, Union
 
 import haiku as hk
 import jax
@@ -53,8 +53,15 @@ PWCoeff: TypeAlias = Float[Array, "spin ele k g x y z"]
 
 Tensor2C: TypeAlias = Float[Array, "#ab"]
 Tensor4C: TypeAlias = Float[Array, "#abcd"]
-ETensorsIncore: TypeAlias = Tuple[Tensor2C, Tensor2C, Tensor4C]
-"""kin, ext and eri tensor incore"""
+
+
+class CGTOSymTensorIncore(NamedTuple):
+  """symmetry reduced ovlp, kin, ext and eri tensor, stored incore"""
+  ovlp_ab: Tensor2C
+  kin_ab: Tensor2C
+  ext_ab: Tensor2C
+  eri_abcd: Tensor4C
+
 
 Cell = Float[NPArray, "3 3"]
 """real / reciprocal space cell represented by a 3x3 matrix consists of
@@ -102,45 +109,55 @@ class Grads(NamedTuple):
   xc_grad: Array
 
 
-Aux = Tuple[Energies, Grads]
+Aux = Tuple[Energies, Optional[Grads]]
 
 
 class Transition(NamedTuple):
   """A transition on the DFT GD optimization trajectory"""
   mo_coeff: Array
   energies: Energies
-  grads: Grads
+  grads: Optional[Grads]
 
 
 Trajectory = List[Transition]
 
-MoCoeffScalarFn = Callable[[MoCoeffFlat], Float[Array, ""]]
+MoCoeffScalarFn = Union[Callable[[MoCoeffFlat], Float[Array, ""]],
+                        Callable[[], Float[Array, ""]]]
+"""Functions that maps mo_coeff to a scalar that represents energy.
+When used with parameterized mo_coeff, it is composed with the mo_coeff_fn
+so it takes no argument."""
+
+
+class CGTOIntors(NamedTuple):
+  """mean-field level intor for kinetic, external and electronic
+  repulsion (eri)."""
+  ovlp_fn: Callable
+  """Maps mo_coeff to overlap matrix."""
+  kin_fn: MoCoeffScalarFn
+  """Maps mo_coeff to kinetic energy."""
+  ext_fn: MoCoeffScalarFn
+  """Maps mo_coeff to external (nuclear attraction) energy."""
+  har_fn: MoCoeffScalarFn
+  """Maps mo_coeff to hartree energy."""
+  xc_fn: MoCoeffScalarFn
+  """Maps mo_coeff to exact exchange energy, or the XC functional if
+  doing KS-DFT."""
 
 
 # TODO: consider PBC / plane wave
 class Hamiltonian(NamedTuple):
   """CGTO hamiltonian"""
-
-  kin_fn: MoCoeffScalarFn
-  """Maps mo_coeff to kinetic energy."""
-  ext_fn: MoCoeffScalarFn
-  """Maps mo_coeff to external (nuclear attraction) energy."""
-  har_fn: MoCoeffScalarFn  # TODO: rename to hartree
-  """Maps mo_coeff to electronic repulsion energy."""
-  xc_fn: MoCoeffScalarFn
-  """XC functional."""
-  nuc_fn: Callable
+  cgto_intors: CGTOIntors
+  """function that calculates various related integrals"""
+  nuc_fn: MoCoeffScalarFn
   """Nuclear repulsion energy fn, which only depends on the geometry."""
   energy_fn: MoCoeffScalarFn
   """Function to get total energy. Can be used as the loss function."""
-  mo_coeff_fn: Callable
+  mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]]
   """Function to get MO coefficient."""
 
 
 HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]
-
-CGTOIntors = Tuple[MoCoeffScalarFn, MoCoeffScalarFn, MoCoeffScalarFn]
-"""intor for kin, ext and eri."""
 
 
 class TrainingState(NamedTuple):

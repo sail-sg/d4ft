@@ -18,6 +18,8 @@ Ref:
 https://cccbdb.nist.gov/expgeom1x.asp
 """
 
+import numpy as np
+import pandas as pd
 import requests
 from absl import logging
 from bs4 import BeautifulSoup
@@ -59,13 +61,11 @@ def headers(referer):
 URLS = {'form': 'https://cccbdb.nist.gov/getformx.asp'}
 
 
-def query_geometry_from_cccbdb(
-  formula: str, calculation: str = "expgeom"
-) -> str:
+def query_cccbdb(formula: str, calculation: str = "expgeom") -> BeautifulSoup:
   data = {'formula': formula, 'submit1': 'Submit'}
 
-  url1 = 'https://cccbdb.nist.gov/%s1x.asp' % calculation
-  url2 = 'https://cccbdb.nist.gov/%s2x.asp' % calculation
+  url1 = f'https://cccbdb.nist.gov/{calculation}1x.asp'
+  url2 = f'https://cccbdb.nist.gov/{calculation}2x.asp'
 
   logging.info('**** Posting formula')
 
@@ -82,6 +82,10 @@ def query_geometry_from_cccbdb(
     res2 = session.get(url2)
 
   soup = BeautifulSoup(res2.content, 'html.parser')
+  return soup
+
+
+def extract_geometry(soup: BeautifulSoup) -> str:
   table = soup.find('table', attrs={'class': 'border'})
 
   d = table.text.strip().split('\n')[5:]
@@ -96,3 +100,53 @@ def query_geometry_from_cccbdb(
     ]
   )
   return geometry
+
+
+def query_geometry_from_cccbdb(formula: str) -> str:
+  soup = query_cccbdb(formula, "expgeom")
+  return extract_geometry(soup)
+
+
+def parse_result_table_to_df(soup: BeautifulSoup) -> pd.DataFrame:
+  table = soup.find("table", attrs={"id": "table2"})
+
+  headers = [header.text for header in table.find('tr').find_all('th')]
+
+  # Get table rows
+  rows = table.find_all('tr')[1:]
+
+  # Extract row data
+  data = []
+  index_l1s = []
+  index_l2s = []
+  index_l1 = index_l2 = None
+  for row in rows:
+    indexes = row.find_all('th')
+    if len(indexes) == 2:
+      index_l1 = indexes[0].text
+      index_l2 = indexes[1].text
+    else:
+      index_l2 = indexes[0].text
+    index_l1s.append(index_l1)
+    index_l2s.append(index_l2)
+    columns = []
+    for col in row.find_all('td'):
+      try:
+        columns.append(float(col.text))
+      except Exception as e:
+        print(e)
+        columns.append(np.nan)
+    data.append(columns)
+
+  # Convert to pandas DataFrame
+  df = pd.DataFrame(data, columns=headers)
+  df.index = pd.MultiIndex.from_arrays(
+    [index_l1s, index_l2s], names=('Level1', 'Level2')
+  )
+
+  return df
+
+
+def query_calc_from_cccbdb(formula: str) -> pd.DataFrame:
+  soup = query_cccbdb(formula, "energy")
+  return parse_result_table_to_df(soup)

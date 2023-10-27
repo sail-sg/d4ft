@@ -27,28 +27,41 @@ from ml_collections.config_flags import config_flags
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCAL_PER_MOL
 from d4ft.solver.drivers import (
-  incore_cgto_direct_opt_dft,
-  incore_cgto_pyscf_dft_benchmark,
-  incore_cgto_scf_dft,
+  cgto_direct,
+  incore_cgto_pyscf_benchmark,
+  incore_cgto_scf,
 )
 from d4ft.system.refdata import get_refdata_benchmark_set
 
 FLAGS = flags.FLAGS
 flags.DEFINE_enum(
-  "run", "direct", ["direct", "scf", "pyscf", "reaction", "viz"],
-  "which routine to run"
+  "run", "opt", ["opt", "pyscf", "reaction", "viz"], "which routine to run"
 )
 flags.DEFINE_string("reaction", "hf_h_hfhts", "the reaction to run")
 flags.DEFINE_string("benchmark", "", "the refdata benchmark set to run")
 flags.DEFINE_bool("use_f64", False, "whether to use float64")
+flags.DEFINE_bool("debug_nans", False, "whether to enable debug_nans")
 flags.DEFINE_bool("pyscf", False, "whether to benchmark against pyscf results")
 flags.DEFINE_bool("save", False, "whether to save results and trajectories")
 
 config_flags.DEFINE_config_file(name="config", default="d4ft/config.py")
 
 
+def get_rxn_energy(rxn: str, benchmark: str, df: pd.DataFrame) -> float:
+  reactants, products = rxn.replace("-", "").split(">")
+  rxn_energy = 0.
+  for reactant in reactants.split("+"):
+    ratio, system = reactant.split("*")
+    rxn_energy -= float(ratio) * df.loc[f"{benchmark}-{system}", "e_total"]
+  for product in products.split("+"):
+    ratio, system = product.split("*")
+    rxn_energy += float(ratio) * df.loc[f"{benchmark}-{system}", "e_total"]
+  return rxn_energy
+
+
 def main(_: Any) -> None:
   config.update("jax_enable_x64", FLAGS.use_f64)
+  config.update("jax_debug_nans", FLAGS.debug_nans)
 
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
@@ -62,22 +75,34 @@ def main(_: Any) -> None:
   if FLAGS.benchmark != "":
     assert FLAGS.save
 
-    with cfg.unlocked():
-      cfg.uuid = ",".join([FLAGS.benchmark, cfg.get_core_cfg_str(), cfg.uuid])
+    system_done = []
+    if FLAGS.benchmark in cfg.save_dir:
+      p = Path(cfg.save_dir)
+      logging.info(f"resuming {FLAGS.benchmark} benchmark set")
+      with cfg.unlocked():
+        cfg.uuid = p.name
+        cfg.save_dir = str(p.parent)
+      system_done = [f.name.split("-")[-1] for f in p.iterdir() if f.is_dir()]
+    else:
+      with cfg.unlocked():
+        cfg.uuid = ",".join([FLAGS.benchmark, cfg.get_core_cfg_str(), cfg.uuid])
 
     cfg.save()
 
     systems, _, _ = get_refdata_benchmark_set(FLAGS.benchmark)
+    # HACK: fix the xc grad NaN issue
+    system_done.append("bh76_h")
     for system in systems:
-      if system == "bh76_h":  # TODO: fix the xc grad NaN issue
+      if system in system_done:
+        logging.info(f"skipping {system}..")
         continue
 
       with cfg.unlocked():
-        cfg.mol_cfg.mol = "-".join([FLAGS.benchmark, system])
+        cfg.sys_cfg.mol = "-".join([FLAGS.benchmark, system])
 
       try:
         if FLAGS.run == "direct":
-          incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf)
+          cgto_direct(cfg, FLAGS.pyscf)
         else:
           raise NotImplementedError
       except Exception as e:
@@ -85,17 +110,18 @@ def main(_: Any) -> None:
 
     return
 
-  if FLAGS.run == "direct":
-    incore_cgto_direct_opt_dft(cfg, FLAGS.pyscf)
-
-  elif FLAGS.run == "scf":
-    incore_cgto_scf_dft(cfg)
+  if FLAGS.run == "opt":  # optimize for ground-state energy
+    if cfg.solver_cfg.name == "GD":
+      cgto_direct(cfg, FLAGS.pyscf)
+    elif cfg.solver_cfg.name == "SCF":
+      incore_cgto_scf(cfg, FLAGS.pyscf)
 
   elif FLAGS.run == "pyscf":
-    incore_cgto_pyscf_dft_benchmark(cfg)
+    incore_cgto_pyscf_benchmark(cfg)
 
   elif FLAGS.run == "viz":
     p = Path(cfg.save_dir)
+    benchmark, run_cfg, _ = p.name.split(',')
     runs = [f for f in p.iterdir() if f.is_dir()]
     direct_df = pd.DataFrame()
     pyscf_df = pd.DataFrame()
@@ -126,10 +152,50 @@ def main(_: Any) -> None:
     diff_df['e_total'].dropna().sort_values().plot(
       kind='bar', label='direct - pyscf (kcal/mol)'
     )
-    plt.title("BH76 benchmark set energy difference")
+    title = f"{benchmark} benchmark set energy difference, {run_cfg}"
+    plt.title(title)
     plt.ylabel("dE (kcal/mol)")
     plt.plot(
       diff_df.index, [1] * len(diff_df.index), 'r--', label='chemical accuracy'
+    )
+    plt.legend()
+    plt.savefig(title + ".png", dpi=300)
+    plt.show()
+
+    # HACK: currently H has nan in xc gradient so cannot be computed
+    direct_df.loc['bh76-bh76_h'] = pyscf_df.loc['bh76-bh76_h']
+
+    systems, rxns, ref_energy = get_refdata_benchmark_set(benchmark)
+    rxn_df = pd.DataFrame(columns=['direct', 'pyscf', 'ref'])
+    for rxn, ref in zip(rxns, ref_energy):
+      rxn_e_pyscf = get_rxn_energy(rxn, benchmark, pyscf_df)
+      rxn_e_pyscf *= HARTREE_TO_KCAL_PER_MOL
+      rxn_e_direct = get_rxn_energy(rxn, benchmark, direct_df)
+      rxn_e_direct *= HARTREE_TO_KCAL_PER_MOL
+      rxn_df.loc[rxn] = [rxn_e_direct, rxn_e_pyscf, ref]
+
+    rxn_diff_df = pd.DataFrame(columns=['direct', 'pyscf'])
+    rxn_diff_df['direct'] = rxn_df['direct'] - rxn_df['ref']
+    rxn_diff_df['pyscf'] = rxn_df['pyscf'] - rxn_df['ref']
+
+    rxn_diff_df.sort_values(by='direct').plot(kind='bar')
+    plt.title(
+      f"{benchmark} benchmark set reaction energy \
+      (calculated - reference), {run_cfg}"
+    )
+    plt.ylabel("dE (kcal/mol)")
+    plt.show()
+
+    (rxn_df['direct'] - rxn_df['pyscf']).plot(
+      kind='bar', label='direct - pyscf (kcal/mol)'
+    )
+    plt.plot(
+      rxn_df.index, [1] * len(rxn_df.index), 'r--', label='chemical accuracy'
+    )
+    plt.plot(rxn_df.index, [-1] * len(rxn_df.index), 'r--')
+    plt.title(
+      f"{benchmark} benchmark set reaction energy difference \
+      (direct - pyscf), {run_cfg}"
     )
     plt.legend()
     plt.show()

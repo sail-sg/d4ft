@@ -21,6 +21,8 @@ from absl import logging
 
 from d4ft.config import D4FTConfig
 
+# pd.set_option('display.precision', 8)
+
 
 class RunLogger:
 
@@ -42,7 +44,7 @@ class RunLogger:
     # log step time
     now = time.time()
     step_df['time'] = now - self._time
-    step_df['threshold'] = thresh
+    step_df['conv_thresh'] = thresh
     self._time = now
     self.data_df = pd.concat([self.data_df, step_df])
 

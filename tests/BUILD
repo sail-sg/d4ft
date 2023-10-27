@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_python//python:defs.bzl", "py_test")
 load("@pip_requirements//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
 
 py_test(
     name = "solver_test",
@@ -35,5 +35,14 @@ py_test(
         "//d4ft/solver:drivers",
         requirement("absl-py"),
         requirement("jax-xc"),
+    ],
+)
+
+py_test(
+    name = "ortho_test",
+    srcs = ["ortho_test.py"],
+    deps = [
+        "//d4ft/hamiltonian:ortho",
+        requirement("absl-py"),
     ],
 )

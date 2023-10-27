@@ -21,9 +21,10 @@ from jaxtyping import Array, Float
 
 from d4ft.integral.gto import symmetry
 from d4ft.integral.gto.cgto import CGTO
+from d4ft.integral.obara_saika.driver import CGTOSymTensorFns
 from d4ft.types import (
   CGTOIntors,
-  ETensorsIncore,
+  CGTOSymTensorIncore,
   Fock,
   IdxCount2C,
   IdxCount4C,
@@ -36,7 +37,7 @@ def libcint_incore(
   pyscf_mol: pyscf.gto.mole.Mole,
   mo_ab_idx_counts: IdxCount2C,
   mo_abcd_idx_counts: IdxCount4C,
-) -> ETensorsIncore:
+) -> CGTOSymTensorIncore:
   """Get tensor incore using libcint, then reduce symmetry."""
   kin = pyscf_mol.intor_symmetric('int1e_kin')
   ext = pyscf_mol.intor_symmetric('int1e_nuc')
@@ -57,51 +58,78 @@ def libcint_incore(
 
 def get_cgto_intor(
   cgto: CGTO,
+  cgto_tensor_fns: Optional[CGTOSymTensorFns] = None,
+  cgto_e_tensors: Optional[CGTOSymTensorIncore] = None,
   intor: Literal["obsa", "libcint", "quad"] = "obsa",
-  incore_energy_tensors: Optional[ETensorsIncore] = None,
 ) -> CGTOIntors:
   """
   Args:
     intor: which integrator to use
-    incore_energy_tensors: if provided, calculate energy incore
+    cgto_e_tensors: if provided, calculate energy incore
   """
+  assert intor == "obsa", "Only obsa is supported for now"
+
   # TODO: test join optimization with hk=True
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
 
-  if incore_energy_tensors:
-    kin, ext, eri = incore_energy_tensors
+  if cgto_e_tensors is None:  # on-the-fly
+    assert cgto_tensor_fns is not None
+    cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
 
-    def kin_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-      rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
-      rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
-      e_kin = jnp.sum(kin * rdm1_2c_ab)
+  ovlp_fn = lambda: get_ovlp_incore(cgto, cgto_e_tensors)
 
-      return e_kin
+  def kin_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
+    rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
+    e_kin = jnp.sum(cgto_e_tensors.kin_ab * rdm1_2c_ab)
+    return e_kin
 
-    def ext_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-      rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
-      rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
-      e_ext = jnp.sum(ext * rdm1_2c_ab)
-      return e_ext
+  def ext_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
+    rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
+    e_ext = jnp.sum(cgto_e_tensors.ext_ab * rdm1_2c_ab)
+    return e_ext
 
-    # rate = 0.5
+  # rate = 0.5
 
-    def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-      rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
-      rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
-      rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
-      # key = hk.next_rng_key()
-      # mask = jax.random.bernoulli(key, rate, shape=eri.shape)
-      # e_har = jnp.sum(eri * mask * rdm1_ab * rdm1_cd) / rate
-      e_har = jnp.sum(eri * rdm1_ab * rdm1_cd)
-      return e_har
+  def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
+    rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
+    rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
+    # key = hk.next_rng_key()
+    # mask = jax.random.bernoulli(key, rate, shape=eri.shape)
+    # e_har = jnp.sum(eri * mask * rdm1_ab * rdm1_cd) / rate
+    # NOTE: 0.5 prefactor already included in the eri
+    e_har = jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ab * rdm1_cd)
+    return e_har
 
-  else:  # TODO: out-of-core
-    pass
+  def exc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    """NOTE: for K matrix, we cannot sum over spin first.
 
-  return kin_fn, ext_fn, har_fn
+    Ref: https://psicode.org/psi4manual/master/scf.html
+    """
+    rdm1 = get_rdm1(mo_coeff)
+    rdm1_ad = rdm1[:, mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 3]]
+    rdm1_cb = rdm1[:, mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 1]]
+    # NOTE: 0.5 prefactor already included in the eri
+    # NOTE: sum over spin and contract (ab|cd)
+    e_exc = -jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ad * rdm1_cb)
+    return e_exc
+
+  return CGTOIntors(ovlp_fn, kin_fn, ext_fn, har_fn, exc_fn)
+
+
+def get_vxc_intor(vxc_ab_fn: Callable[[MoCoeff], Fock]) -> Callable:
+
+  def vxc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+    vxc_ab = vxc_ab_fn(mo_coeff)
+    rdm1 = get_rdm1(mo_coeff)
+    e_vxc = jnp.sum(vxc_ab * rdm1)
+    return e_vxc
+
+  return vxc_fn
 
 
 def unreduce_symmetry_2c(
@@ -116,15 +144,34 @@ def unreduce_symmetry_2c(
   return full_mat
 
 
+def get_ovlp(cgto: CGTO,
+             cgto_tensor_fns: CGTOSymTensorFns) -> Float[Array, "2 nao nao"]:
+  ovlp_ab = cgto_tensor_fns.ovlp_ab_fn(cgto)
+  nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
+  mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
+  ovlp = unreduce_symmetry_2c(ovlp_ab, nmo, mo_ab_idx_counts)
+  return ovlp
+
+
+def get_ovlp_incore(
+  cgto: CGTO, cgto_e_tensors: CGTOSymTensorIncore
+) -> Float[Array, "2 nao nao"]:
+  ovlp_ab = cgto_e_tensors.ovlp_ab
+  nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
+  mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
+  ovlp = unreduce_symmetry_2c(ovlp_ab, nmo, mo_ab_idx_counts)
+  return ovlp
+
+
 def get_cgto_fock_fn(
-  cgto: CGTO, incore_energy_tensors: ETensorsIncore, vxc_fn: Callable
+  cgto: CGTO, cgto_e_tensors: CGTOSymTensorIncore, vxc_fn: Callable
 ) -> Callable[[MoCoeff], Fock]:
   """Currently only support incore"""
   nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
 
-  kin, ext, eri = incore_energy_tensors
+  _, kin, ext, eri = cgto_e_tensors
 
   # unredce 2c integrals into full matrices, which can be precomputed
   kin_mat = unreduce_symmetry_2c(kin, nmo, mo_ab_idx_counts)
@@ -156,7 +203,7 @@ def get_cgto_fock_fn(
     Note that the K matrix can be computed as
 
     .. math::
-    sum_{cb} rho_{cb} (ab|cd) -> K_{cb}
+    sum_{cb} rho_{cb} (ab|cd) -> K_{ad}
 
     where rho is the 1-RDM.
     """

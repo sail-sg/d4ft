@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_python//python:defs.bzl", "py_library")
 load("@pip_requirements//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -28,12 +28,13 @@ py_library(
         "//d4ft:utils",
         "//d4ft:xc",
         "//d4ft/hamiltonian:cgto_intors",
-        "//d4ft/hamiltonian:dft_cgto",
+        "//d4ft/hamiltonian:mf_cgto",
         "//d4ft/hamiltonian:ortho",
         "//d4ft/integral/gto:cgto",
         "//d4ft/integral/obara_saika:driver",
         "//d4ft/integral/quadrature:grids",
         "//d4ft/solver:pyscf_wrapper",
+        "//d4ft/solver:scf",
         "//d4ft/solver:sgd",
         "//d4ft/system:mol",
         requirement("dm-haiku"),
@@ -67,6 +68,7 @@ py_library(
         "//d4ft:logger",
         "//d4ft:optimize",
         "//d4ft:types",
+        "//d4ft/integral/gto:cgto",
     ],
 )
 

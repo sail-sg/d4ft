@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_python//python:defs.bzl", "py_library")
 load("@pip_requirements//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -28,6 +28,8 @@ py_library(
     srcs = ["ortho.py"],
     deps = [
         requirement("jaxtyping"),
+        requirement("jax"),
+        requirement("jaxlib"),
     ],
 )
 
@@ -41,8 +43,8 @@ py_library(
 )
 
 py_library(
-    name = "dft_cgto",
-    srcs = ["dft_cgto.py"],
+    name = "mf_cgto",
+    srcs = ["mf_cgto.py"],
     deps = [
         ":cgto_intors",
         ":nuclear",
@@ -54,7 +56,7 @@ py_library(
     srcs = ["__init__.py"],
     deps = [
         ":cgto_intors",
-        ":dft_cgto",
+        ":mf_cgto",
         ":nuclear",
         ":ortho",
     ],

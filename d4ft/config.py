@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Union
 
 from ml_collections import ConfigDict
 from pydantic.config import ConfigDict as PydanticConfigDict
@@ -25,6 +25,7 @@ pydantic_config = PydanticConfigDict({"validate_assignment": True})
 @dataclass(config=pydantic_config)
 class GDConfig:
   """Config for direct minimization with gradient descent solver."""
+  name: Literal["GD"] = "GD"
   lr: float = 1e-2
   """learning rate"""
   lr_decay: Literal["none", "piecewise", "cosine"] = "none"
@@ -42,15 +43,26 @@ class GDConfig:
   """meta learning rate"""
   meta_opt: Literal["none", "adam", "sgd", "rmsprop"] = "none"
   """meta optimizer to use, none to disable"""
+  basis_optim: str = ""
+  """whether to enable basis optimization. Format is comma separated list of
+  attributes to optimized in the basis set. For example, 'coeff,exp' means
+  to optimize the contraction coefficients and exponents of the GTO basis."""
 
 
 @dataclass(config=pydantic_config)
 class SCFConfig:
   """Config for self-consistent field solver."""
+  name: Literal["SCF"] = "SCF"
   momentum: float = 0.5
   """fock matrix update momentum"""
   epochs: int = 100
   """number of updates/iterations"""
+  converge_threshold: float = 1e-8
+  """threshold for gradient descent convergence checking"""
+  basis_optim: str = ""
+  """whether to enable basis optimization. Format is comma separated list of
+  attributes to optimized in the basis set. For example, 'coeff,exp' means
+  to optimize the contraction coefficients and exponents of the GTO basis."""
 
 
 @dataclass(config=pydantic_config)
@@ -68,6 +80,7 @@ class IntorConfig:
 @dataclass(config=pydantic_config)
 class MoleculeConfig:
   """Config for molecule"""
+  name: Literal["MOL"] = "MOL"
   mol: str = "O2"
   """name of the molecule, or the path to the geometry file, which
   specifies the geometry in the format
@@ -87,49 +100,102 @@ class MoleculeConfig:
 
 
 @dataclass(config=pydantic_config)
-class DFTConfig:
-  """Config for DFT."""
-  rks: bool = False
-  """Whether to run RKS, i.e. use the same coefficients for both spins"""
+class CrystalConfig:
+  """Config for crystal"""
+  name: Literal["CRY"] = "CRY"
+  direct_lattice_dim: str = "1x1x1"
+  """Dimension of the direct lattice, i.e. the number of k points
+  (crystal momenta) in each spatial direction. Format is N1xN2xN3."""
+  reciprocal_lattice_dim: str = "1x1x1"
+  """Dimension of the reciprocal lattice, i.e. the number of reciprocal lattice
+  vectors in each spatial direction. Format is N1xN2xN3."""
+  energy_cutoff: float = 300.
+  """kinetic energy (of G points) cutoff for the plane wave basis set.
+  Unit is Hartree"""
+
+
+@dataclass(config=pydantic_config)
+class HFConfig:
+  """Config for Hartree-Fock theory."""
+  name: Literal["HF"] = "HF"
+  restricted: bool = False
+  """Whether to run restricted calculation, i.e. enforcing symmetry by using the
+  same coefficients for both spins"""
+  rng_seed: int = 137
+  """PRNG seed"""
+
+
+@dataclass(config=pydantic_config)
+class KSDFTConfig:
+  """Config for Kohn-Sham Density functional theory."""
+  name: Literal["KS"] = "KS"
   xc_type: str = "lda_x"
   """Name of the xc functional to use. To mix two XC functional, use the
   syntax a*xc_name_1+b*xc_name_2 where a, b are numbers."""
+  restricted: bool = False
+  """Whether to run restricted calculation, i.e. enforcing symmetry by using the
+  same coefficients for both spins"""
   rng_seed: int = 137
   """PRNG seed"""
 
 
 class D4FTConfig(ConfigDict):
-  dft_cfg: DFTConfig
+  method_cfg: Union[HFConfig, KSDFTConfig]
+  """which QC method to use"""
+  solver_cfg: Union[GDConfig, SCFConfig]
+  """which solver to use"""
   intor_cfg: IntorConfig
-  mol_cfg: MoleculeConfig
-  gd_cfg: GDConfig
-  scf_cfg: SCFConfig
+  """integration engine config"""
+  sys_cfg: Union[MoleculeConfig, CrystalConfig]
+  """config for the system to simulate"""
   uuid: str
   save_dir: str
 
   def __init__(self, config_string: str) -> None:
+    method, solver, sys = config_string.split("-")
+
+    if method.lower() == "hf":
+      method_cls = HFConfig
+    elif method.lower() == "ks":
+      method_cls = KSDFTConfig
+    else:
+      raise ValueError(f"Unknown method {method}")
+
+    if solver.lower() == "gd":
+      solver_cls = GDConfig
+    elif solver.lower() == "scf":
+      solver_cls = SCFConfig
+    else:
+      raise ValueError(f"Unknown solver {solver}")
+
+    if sys.lower() == "mol":
+      sys_cls = MoleculeConfig
+    elif sys.lower() == "crystal":
+      sys_cls = CrystalConfig
+    else:
+      raise ValueError(f"Unknown system {sys}")
+
     super().__init__(
       {
-        "dft_cfg": DFTConfig(),
+        "method_cfg": method_cls(),
+        "solver_cfg": solver_cls(),
         "intor_cfg": IntorConfig(),
-        "mol_cfg": MoleculeConfig(),
-        "gd_cfg": GDConfig(),
-        "scf_cfg": SCFConfig(),
+        "sys_cfg": sys_cls(),
         "uuid": "",
         "save_dir": "_exp",
       }
     )
 
   def validate(self, spin: int, charge: int) -> None:
-    if self.dft_cfg.rks and self.mol_cfg.mol not in ["bh76_h", "h"]:
+    if self.method_cfg.restricted and self.sys_cfg.mol not in ["bh76_h", "h"]:
       assert spin == 0 and charge == 0, \
-        "RKS only supports closed-shell molecules"
+        "RESTRICTED only supports closed-shell molecules"
 
   def get_save_dir(self) -> Path:
-    return Path(f"{self.save_dir}/{self.uuid}/{self.mol_cfg.mol}")
+    return Path(f"{self.save_dir}/{self.uuid}/{self.sys_cfg.mol}")
 
   def get_core_cfg_str(self) -> str:
-    return "+".join([self.mol_cfg.basis, self.dft_cfg.xc_type])
+    return "+".join([self.sys_cfg.basis, self.method_cfg.xc_type])
 
   def save(self):
     save_path = self.get_save_dir().parent
@@ -138,12 +204,12 @@ class D4FTConfig(ConfigDict):
       f.write(str(self))
 
 
-def get_config(config_string: str = "") -> D4FTConfig:
+def get_config(config_string: str = "KS-GD-MOL") -> D4FTConfig:
   """Return the default configurations.
 
   Args:
-    config_string: currently only set the type of algorithm. Available values:
-      "gd", "scf".
+    config_string: set the method, solver and sys for the D4FTConfig. Format is
+    method-solver-sys, and the default is KS-GD-MOL.
 
   NOTE: for distributed setup, might need to move the dataclass definition
   into this function.

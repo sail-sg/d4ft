@@ -88,15 +88,17 @@ class Mol(NamedTuple):
   {element: [[shell, [exponenet, coeff], ...], ...]}"""
 
   @staticmethod
+  def get_nocc(mol: pyscf.gto.mole.Mole) -> Int[Array, "2 size"]:
+    return get_occupation_mask(
+      mol.tot_electrons(), mol.nao, mol.spin, mol.charge
+    )
+
+  @staticmethod
   def from_pyscf_mol(mol: pyscf.gto.mole.Mole) -> Mol:
     """Builds Mol object from pyscf Mole"""
-    tot_electrons = mol.tot_electrons()
-
-    nocc = get_occupation_mask(tot_electrons, mol.nao, mol.spin, mol.charge)
-
     return Mol(
       mol.spin, mol.charge, mol.atom_coords(), mol.atom_charges(), mol.elements,
-      nocc, mol.nao, mol._basis
+      Mol.get_nocc(mol), mol.nao, mol._basis
     )
 
   @staticmethod
