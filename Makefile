@@ -123,7 +123,7 @@ bazel-release: bazel-install bazel-pip-requirement-release
 	cp bazel-bin/setup.runfiles/$(PROJECT_NAME)/dist/*.whl ./dist
 
 bazel-test: bazel-install bazel-pip-requirement-dev
-	bazelisk test --action_env=LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH --action_env=PATH=/usr/local/cuda/bin:$PATH --test_output=all $(BAZELOPT) //... --config=test --spawn_strategy=local --color=yes
+	bazelisk test --action_env=LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$(LD_LIBRARY_PATH) --action_env=PATH=/usr/local/cuda/bin:$(PATH) --test_output=all $(BAZELOPT) //... --config=test --spawn_strategy=local --color=yes
 
 bazel-clean: bazel-install
 	bazel clean --expunge
