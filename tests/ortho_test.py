@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import jax
+
+jax.config.update("jax_enable_x64", True)
 import numpy as np
 import scipy
 from absl import logging
