@@ -21,9 +21,7 @@ from d4ft.system.crystal import Crystal
 
 class CrystalTest(parameterized.TestCase):
 
-  @parameterized.parameters(
-    ("C2", 3.5667, 76.5484253352856),
-  )
+  @parameterized.parameters(("C2", 3.5667, 76.5484253352856),)
   def test_init_from_name_and_lattice(
     self, crystal_name: str, a: float, expected_vol: float
   ):
@@ -41,9 +39,7 @@ class CrystalTest(parameterized.TestCase):
 
     self.assertAlmostEqual(crystal.vol, expected_vol)
 
-  @parameterized.parameters(
-    ("diamond.xyz", 76.5484253352856),
-  )
+  @parameterized.parameters(("diamond.xyz", 76.5484253352856),)
   def test_init_from_xyz_file(self, xyz_file: str, expected_vol: float):
     crystal = Crystal.from_xyz_file(xyz_file)
     logging.info(f'cell volume:{crystal.vol}')
