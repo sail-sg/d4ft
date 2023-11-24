@@ -154,9 +154,6 @@ def tensorize_4c_cgto_cuda(static_args, cgto: bool = True):
     N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i
     abcd = jnp.einsum("k,k,k,k,k,k->k", t_abcd, N_abcd, *coeffs_abcd)
     cgto_abcd = jax.ops.segment_sum(abcd, cgto_seg_id, n_segs)
-    print(cgto_abcd.shape)
-    print(cgto_seg_id.shape)
-    print(n_segs)
     return cgto_abcd
 
   return tensorize
