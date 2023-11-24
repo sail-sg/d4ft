@@ -30,18 +30,18 @@
 #define MAX_AB 4
 
 template <typename FLOAT>
-HEMI_DEV_CALLABLE void vertical_0_0_c_0(size_t i, const FLOAT* pq,
+HEMI_DEV_CALLABLE void vertical_0_0_c_0(int i, const FLOAT* pq,
                                         const FLOAT* qc, FLOAT I[][MAX_XYZ + 1],
                                         FLOAT rho, FLOAT eta,
-                                        const size_t* max_cd,
-                                        const size_t* Ms) {
+                                        const int* max_cd,
+                                        const int* Ms) {
   FLOAT* I_0_cm2 = I[MAX_CD];
   FLOAT* I_0_cm1 = I[0];
   FLOAT wq_i = rho * pq[i] / eta;
-  for (size_t j = 0; j < max_cd[i]; ++j) {
+  for (int j = 0; j < max_cd[i]; ++j) {
     FLOAT cm1 = (FLOAT)j;
     FLOAT* I_0_c = I[j + 1];
-    for (size_t k = 0; k <= Ms[i]; ++k) {
+    for (int k = 0; k <= Ms[i]; ++k) {
       FLOAT I_mp1_k =
           wq_i * I_0_cm1[k] + (-cm1 / 2 / eta * rho / eta) * I_0_cm2[k];
       I_0_c[k] = qc[i] * I_0_cm1[k] + (cm1 / 2 / eta) * I_0_cm2[k];
@@ -56,31 +56,31 @@ HEMI_DEV_CALLABLE void vertical_0_0_c_0(size_t i, const FLOAT* pq,
 
 template <typename FLOAT>
 HEMI_DEV_CALLABLE void vertical_a_0_c_0(
-    size_t i, FLOAT I[][MAX_XYZ + 1], const FLOAT* ab, const FLOAT* cd,
+    int i, FLOAT I[][MAX_XYZ + 1], const FLOAT* ab, const FLOAT* cd,
     const FLOAT* pa, const FLOAT* pq, FLOAT rho, FLOAT zeta, FLOAT eta,
-    const size_t* na, const size_t* nb, const size_t* nc, const size_t* nd,
-    const size_t* Ms, const size_t* min_a, const size_t* min_c,
-    const size_t* max_ab, const size_t* max_cd, FLOAT* out) {
+    const int* na, const int* nb, const int* nc, const int* nd,
+    const int* Ms, const int* min_a, const int* min_c,
+    const int* max_ab, const int* max_cd, FLOAT* out) {
   FLOAT cache[MAX_CD + 1][MAX_XYZ + 1] = {0};
   FLOAT wa[MAX_AB + 1], wc[MAX_CD + 1];
-  for (size_t j = 0; j <= max_ab[i]; ++j) {
+  for (int j = 0; j <= max_ab[i]; ++j) {
     FLOAT mask = (FLOAT)(j >= na[i] && j <= na[i] + nb[i]);
-    wa[j] = mask * HEMI_CONSTANT(comb)[nb[i]][j - na[i]] *
-            pow(ab[i], nb[i] - j + na[i]);
+    wa[j] = mask * HEMI_CONSTANT(comb)[nb[i]][std::max(j - na[i],0)] *
+            pow(ab[i], std::max(nb[i] - j + na[i],0));
   }
-  for (size_t j = 0; j <= max_cd[i]; ++j) {
-    FLOAT mask = (FLOAT)(j >= nc[i] && j <= nc[i] + nd[i]);
-    wc[j] = mask * HEMI_CONSTANT(comb)[nd[i]][j - nc[i]] *
-            pow(cd[i], nd[i] - j + nc[i]);
+  for (int j = 0; j <= max_cd[i]; ++j) {
+    FLOAT mask = (FLOAT)(j >= nc[i] && j <= nc[i] + nd[i]); // here
+    wc[j] = mask * HEMI_CONSTANT(comb)[nd[i]][std::max(j - nc[i],0)] *
+            pow(cd[i], std::max(nd[i] - j + nc[i], 0));
   }
   FLOAT(*I_am2)[MAX_XYZ + 1] = cache;
   FLOAT(*I_am1)[MAX_XYZ + 1] = I;
   FLOAT(*I_a)[MAX_XYZ + 1] = I_am2;
-  for (size_t j = 0; j <= max_ab[i]; ++j) {
+  for (int j = 0; j <= max_ab[i]; ++j) {
     FLOAT am1 = (FLOAT)j;
     FLOAT wp_i = -rho * pq[i] / zeta;
-    for (size_t k = 0; k <= max_cd[i]; ++k) {
-      for (size_t l = 0; l <= Ms[i]; ++l) {
+    for (int k = 0; k <= max_cd[i]; ++k) {
+      for (int l = 0; l <= Ms[i]; ++l) {
         FLOAT I_mp1_kl =
             wp_i * I_am1[k][l] + (-am1 / 2 / zeta * rho / zeta) * I_am2[k][l];
         // inplace write
@@ -90,15 +90,15 @@ HEMI_DEV_CALLABLE void vertical_a_0_c_0(
         }
       }
     }
-    for (size_t k = 0; k < max_cd[i]; ++k) {
-      for (size_t l = 1; l <= Ms[i]; ++l) {
+    for (int k = 0; k < max_cd[i]; ++k) {
+      for (int l = 1; l <= Ms[i]; ++l) {
         I_a[k + 1][l - 1] += (k + 1) * I_am1[k][l] / 2 / (zeta + eta);
       }
     }
     if (j >= min_a[i]) {
       FLOAT(*I_j)[MAX_XYZ + 1] = I_am1;
-      for (size_t k = min_c[i]; k <= max_cd[i]; ++k) {
-        for (size_t l = 0; l <= Ms[i + 1]; ++l) {
+      for (int k = min_c[i]; k <= max_cd[i]; ++k) {
+        for (int l = 0; l <= Ms[i]; ++l) {  // Ms[i+1] -> Ms[i]
           out[l] += wa[j] * I_j[k][l] * wc[k];
         }
       }
@@ -138,7 +138,7 @@ HEMI_DEV_CALLABLE FLOAT T(FLOAT rho, FLOAT* pq) {
 template <typename FLOAT>
 HEMI_DEV_CALLABLE FLOAT K(FLOAT z1, FLOAT z2, FLOAT* r1, FLOAT* r2) {
   FLOAT d_squared = 0;
-  for (size_t i = 0; i < 3; ++i) {
+  for (int i = 0; i < 3; ++i) {
     d_squared += (r1[i] - r2[i]) * (r1[i] - r2[i]);
   }
   return std::sqrt((FLOAT)2.) * std::pow(M_PI, (FLOAT)(5. / 4.)) / (z1 + z2) *
@@ -147,23 +147,23 @@ HEMI_DEV_CALLABLE FLOAT K(FLOAT z1, FLOAT z2, FLOAT* r1, FLOAT* r2) {
 
 template <typename FLOAT>
 HEMI_DEV_CALLABLE FLOAT
-eri(size_t nax, size_t nay, size_t naz, size_t nbx, size_t nby, size_t nbz,
-    size_t ncx, size_t ncy, size_t ncz, size_t ndx, size_t ndy, size_t ndz,
+eri(int nax, int nay, int naz, int nbx, int nby, int nbz,
+    int ncx, int ncy, int ncz, int ndx, int ndy, int ndz,
     FLOAT rax, FLOAT ray, FLOAT raz, FLOAT rbx, FLOAT rby, FLOAT rbz, FLOAT rcx,
     FLOAT rcy, FLOAT rcz, FLOAT rdx, FLOAT rdy, FLOAT rdz, FLOAT za, FLOAT zb,
-    FLOAT zc, FLOAT zd, const size_t* min_a, const size_t* min_c,
-    const size_t* max_ab, const size_t* max_cd, const size_t* Ms) {
-  size_t na[3] = {nax, nay, naz};
-  size_t nb[3] = {nbx, nby, nbz};
-  size_t nc[3] = {ncx, ncy, ncz};
-  size_t nd[3] = {ndx, ndy, ndz};
+    FLOAT zc, FLOAT zd, const int* min_a, const int* min_c,
+    const int* max_ab, const int* max_cd, const int* Ms) {
+  int na[3] = {nax, nay, naz};
+  int nb[3] = {nbx, nby, nbz};
+  int nc[3] = {ncx, ncy, ncz};
+  int nd[3] = {ndx, ndy, ndz};
   FLOAT ra[3] = {rax, ray, raz};
   FLOAT rb[3] = {rbx, rby, rbz};
   FLOAT rc[3] = {rcx, rcy, rcz};
   FLOAT rd[3] = {rdx, rdy, rdz};
 
   FLOAT rp_[3], rq_[3], pa_[3], pb_[3], qc_[3], qd_[3], ab_[3], cd_[3], pq_[3];
-  for (size_t i = 0; i < 3; ++i) {
+  for (int i = 0; i < 3; ++i) {
     rp_[i] = rp(ra[i], rb[i], za, zb);
     rq_[i] = rp(rc[i], rd[i], zc, zd);
     pa_[i] = rp_[i] - ra[i];
@@ -194,7 +194,7 @@ eri(size_t nax, size_t nay, size_t naz, size_t nbx, size_t nby, size_t nbz,
   // reset I to zero
   std::memset(I, 0, sizeof(I));
   // set I[0] to out;
-  for (size_t i = 0; i <= Ms[1]; ++i) {
+  for (int i = 0; i <= Ms[1]; ++i) {
     I[0][i] = out[i];
   }
   // set out[:MAX_Z+1] = {0};
@@ -205,7 +205,7 @@ eri(size_t nax, size_t nay, size_t naz, size_t nbx, size_t nby, size_t nbz,
   // reset I to zero
   std::memset(I, 0, sizeof(I));
   // set I[0] to out;
-  for (size_t i = 0; i <= Ms[2]; ++i) {
+  for (int i = 0; i <= Ms[2]; ++i) {
     I[0][i] = out[i];
   }
   // set out[:1] = {0};

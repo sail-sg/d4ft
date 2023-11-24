@@ -102,8 +102,8 @@ def get_cgto_sym_tensor_fns(
   # counts_ab[:, None]]).astype(int)
 
   # pgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4, cgto=False)
-  cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
-
+  # cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
+  cgto_4c_fn = tensorization.tensorize_4c_cgto_cuda(s4)
   # cgto_4c_fn = tensorization.tensorize_4c_cgto_range(eri_fn, s4)
 
   # NOTE: these are only needed for prescreening

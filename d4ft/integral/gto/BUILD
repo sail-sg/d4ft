@@ -56,9 +56,15 @@ py_library(
 py_library(
     name = "tensorization",
     srcs = ["tensorization.py"],
+    data = [
+        "//d4ft/native/obara_saika:eri_kernel.so",
+        "@cuda//:bin",
+    ],
     deps = [
         ":cgto",
         "//d4ft:types",
+        "symmetry",
+        "//d4ft/native/xla:custom_call",
     ],
 )
 

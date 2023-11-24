@@ -88,11 +88,11 @@ class CustomCallMeta(ABCMeta):
           f"Requested {required_input_dtypes}, got {input_dtypes}"
         )
 
-      if not hasattr(self, "_state"):
-        input_shapes = tuple(arg.shape for arg in args)
-        output_shapes = self._shape_inference(input_shapes)
-        self._state = self._opaque(input_shapes, output_shapes)
-
+      # if not hasattr(self, "_state"):
+      input_shapes = tuple(arg.shape for arg in args)
+      output_shapes = self._shape_inference(input_shapes)
+      self._state = self._opaque(input_shapes, output_shapes)
+      # _state = self._opaque(input_shapes, output_shapes)
       output = self.prim.bind(self._state, *args)
       if base._is_member:
         assert len(output) >= 2
