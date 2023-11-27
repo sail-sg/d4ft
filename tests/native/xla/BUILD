@@ -19,54 +19,100 @@ load("@rules_python//python:defs.bzl", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
-    name = "example_h",
-    hdrs = ["example.h"],
-    copts = [
-        "--std=c++17",
-    ],
-    deps = [
-        "//d4ft/native/xla:specs",
-    ],
-)
+# cc_library(
+#     name = "eri_kernel_h",
+#     hdrs = ["eri_kernel.h"],
+#     copts = [
+#         "--std=c++17",
+#     ],
+#     deps = [
+#         "@hemi",
+#         "//d4ft/native/xla:specs",
+#     ],
+# )
 
-cuda_library(
-    name = "example_cu",
-    srcs = ["example.cu"],
-    copts = [
-        "--std=c++17",
-    ],
-    deps = [
-        ":example_h",
-        "@cuda//:cudart_static",
-    ],
-)
 
-pybind_extension(
-    name = "example",
-    srcs = [
-        "example.cc",
-    ],
-    copts = [
-        "--std=c++17",
-    ],
-    deps = [
-        ":example_cu",
-        "//d4ft/native/xla:custom_call_h",
-    ],
-)
+# cc_library(
+#     name = "boys_h",
+#     hdrs = ["boys.h"],
+#     copts = [
+#         "--std=c++17",
+#     ],
+#     deps = [
+#         "@hemi",
+#         "//d4ft/native/gamma:igamma",
+#         "//d4ft/native/gamma:lgamma",
+#     ],
+# )
+
+
+# cc_library(
+#     name = "comb_h",
+#     hdrs = ["comb.h"],
+#     copts = [
+#         "--std=c++17",
+#     ],
+#     deps = [
+#         "@hemi",
+#     ],
+# )
+
+# cc_library(
+#     name = "eri_h",
+#     hdrs = ["eri.h"],
+#     copts = [
+#         "--std=c++17",
+#     ],
+#     deps = [
+#         "@hemi",
+#         "comb_h",
+#         "boys_h",
+#     ],
+# )
+
+# cuda_library(
+#     name = "eri_kernel_cu",
+#     srcs = ["eri_kernel.cu"],
+#     copts = [
+#         "--expt-extended-lambda",
+#         "--expt-relaxed-constexpr",
+#     ],
+#     deps = [
+#         "@hemi",
+#         ":eri_kernel_h",
+#         "@cuda//:cudart_static",
+#         "eri_h",
+#     ],
+# )
+
+# pybind_extension(
+#     name = "eri_kernel",
+#     srcs = [
+#         "eri_kernel.cc",
+#     ],
+#     copts = [
+#         "--std=c++17",
+#     ],
+#     deps = [
+#         ":eri_kernel_cu",
+#         "//d4ft/native/xla:custom_call_h",
+#     ],
+# )
 
 py_test(
-    name = "example_test",
-    srcs = ["example_test.py"],
+    name = "eri_kernel_test",
+    srcs = ["eri_kernel_test.py"],
     data = [
-        ":example.so",
+        "//d4ft/native/obara_saika:eri_kernel.so",
         "@cuda//:bin",
     ],
     deps = [
+        "//d4ft/integral/gto",
+        "//d4ft/system",
         "//d4ft/native/xla:custom_call",
         requirement("absl-py"),
         requirement("jax"),
         requirement("jaxlib"),
+         "//d4ft/integral/obara_saika",
     ],
 )

@@ -9,7 +9,7 @@ from absl import logging
 from absl.testing import absltest
 
 from d4ft.native.xla.custom_call import CustomCallMeta
-from tests.native.xla.example import Parent, _Example, _ExampleMember
+from tests.native.example.example import Parent, _Example, _ExampleMember
 
 # from jax.interpreters import ad, batching, mlir, xla
 

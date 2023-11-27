@@ -44,7 +44,7 @@ def get_pubchem_geometry(name: str) -> str:
 
 def get_fullerene_geometry(name: str) -> Optional[str]:
   """fullerene name are in the form Cxxx-isomer, e.g.
-  C60-lh
+  C60-Ih
   C48-C2-199
   C90-C2v-46
   """
