@@ -39,6 +39,130 @@ class Hartree_32 {
                              const Spec<int>& shape6,
                              const Spec<int>& shape7,
                              const Spec<int>& shape8,
+                             const Spec<int>& shape9,
+                             const Spec<int>& shape11) {
+    // float n2 = shape4.shape[0]*(shape4.shape[0]+1)/2;
+    // float n4 = n2*(n2+1)/2;
+    // int n4_int = static_cast<int>(n4);
+    std::vector<int> outshape={shape1.shape[0]};
+    Spec<float> out(outshape);
+    return std::make_tuple(out);
+  }
+  // static void Cpu(Array<const float>& arg1, Array<const int>& arg2,
+  //                 Array<float>& out) {
+  //   std::memcpy(out.ptr, arg1.ptr, sizeof(float) * arg1.spec->Size());
+  // }
+  // template <typename FLOAT>
+  static void Cpu(Array<const int>& N, 
+                  Array<const int>& index_4c,    
+                  Array<const int>& n, 
+                  Array<const float>& r, 
+                  Array<const float>& z,
+                  Array<const int>& min_a, 
+                  Array<const int>& min_c, 
+                  Array<const int>& max_ab,
+                  Array<const int>& max_cd, 
+                  Array<const int>& Ms, 
+                  Array<const int>& ab_range, 
+                  Array<float>& output){
+      // std::memcpy(output.ptr, outshape.ptr, sizeof(float) * outshape.spec->Size());
+  }
+
+  // template <typename FLOAT>
+  static void Gpu(cudaStream_t stream, 
+                  Array<const int>& N, 
+                  Array<const int>& index_4c,  
+                  Array<const int>& n, 
+                  Array<const float>& r, 
+                  Array<const float>& z,
+                  Array<const int>& min_a, 
+                  Array<const int>& min_c, 
+                  Array<const int>& max_ab,
+                  Array<const int>& max_cd, 
+                  Array<const int>& Ms, 
+                  Array<const int>& ab_range, 
+                  Array<float>& output);
+};
+
+class Hartree_64 {
+ public:
+  // template <typename FLOAT>
+  static auto ShapeInference(const Spec<int>& shape1,
+                             const Spec<int>& shape10,
+                             const Spec<int>& shape2,
+                             const Spec<double>& shape3,
+                             const Spec<double>& shape4,
+                             const Spec<int>& shape5,
+                             const Spec<int>& shape6,
+                             const Spec<int>& shape7,
+                             const Spec<int>& shape8,
+                             const Spec<int>& shape9,
+                             const Spec<int>& shape11,
+                             const Spec<int>& shape12,
+                             const Spec<int>& shape13,
+                             const Spec<int>& shape14) {
+    // double n2 = shape4.shape[0]*(shape4.shape[0]+1)/2;
+    // double n4 = n2*(n2+1)/2;
+    // int n4_int = static_cast<int>(n4);
+    std::vector<int> outshape={2*shape11.shape[0]*shape12.shape[0]};
+    // std::vector<int> outshape={shape1.shape[0]};
+    Spec<int> out(outshape);
+    return std::make_tuple(out);
+  }
+  // static void Cpu(Array<const float>& arg1, Array<const int>& arg2,
+  //                 Array<float>& out) {
+  //   std::memcpy(out.ptr, arg1.ptr, sizeof(float) * arg1.spec->Size());
+  // }
+  // template <typename FLOAT>
+  static void Cpu(Array<const int>& N, 
+                  Array<const int>& screened_length,  
+                  Array<const int>& n, 
+                  Array<const double>& r, 
+                  Array<const double>& z,
+                  Array<const int>& min_a, 
+                  Array<const int>& min_c, 
+                  Array<const int>& max_ab,
+                  Array<const int>& max_cd, 
+                  Array<const int>& Ms,
+                  Array<const int>& sorted_ab_idx,
+                  Array<const int>& sorted_cd_idx,
+                  Array<const int>& screened_cd_idx_start,
+                  Array<const int>& screened_idx_offset,
+                  Array<int>& output){
+      // std::memcpy(output.ptr, outshape.ptr, sizeof(float) * outshape.spec->Size());
+  }
+
+  // template <typename FLOAT>
+  static void Gpu(cudaStream_t stream, 
+                  Array<const int>& N, 
+                  Array<const int>& screened_length,  
+                  Array<const int>& n, 
+                  Array<const double>& r, 
+                  Array<const double>& z,
+                  Array<const int>& min_a, 
+                  Array<const int>& min_c, 
+                  Array<const int>& max_ab,
+                  Array<const int>& max_cd, 
+                  Array<const int>& Ms, 
+                  Array<const int>& sorted_ab_idx,
+                  Array<const int>& sorted_cd_idx,
+                  Array<const int>& screened_cd_idx_start,
+                  Array<const int>& screened_idx_offset,
+                  Array<int>& output);
+};
+
+class Hartree_32_uncontracted {
+ public:
+  // template <typename FLOAT>
+  static auto ShapeInference(const Spec<int>& shape1,
+                             const Spec<int>& shape10,
+                             const Spec<int>& shape2,
+                             const Spec<float>& shape3,
+                             const Spec<float>& shape4,
+                             const Spec<int>& shape5,
+                             const Spec<int>& shape6,
+                             const Spec<int>& shape7,
+                             const Spec<int>& shape8,
                              const Spec<int>& shape9) {
     // float n2 = shape4.shape[0]*(shape4.shape[0]+1)/2;
     // float n4 = n2*(n2+1)/2;
@@ -81,7 +205,7 @@ class Hartree_32 {
                   Array<float>& output);
 };
 
-class Hartree_64 {
+class Hartree_64_uncontracted {
  public:
   // template <typename FLOAT>
   static auto ShapeInference(const Spec<int>& shape1,

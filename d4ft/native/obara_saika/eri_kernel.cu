@@ -31,6 +31,7 @@ void Hartree_32::Gpu(cudaStream_t stream,
                   Array<const int>& max_ab,
                   Array<const int>& max_cd, 
                   Array<const int>& Ms, 
+                  Array<const int>& ab_range,
                   Array<float>& output) {
   std::cout<<index_4c.spec->shape[0]<<std::endl;
   hemi::ExecutionPolicy ep;
@@ -60,6 +61,130 @@ void Hartree_32::Gpu(cudaStream_t stream,
 
 void Hartree_64::Gpu(cudaStream_t stream, 
                   Array<const int>& N,
+                  Array<const int>& screened_length,  
+                  Array<const int>& n, 
+                  Array<const double>& r, 
+                  Array<const double>& z,
+                  Array<const int>& min_a, 
+                  Array<const int>& min_c, 
+                  Array<const int>& max_ab,
+                  Array<const int>& max_cd, 
+                  Array<const int>& Ms, 
+                  Array<const int>& sorted_ab_idx,
+                  Array<const int>& sorted_cd_idx,
+                  Array<const int>& screened_cd_idx_start,
+                  Array<const int>& screened_idx_offset,
+                  Array<int>& output) {
+  // Prescreening
+  int* idx_4c;
+  int idx_length;
+  cudaMemcpy(&idx_length, screened_length.ptr, sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMalloc((void **)&idx_4c, 2 * idx_length * sizeof(int));
+  std::cout<<idx_length<<std::endl;
+  int num_cd = sorted_cd_idx.spec->shape[0];
+
+  // Pre-screen, result is (ab_index, cd_index), i.e. (ab, cd)
+  hemi::ExecutionPolicy ep;
+  ep.setStream(stream);
+  hemi::parallel_for(ep, 0, screened_cd_idx_start.spec->shape[0], [=] HEMI_LAMBDA(int index) {
+    for(int i = screened_cd_idx_start.ptr[index]; i < num_cd; i++ ){
+      int loc;
+      loc = screened_idx_offset.ptr[index] + i - screened_cd_idx_start.ptr[index];
+      idx_4c[loc] = sorted_ab_idx.ptr[index]; // ab
+      idx_4c[loc + screened_length.ptr[0]] = sorted_cd_idx.ptr[i]; // cd
+      output.ptr[loc] = sorted_ab_idx.ptr[index]; // ab
+      output.ptr[loc + screened_length.ptr[0]] = sorted_cd_idx.ptr[i]; // cd
+    }
+    __syncthreads();
+  });
+
+  // Now we have ab cd, we can compute eri and contract it to output
+  // For contract, we need 1. count 2. pgto normalization coeff 3. pgto coeff 4.rdm1 (Mocoeff)
+  hemi::parallel_for(ep, 0, idx_length, [=] HEMI_LAMBDA(int index) {
+    int a, b, c, d; // pgto 4c idx
+    int i, j, k, l; // cgto 4c idx
+    double eri_result;
+    triu_ij_from_index(N.ptr[0], idx_4c[index], &a, &b);
+    triu_ij_from_index(N.ptr[0], idx_4c[index + screened_length.ptr[0]], &c, &d);
+    eri_result = eri<double>(n.ptr[0 * N.ptr[0] + a], n.ptr[1 * N.ptr[0] + a], n.ptr[2 * N.ptr[0] + a], // a
+                           n.ptr[0 * N.ptr[0] + b], n.ptr[1 * N.ptr[0] + b], n.ptr[2 * N.ptr[0] + b], // b
+                           n.ptr[0 * N.ptr[0] + c], n.ptr[1 * N.ptr[0] + c], n.ptr[2 * N.ptr[0] + c], // c
+                           n.ptr[0 * N.ptr[0] + d], n.ptr[1 * N.ptr[0] + d], n.ptr[2 * N.ptr[0] + d], // d
+                           r.ptr[0 * N.ptr[0] + a], r.ptr[1 * N.ptr[0] + a], r.ptr[2 * N.ptr[0] + a], // a
+                           r.ptr[0 * N.ptr[0] + b], r.ptr[1 * N.ptr[0] + b], r.ptr[2 * N.ptr[0] + b], // b
+                           r.ptr[0 * N.ptr[0] + c], r.ptr[1 * N.ptr[0] + c], r.ptr[2 * N.ptr[0] + c], // c
+                           r.ptr[0 * N.ptr[0] + d], r.ptr[1 * N.ptr[0] + d], r.ptr[2 * N.ptr[0] + d], // d
+                           z.ptr[a], z.ptr[b], z.ptr[c], z.ptr[d],                   // z
+                           min_a.ptr, min_c.ptr, max_ab.ptr, max_cd.ptr, Ms.ptr);
+  });
+
+  // std::cout<<index_4c.spec->shape[0]<<std::endl;
+  // hemi::ExecutionPolicy ep;
+  // ep.setStream(stream);
+  // hemi::parallel_for(ep, 0, index_4c.spec->shape[0], [=] HEMI_LAMBDA(int index) {
+  //   int i, j, k, l, ij, kl;
+  //   // triu_ij_from_index(num_unique_ij(N.ptr[0]), index_4c.ptr[index], &ij, &kl);
+  //   // triu_ij_from_index(N.ptr[0], ij, &i, &j);
+  //   // triu_ij_from_index(N.ptr[0], kl, &k, &l);
+  //   // output.ptr[index] = index_4c.ptr[index];
+  //   i = index_4c.ptr[4*index + 0];
+  //   j = index_4c.ptr[4*index + 1];
+  //   k = index_4c.ptr[4*index + 2];
+  //   l = index_4c.ptr[4*index + 3];
+  //   output.ptr[index] = eri<double>(n.ptr[0 * N.ptr[0] + i], n.ptr[1 * N.ptr[0] + i], n.ptr[2 * N.ptr[0] + i], // a
+  //                          n.ptr[0 * N.ptr[0] + j], n.ptr[1 * N.ptr[0] + j], n.ptr[2 * N.ptr[0] + j], // b
+  //                          n.ptr[0 * N.ptr[0] + k], n.ptr[1 * N.ptr[0] + k], n.ptr[2 * N.ptr[0] + k], // c
+  //                          n.ptr[0 * N.ptr[0] + l], n.ptr[1 * N.ptr[0] + l], n.ptr[2 * N.ptr[0] + l], // d
+  //                          r.ptr[0 * N.ptr[0] + i], r.ptr[1 * N.ptr[0] + i], r.ptr[2 * N.ptr[0] + i], // a
+  //                          r.ptr[0 * N.ptr[0] + j], r.ptr[1 * N.ptr[0] + j], r.ptr[2 * N.ptr[0] + j], // b
+  //                          r.ptr[0 * N.ptr[0] + k], r.ptr[1 * N.ptr[0] + k], r.ptr[2 * N.ptr[0] + k], // c
+  //                          r.ptr[0 * N.ptr[0] + l], r.ptr[1 * N.ptr[0] + l], r.ptr[2 * N.ptr[0] + l], // d
+  //                          z.ptr[i], z.ptr[j], z.ptr[k], z.ptr[l],                   // z
+  //                          min_a.ptr, min_c.ptr, max_ab.ptr, max_cd.ptr, Ms.ptr);
+  // });
+}
+
+// template <typename FLOAT>
+void Hartree_32_uncontracted::Gpu(cudaStream_t stream, 
+                  Array<const int>& N, 
+                  Array<const int>& index_4c, 
+                  Array<const int>& n, 
+                  Array<const float>& r, 
+                  Array<const float>& z,
+                  Array<const int>& min_a, 
+                  Array<const int>& min_c, 
+                  Array<const int>& max_ab,
+                  Array<const int>& max_cd, 
+                  Array<const int>& Ms, 
+                  Array<float>& output) {
+  // std::cout<<index_4c.spec->shape[0]<<std::endl;
+  hemi::ExecutionPolicy ep;
+  ep.setStream(stream);
+  hemi::parallel_for(ep, 0, index_4c.spec->shape[0], [=] HEMI_LAMBDA(int index) {
+    int i, j, k, l, ij, kl;
+    // triu_ij_from_index(num_unique_ij(N.ptr[0]), index_4c.ptr[index], &ij, &kl);
+    // triu_ij_from_index(N.ptr[0], ij, &i, &j);
+    // triu_ij_from_index(N.ptr[0], kl, &k, &l);
+    // output.ptr[index] = index_4c.ptr[index];
+    i = index_4c.ptr[4*index + 0];
+    j = index_4c.ptr[4*index + 1];
+    k = index_4c.ptr[4*index + 2];
+    l = index_4c.ptr[4*index + 3];
+    output.ptr[index] = eri<float>(n.ptr[0 * N.ptr[0] + i], n.ptr[1 * N.ptr[0] + i], n.ptr[2 * N.ptr[0] + i], // a
+                           n.ptr[0 * N.ptr[0] + j], n.ptr[1 * N.ptr[0] + j], n.ptr[2 * N.ptr[0] + j], // b
+                           n.ptr[0 * N.ptr[0] + k], n.ptr[1 * N.ptr[0] + k], n.ptr[2 * N.ptr[0] + k], // c
+                           n.ptr[0 * N.ptr[0] + l], n.ptr[1 * N.ptr[0] + l], n.ptr[2 * N.ptr[0] + l], // d
+                           r.ptr[0 * N.ptr[0] + i], r.ptr[1 * N.ptr[0] + i], r.ptr[2 * N.ptr[0] + i], // a
+                           r.ptr[0 * N.ptr[0] + j], r.ptr[1 * N.ptr[0] + j], r.ptr[2 * N.ptr[0] + j], // b
+                           r.ptr[0 * N.ptr[0] + k], r.ptr[1 * N.ptr[0] + k], r.ptr[2 * N.ptr[0] + k], // c
+                           r.ptr[0 * N.ptr[0] + l], r.ptr[1 * N.ptr[0] + l], r.ptr[2 * N.ptr[0] + l], // d
+                           z.ptr[i], z.ptr[j], z.ptr[k], z.ptr[l],                   // z
+                           min_a.ptr, min_c.ptr, max_ab.ptr, max_cd.ptr, Ms.ptr);
+  });
+}
+
+void Hartree_64_uncontracted::Gpu(cudaStream_t stream, 
+                  Array<const int>& N,
                   Array<const int>& index_4c,  
                   Array<const int>& n, 
                   Array<const double>& r, 
@@ -70,7 +195,7 @@ void Hartree_64::Gpu(cudaStream_t stream,
                   Array<const int>& max_cd, 
                   Array<const int>& Ms, 
                   Array<double>& output) {
-  std::cout<<index_4c.spec->shape[0]<<std::endl;
+  // std::cout<<index_4c.spec->shape[0]<<std::endl;
   hemi::ExecutionPolicy ep;
   ep.setStream(stream);
   hemi::parallel_for(ep, 0, index_4c.spec->shape[0], [=] HEMI_LAMBDA(int index) {
