@@ -19,6 +19,28 @@ HEMI_DEV_CALLABLE void triu_ij_from_index(int n, int index, int *i,
   *j = j_;
 }
 
+HEMI_DEV_CALLABLE void get_symmetry_count(int i, int j, int k, int l, int *count) {
+  int count_ = 1;
+  if(i == k & j == l){
+    if(i != j){
+      count_ *= 4;
+    }
+  } else{
+    count_ *= 2;
+    if(i == j){
+      if(k != l){
+        count_ *= 2;
+      }
+    } else{
+      count_ *= 2;
+      if(k != l){
+        count_ *= 2;
+      }
+    }
+  }
+  *count = count_;
+}
+
 // template <typename FLOAT>
 void Hartree_32::Gpu(cudaStream_t stream, 
                   Array<const int>& N, 
@@ -74,7 +96,12 @@ void Hartree_64::Gpu(cudaStream_t stream,
                   Array<const int>& sorted_cd_idx,
                   Array<const int>& screened_cd_idx_start,
                   Array<const int>& screened_idx_offset,
-                  Array<int>& output) {
+                  Array<const double>& pgto_coeff,
+                  Array<const double>& pgto_normalization_factor,
+                  Array<const int>& pgto_idx_to_cgto_idx,
+                  Array<const double>& rdm1,
+                  Array<const int>& n_cgto,
+                  Array<double>& output) {
   // Prescreening
   int* idx_4c;
   int idx_length;
@@ -92,8 +119,6 @@ void Hartree_64::Gpu(cudaStream_t stream,
       loc = screened_idx_offset.ptr[index] + i - screened_cd_idx_start.ptr[index];
       idx_4c[loc] = sorted_ab_idx.ptr[index]; // ab
       idx_4c[loc + screened_length.ptr[0]] = sorted_cd_idx.ptr[i]; // cd
-      output.ptr[loc] = sorted_ab_idx.ptr[index]; // ab
-      output.ptr[loc + screened_length.ptr[0]] = sorted_cd_idx.ptr[i]; // cd
     }
     __syncthreads();
   });
@@ -104,8 +129,28 @@ void Hartree_64::Gpu(cudaStream_t stream,
     int a, b, c, d; // pgto 4c idx
     int i, j, k, l; // cgto 4c idx
     double eri_result;
+    double Na, Nb, Nc, Nd;
+    double Ca, Cb, Cc, Cd;
+    double Mab, Mcd;
+    int count;
     triu_ij_from_index(N.ptr[0], idx_4c[index], &a, &b);
     triu_ij_from_index(N.ptr[0], idx_4c[index + screened_length.ptr[0]], &c, &d);
+    get_symmetry_count(a, b, c, d, &count);
+    double dcount = static_cast<double>(count);
+    Ca = pgto_coeff.ptr[a];
+    Cb = pgto_coeff.ptr[b];
+    Cc = pgto_coeff.ptr[c];
+    Cd = pgto_coeff.ptr[d];
+    Na = pgto_normalization_factor.ptr[a];
+    Nb = pgto_normalization_factor.ptr[b];
+    Nc = pgto_normalization_factor.ptr[c];
+    Nd = pgto_normalization_factor.ptr[d];
+    i = pgto_idx_to_cgto_idx.ptr[a];
+    j = pgto_idx_to_cgto_idx.ptr[b];
+    k = pgto_idx_to_cgto_idx.ptr[c];
+    l = pgto_idx_to_cgto_idx.ptr[d];
+    Mab = rdm1.ptr[i*n_cgto.ptr[0] + j];
+    Mcd = rdm1.ptr[k*n_cgto.ptr[0] + k];
     eri_result = eri<double>(n.ptr[0 * N.ptr[0] + a], n.ptr[1 * N.ptr[0] + a], n.ptr[2 * N.ptr[0] + a], // a
                            n.ptr[0 * N.ptr[0] + b], n.ptr[1 * N.ptr[0] + b], n.ptr[2 * N.ptr[0] + b], // b
                            n.ptr[0 * N.ptr[0] + c], n.ptr[1 * N.ptr[0] + c], n.ptr[2 * N.ptr[0] + c], // c
@@ -116,6 +161,9 @@ void Hartree_64::Gpu(cudaStream_t stream,
                            r.ptr[0 * N.ptr[0] + d], r.ptr[1 * N.ptr[0] + d], r.ptr[2 * N.ptr[0] + d], // d
                            z.ptr[a], z.ptr[b], z.ptr[c], z.ptr[d],                   // z
                            min_a.ptr, min_c.ptr, max_ab.ptr, max_cd.ptr, Ms.ptr);
+    eri_result = eri_result * dcount * Na * Nb * Nc * Nd * Ca * Cb * Cc * Cd * Mab * Mcd;
+    // prod result from rdm1
+    atomicAdd(output.ptr, eri_result);
   });
 
   // std::cout<<index_4c.spec->shape[0]<<std::endl;

@@ -100,13 +100,18 @@ class Hartree_64 {
                              const Spec<int>& shape11,
                              const Spec<int>& shape12,
                              const Spec<int>& shape13,
-                             const Spec<int>& shape14) {
+                             const Spec<int>& shape14,
+                             const Spec<double>& shape15,
+                             const Spec<double>& shape16,
+                             const Spec<int>& shape17,
+                             const Spec<double>& shape18,
+                             const Spec<int>& shape19) {
     // double n2 = shape4.shape[0]*(shape4.shape[0]+1)/2;
     // double n4 = n2*(n2+1)/2;
     // int n4_int = static_cast<int>(n4);
-    std::vector<int> outshape={2*shape11.shape[0]*shape12.shape[0]};
-    // std::vector<int> outshape={shape1.shape[0]};
-    Spec<int> out(outshape);
+    // std::vector<int> outshape={2*shape11.shape[0]*shape12.shape[0]};
+    std::vector<int> outshape={shape1.shape[0]};
+    Spec<double> out(outshape);
     return std::make_tuple(out);
   }
   // static void Cpu(Array<const float>& arg1, Array<const int>& arg2,
@@ -128,7 +133,12 @@ class Hartree_64 {
                   Array<const int>& sorted_cd_idx,
                   Array<const int>& screened_cd_idx_start,
                   Array<const int>& screened_idx_offset,
-                  Array<int>& output){
+                  Array<const double>& pgto_coeff,
+                  Array<const double>& pgto_normalization_factor,
+                  Array<const int>& pgto_idx_to_cgto_idx,
+                  Array<const double>& rdm1,
+                  Array<const int>& n_cgto,
+                  Array<double>& output){
       // std::memcpy(output.ptr, outshape.ptr, sizeof(float) * outshape.spec->Size());
   }
 
@@ -148,7 +158,12 @@ class Hartree_64 {
                   Array<const int>& sorted_cd_idx,
                   Array<const int>& screened_cd_idx_start,
                   Array<const int>& screened_idx_offset,
-                  Array<int>& output);
+                  Array<const double>& pgto_coeff,
+                  Array<const double>& pgto_normalization_factor,
+                  Array<const int>& pgto_idx_to_cgto_idx,
+                  Array<const double>& rdm1,
+                  Array<const int>& n_cgto,
+                  Array<double>& output);
 };
 
 class Hartree_32_uncontracted {
