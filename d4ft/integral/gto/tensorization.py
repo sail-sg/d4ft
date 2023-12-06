@@ -154,8 +154,12 @@ def tensorize_4c_cgto_cuda(static_args, cgto: bool = True):
         for i in range(4)
       ]
     )
+    import time
+    t1 = time.time()
     t_abcd = hartree_uncontracted(jnp.array([N], dtype=jnp.int32), jnp.array(abcd_idx,dtype=jnp.int32), n, r, z, min_a, min_c, max_ab, max_cd, Ms)
     jax.block_until_ready(t_abcd)
+    t2 = time.time()
+    print("Current abab cuda time =",t2-t1)
     if not cgto:
       return t_abcd
     counts_abcd_i = idx_counts[:, 4]

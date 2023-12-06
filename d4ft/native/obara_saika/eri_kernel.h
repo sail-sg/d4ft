@@ -88,7 +88,9 @@ class Hartree_64 {
  public:
   // template <typename FLOAT>
   static auto ShapeInference(const Spec<int>& shape1,
-                             const Spec<int>& shape10,
+                             const Spec<int>& shape21,
+                             const Spec<int64_t>& shape10,
+                             const Spec<int64_t>& shape22,
                              const Spec<int>& shape2,
                              const Spec<double>& shape3,
                              const Spec<double>& shape4,
@@ -100,12 +102,15 @@ class Hartree_64 {
                              const Spec<int>& shape11,
                              const Spec<int>& shape12,
                              const Spec<int>& shape13,
-                             const Spec<int>& shape14,
+                            //  const Spec<int>& shape14,
+                             const Spec<int>& shape23,
+                             const Spec<int>& shape24,
                              const Spec<double>& shape15,
                              const Spec<double>& shape16,
                              const Spec<int>& shape17,
                              const Spec<double>& shape18,
-                             const Spec<int>& shape19) {
+                             const Spec<int>& shape19,
+                             const Spec<int>& shape20) {
     // double n2 = shape4.shape[0]*(shape4.shape[0]+1)/2;
     // double n4 = n2*(n2+1)/2;
     // int n4_int = static_cast<int>(n4);
@@ -119,33 +124,10 @@ class Hartree_64 {
   //   std::memcpy(out.ptr, arg1.ptr, sizeof(float) * arg1.spec->Size());
   // }
   // template <typename FLOAT>
-  static void Cpu(Array<const int>& N, 
-                  Array<const int>& screened_length,  
-                  Array<const int>& n, 
-                  Array<const double>& r, 
-                  Array<const double>& z,
-                  Array<const int>& min_a, 
-                  Array<const int>& min_c, 
-                  Array<const int>& max_ab,
-                  Array<const int>& max_cd, 
-                  Array<const int>& Ms,
-                  Array<const int>& sorted_ab_idx,
-                  Array<const int>& sorted_cd_idx,
-                  Array<const int>& screened_cd_idx_start,
-                  Array<const int>& screened_idx_offset,
-                  Array<const double>& pgto_coeff,
-                  Array<const double>& pgto_normalization_factor,
-                  Array<const int>& pgto_idx_to_cgto_idx,
-                  Array<const double>& rdm1,
-                  Array<const int>& n_cgto,
-                  Array<double>& output){
-      // std::memcpy(output.ptr, outshape.ptr, sizeof(float) * outshape.spec->Size());
-  }
-
-  // template <typename FLOAT>
-  static void Gpu(cudaStream_t stream, 
-                  Array<const int>& N, 
-                  Array<const int>& screened_length,  
+  static void Cpu(Array<const int>& N,
+                  Array<const int>& thread_load, 
+                  Array<const int64_t>& thread_num,
+                  Array<const int64_t>& screened_length, 
                   Array<const int>& n, 
                   Array<const double>& r, 
                   Array<const double>& z,
@@ -157,12 +139,45 @@ class Hartree_64 {
                   Array<const int>& sorted_ab_idx,
                   Array<const int>& sorted_cd_idx,
                   Array<const int>& screened_cd_idx_start,
-                  Array<const int>& screened_idx_offset,
+                  // Array<const int>& screened_idx_offset,
+                  Array<const int>& ab_thread_num,
+                  Array<const int>& ab_thread_offset,
                   Array<const double>& pgto_coeff,
                   Array<const double>& pgto_normalization_factor,
                   Array<const int>& pgto_idx_to_cgto_idx,
                   Array<const double>& rdm1,
                   Array<const int>& n_cgto,
+                  Array<const int>& n_pgto,
+                  Array<double>& output){
+      // std::memcpy(output.ptr, outshape.ptr, sizeof(float) * outshape.spec->Size());
+  }
+
+  // template <typename FLOAT>
+  static void Gpu(cudaStream_t stream, 
+                  Array<const int>& N,
+                  Array<const int>& thread_load, 
+                  Array<const int64_t>& thread_num,
+                  Array<const int64_t>& screened_length, 
+                  Array<const int>& n, 
+                  Array<const double>& r, 
+                  Array<const double>& z,
+                  Array<const int>& min_a, 
+                  Array<const int>& min_c, 
+                  Array<const int>& max_ab,
+                  Array<const int>& max_cd, 
+                  Array<const int>& Ms, 
+                  Array<const int>& sorted_ab_idx,
+                  Array<const int>& sorted_cd_idx,
+                  Array<const int>& screened_cd_idx_start,
+                  // Array<const int>& screened_idx_offset,
+                  Array<const int>& ab_thread_num,
+                  Array<const int>& ab_thread_offset,
+                  Array<const double>& pgto_coeff,
+                  Array<const double>& pgto_normalization_factor,
+                  Array<const int>& pgto_idx_to_cgto_idx,
+                  Array<const double>& rdm1,
+                  Array<const int>& n_cgto,
+                  Array<const int>& n_pgto,
                   Array<double>& output);
 };
 
