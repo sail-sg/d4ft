@@ -287,7 +287,7 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
 
   t1_abcd = time.time()
   eri_abab = jnp.array(eri_abab)
-  
+
   # current support s, p, d
   s_num = jnp.count_nonzero(l_xyz == 0)
   p_num = jnp.count_nonzero(l_xyz == 1)
@@ -353,7 +353,7 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
   # for (ss, ss) (pp, pp) (dd, dd), (sp, sp) ... need ensure idx > cnt. For anyone else, no need
   output = 0
   eps = 1e-10
-  i = 1
+  i = 0
   j = 1
   thread_load = 2**10
   sorted_ab_idx = sorted_idx[i]
@@ -560,7 +560,7 @@ def get_cuda_abab_fun(static_args):
     har_jit = jax.jit(hartree_uncontracted)
     t1 = time.time()
     # for cnt in range(10):
-    t_abcd = hartree_uncontracted(jnp.array([N], dtype=jnp.int32), jnp.array(abcd_idx,dtype=jnp.int32), n, r, z, min_a, min_c, max_ab, max_cd, Ms)
+    t_abcd = har_jit(jnp.array([N], dtype=jnp.int32), jnp.array(abcd_idx,dtype=jnp.int32), n, r, z, min_a, min_c, max_ab, max_cd, Ms)
     jax.block_until_ready(t_abcd)
     t2 = time.time()
     print(len(t_abcd))

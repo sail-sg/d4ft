@@ -128,12 +128,10 @@ void Hartree_64::Gpu(cudaStream_t stream,
       int loc;
       loc = ab_thread_offset.ptr[index] + i;
       thread_ab_index[loc] = index;
-      // output.ptr[loc] = sorted_ab_idx.ptr[index]; // ab
-      // output.ptr[loc + screened_length.ptr[0]] = sorted_cd_idx.ptr[i]; // cd
     }
     __syncthreads();
   });
-  
+
   // get ncd, rcd, zcd in cd order
   hemi::parallel_for(ep, 0, sorted_cd_idx.spec->shape[0], [=] HEMI_LAMBDA(int index) {
     int cd;
@@ -160,7 +158,7 @@ void Hartree_64::Gpu(cudaStream_t stream,
   cudaMemset(output.ptr, 0, sizeof(double));
   // Now we have ab cd, we can compute eri and contract it to output
   // For contract, we need 1. count 2. pgto normalization coeff 3. pgto coeff 4.rdm1 (Mocoeff)
-  hemi::parallel_for(ep, 0, thread_length, [=] HEMI_LAMBDA(int64_t index) {
+  hemi::parallel_for(ep, 0, thread_length, [=] HEMI_LAMBDA(int index) {
     int a, b, c, d; // pgto 4c idx
     int i, j, k, l; // cgto 4c idx
     int ab_index, cd_index;
@@ -236,7 +234,7 @@ void Hartree_64::Gpu(cudaStream_t stream,
                                   rbx, rby, rbz, // b
                                   rcx, rcy, rcz, // c
                                   rdx, rdy, rdz, // d
-                                  za, zb, zc, zd,                   // z
+                                  za, zb, zc, zd, // z
                                   min_a.ptr, min_c.ptr,
                                   max_ab.ptr, max_cd.ptr, Ms.ptr) * dcount * Na * Nb * Nc * Nd * Ca * Cb * Cc * Cd * Mab * Mcd;
         // eri_result += dcount * Na * Nb * Nc * Nd * Ca * Cb * Cc * Cd * Mab * Mcd;

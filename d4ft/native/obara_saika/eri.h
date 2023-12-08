@@ -185,6 +185,7 @@ eri(int nax, int nay, int naz, int nbx, int nby, int nbz,
   FLOAT I[MAX_CD + 1][MAX_XYZ + 1] = {0};
   FLOAT out[MAX_YZ + 1] = {0};
   // set I[0] to Boys
+  // return 1;
   for (int i = 0; i <= Ms[0]; ++i) {
     I[0][i] = BoysIgamma<FLOAT>(i, T_);
   }
