@@ -26,24 +26,42 @@ D4FT also provides examples for standard algorithms, similar to the "train" scri
 ## Calculating the ground state energy of Oxygen molecule
 Let's calculate the ground state energy of Oxygen molecule with direct minimization DFT:
 ``` shell
-python main.py --run direct --config.sys_cfg.mol O2
+python main.py --run opt --config d4ft/config.py:KS-GD-MOL --config.sys_cfg.mol O2
 ```
 
 and you should see the following log after the calculation has converged:
 ``` shell
-I0728 23:26:17.428046 140634023188288 sgd.py:141] e_total std: 5.535387390409596e-05
-I0728 23:26:17.428330 140634023188288 sgd.py:151] Converged: True
-I0728 23:26:17.478279 140634023188288 drivers.py:160] lowest total energy: 
- e_total    -146.04742
-e_kin       146.03822
-e_ext      -406.35187
-e_har         101.126
-e_xc       -14.907249
-e_nuc       28.047487
-time         0.010077
-Name: 778, dtype: object
+I1212 12:14:09.515710 140663176206144 sgd.py:124] Converged: True
+I1212 12:14:09.552145 140663176206144 drivers.py:173] lowest total energy: 
+ e_total            -146.04745
+e_kin               146.03471
+e_ext              -406.34528
+e_har               101.12269
+e_xc                -14.90707
+e_nuc               28.047487
+time                 0.019846
+conv_thresh    0.000115544404
+Name: 494, dtype: object
 ```
 where each component of the ground state energy is printed.
+
+If `--pyscf` flag is specified, we will compare the result against `pyscf`
+``` shell
+I1212 12:14:11.719294 140663176206144 drivers.py:231] 1e energy:-260.31048583984375
+I1212 12:14:11.719540 140663176206144 drivers.py:249] energy diff
+I1212 12:14:11.780037 140663176206144 drivers.py:251] e_total          6.1035156e-05
+e_kin           -4.5776367e-05
+e_ext            0.00012207031
+e_har           -4.5776367e-05
+e_xc             3.0517578e-05
+e_nuc                      0.0
+time                 -0.019589
+conv_thresh    -0.000115544404
+dtype: object
+I1212 12:14:11.781523 140663176206144 drivers.py:254] time diff
+I1212 12:14:11.880841 140663176206144 drivers.py:258] pyscf time: 0.0002570152282714844
+I1212 12:14:11.880957 140663176206144 drivers.py:259] d4ft time: 11.975915670394897
+```
 
 ## Benchmarking against PySCF
 Now let's test the accuracy of the calculated ground state energy against well-established open-source QC library PySCF. D4FT provides a thin wrapper around PySCF's API: to run the same calculation above of the Oxygen molecule but with PySCF, run:

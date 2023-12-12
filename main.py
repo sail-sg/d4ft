@@ -101,7 +101,7 @@ def main(_: Any) -> None:
         cfg.sys_cfg.mol = "-".join([FLAGS.benchmark, system])
 
       try:
-        if FLAGS.run == "direct":
+        if FLAGS.run == "opt":
           cgto_direct(cfg, FLAGS.pyscf)
         else:
           raise NotImplementedError
