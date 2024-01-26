@@ -138,20 +138,21 @@ void Hartree_64::Gpu(cudaStream_t stream,
     int c,d;
     cd = sorted_cd_idx.ptr[index];
     triu_ij_from_index(N.ptr[0], cd, &c, &d);
-    ncd[6*index + 0] = n.ptr[0 * N.ptr[0] + c];
-    ncd[6*index + 1] = n.ptr[1 * N.ptr[0] + c];
-    ncd[6*index + 2] = n.ptr[2 * N.ptr[0] + c];
-    ncd[6*index + 3] = n.ptr[0 * N.ptr[0] + d];
-    ncd[6*index + 4] = n.ptr[1 * N.ptr[0] + d];
-    ncd[6*index + 5] = n.ptr[2 * N.ptr[0] + d];
-    rcd[6*index + 0] = r.ptr[0 * N.ptr[0] + c];
-    rcd[6*index + 1] = r.ptr[1 * N.ptr[0] + c];
-    rcd[6*index + 2] = r.ptr[2 * N.ptr[0] + c];
-    rcd[6*index + 3] = r.ptr[0 * N.ptr[0] + d];
-    rcd[6*index + 4] = r.ptr[1 * N.ptr[0] + d];
-    rcd[6*index + 5] = r.ptr[2 * N.ptr[0] + d];
-    zcd[2*index + 0] = z.ptr[c];
-    zcd[2*index + 1] = z.ptr[d];
+    ncd[0*num_cd + 2 * index] = n.ptr[0 * N.ptr[0] + c];
+    ncd[2*num_cd + 2 * index] = n.ptr[1 * N.ptr[0] + c];
+    ncd[4*num_cd + 2 * index] = n.ptr[2 * N.ptr[0] + c];
+    ncd[0*num_cd + 2 * index + 1] = n.ptr[0 * N.ptr[0] + d];
+    ncd[2*num_cd + 2 * index + 1] = n.ptr[1 * N.ptr[0] + d];
+    ncd[4*num_cd + 2 * index + 1] = n.ptr[2 * N.ptr[0] + d];
+    rcd[0*num_cd + 2 * index] = r.ptr[0 * N.ptr[0] + c];
+    rcd[2*num_cd + 2 * index] = r.ptr[1 * N.ptr[0] + c];
+    rcd[4*num_cd + 2 * index] = r.ptr[2 * N.ptr[0] + c];
+    rcd[0*num_cd + 2 * index + 1] = r.ptr[0 * N.ptr[0] + d];
+    rcd[2*num_cd + 2 * index + 1] = r.ptr[1 * N.ptr[0] + d];
+    rcd[4*num_cd + 2 * index + 1] = r.ptr[2 * N.ptr[0] + d];
+    zcd[0*num_cd + index] = z.ptr[c];
+    zcd[1*num_cd + index] = z.ptr[d];
+
     __syncthreads();
   });
 
@@ -200,20 +201,20 @@ void Hartree_64::Gpu(cudaStream_t stream,
     for(int cur_ptr = 0; cur_ptr < thread_load.ptr[0]; cur_ptr++ ){
       cd_index = screened_cd_idx_start.ptr[ab_index] + index % ab_thread_num.ptr[ab_index] + cur_ptr * ab_thread_num.ptr[ab_index];
       if(cd_index < num_cd){
-        ncx = ncd[6*cd_index + 0];
-        ncy = ncd[6*cd_index + 1];
-        ncz = ncd[6*cd_index + 2];
-        ndx = ncd[6*cd_index + 3];
-        ndy = ncd[6*cd_index + 4];
-        ndz = ncd[6*cd_index + 5];
-        rcx = rcd[6*cd_index + 0];
-        rcy = rcd[6*cd_index + 1];
-        rcz = rcd[6*cd_index + 2];
-        rdx = rcd[6*cd_index + 3];
-        rdy = rcd[6*cd_index + 4];
-        rdz = rcd[6*cd_index + 5];
-        zc = zcd[2*cd_index + 0];
-        zd = zcd[2*cd_index + 1];
+        ncx = ncd[0*num_cd + 2 * cd_index];
+        ncy = ncd[2*num_cd + 2 * cd_index];
+        ncz = ncd[4*num_cd + 2 * cd_index];
+        ndx = ncd[0*num_cd + 2 * cd_index + 1];
+        ndy = ncd[2*num_cd + 2 * cd_index + 1];
+        ndz = ncd[4*num_cd + 2 * cd_index + 1];
+        rcx = rcd[0*num_cd + 2 * cd_index];
+        rcy = rcd[2*num_cd + 2 * cd_index];
+        rcz = rcd[4*num_cd + 2 * cd_index];
+        rdx = rcd[0*num_cd + 2 * cd_index + 1];
+        rdy = rcd[2*num_cd + 2 * cd_index + 1];
+        rdz = rcd[4*num_cd + 2 * cd_index + 1];
+        zc = zcd[0*num_cd + cd_index];
+        zd = zcd[1*num_cd + cd_index];
 
         cd = sorted_cd_idx.ptr[cd_index];
         triu_ij_from_index(N.ptr[0], cd, &c, &d);
@@ -417,7 +418,7 @@ void Hartree_64_uncontracted::Gpu(cudaStream_t stream,
   ep.setStream(stream);
   hemi::parallel_for(ep, 0, index_4c.spec->shape[0], [=] HEMI_LAMBDA(int64_t index) {
     int i, j, k, l, ij, kl;
-    // triu_ij_from_index(num_unique_ij(N.ptr[0]), index_4c.ptr[index], &ij, &kl);
+    // triu_ij_from_index(num_unique_ij(N.ptr[0]), index, &ij, &kl);
     // triu_ij_from_index(N.ptr[0], ij, &i, &j);
     // triu_ij_from_index(N.ptr[0], kl, &k, &l);
     // output.ptr[index] = index_4c.ptr[index];

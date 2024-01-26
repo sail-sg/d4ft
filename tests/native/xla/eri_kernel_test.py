@@ -84,9 +84,21 @@ class _ExampleTest(absltest.TestCase):
 
 
     # To support higher angular, first adjust constants in eri.h: MAX_XYZ, MAX_YZ..
-    # pyscf_mol = get_pyscf_mol("C180-0", "sto-3g")
-    pyscf_mol = get_pyscf_mol("C60-Ih", "sto-3g")
+    # 
+    # 
     # pyscf_mol = get_pyscf_mol("C20-Ih", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C30-D5h-1", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C40-D5d-1", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C50-D5h-1", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C60-Ih", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C70-D5h", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C80-D5d-1", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C90-D5h-1", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C100-D5d-1", "sto-3g")
+    pyscf_mol = get_pyscf_mol("C180-0", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C240-0", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C320-0", "sto-3g")
+    # pyscf_mol = get_pyscf_mol("C500-0", "sto-3g")
     # pyscf_mol = get_pyscf_mol("O2", "6-31G")
     # pyscf_mol = get_pyscf_mol("O2", "sto-3g")
     mol = Mol.from_pyscf_mol(pyscf_mol)
@@ -151,42 +163,6 @@ class _ExampleTest(absltest.TestCase):
     # self.max_ab = jnp.array(self.s.max_ab, dtype=jnp.int32)
     # self.max_cd = jnp.array(self.s.max_cd, dtype=jnp.int32)
     # self.Ms = jnp.array([self.s.max_xyz+1, self.s.max_yz+1, self.s.max_z+1], dtype=jnp.int32)
-
-  # def test_example(self) -> None:
-  #   logging.info(jax.devices())
-  #   def f_curry(*args):
-  #     return electron_repulsion_integral(*args, static_args=self.s)
-  #   vmap_f = jax.vmap(f_curry, in_axes=(0, 0, 0, 0))
-  #   T_1 = time.time()
-  #   e1 = vmap_f(self.a, self.b, self.c, self.d)
-  #   abcd_1 = jnp.einsum("k,k,k,k,k,k->k", e1, self.N_abcd, *self.coeffs_abcd)
-  #   cgto_abcd_1 = jax.ops.segment_sum(abcd_1, self.cgto_seg_id, self.n_segs)
-  #   T_2 = time.time()
-  #   print(T_2-T_1)
-
-    # cgto_4c_fn = tensorization.tensorize_4c_cgto_cuda(self.s)
-    # T_1 = time.time()
-    # # e2 = hartree(jnp.array([self.N], dtype=jnp.int32),jnp.array(range(self.N), dtype=jnp.int32), self.n, self.r, self.z, self.min_a,
-    # #               self.min_c, self.max_ab, self.max_cd, self.Ms)
-    # cgto_abcd_2 = cgto_4c_fn(
-    #     self.cgto, self.abcd_idx_counts, self.cgto_seg_id, self.n_segs
-    #   )   
-    # T_2 = time.time()
-    # print(T_2-T_1)
-    # abcd_2 = jnp.einsum("k,k,k,k,k,k->k", e2, self.N_abcd, *self.coeffs_abcd)
-    # cgto_abcd_2 = jax.ops.segment_sum(abcd_2, self.cgto_seg_id, self.n_segs)
-    # np.testing.assert_allclose(e1,e2,atol=2e-5)
-    # np.testing.assert_allclose(cgto_abcd_1,cgto_abcd_2,atol=1e-5)
-
-    
-    # out_vmap = jax.vmap(example_fn)(self.a_b, self.b_b)
-    # logging.info(out_vmap)
-
-    # out_grad = jax.grad(e)(self.a, self.b)
-    # logging.info(out_grad)
-    # np.testing.assert_equal(len(self.outshape),len(out))
-    # np.testing.assert_array_equal(self.outshape, out)
-
 
   def test_abcd(self) -> None:
     out_abcd = compute_hartree_test(self.cgto, self.s, self.Mo_coeff)
@@ -306,22 +282,6 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
   s_num = jnp.count_nonzero(l_xyz == 0)
   p_num = jnp.count_nonzero(l_xyz == 1)
   d_num = jnp.count_nonzero(l_xyz == 2)
-  # max_angular = jnp.max(l_xyz)
-
-  # N = jnp.array([cgto.n_pgtos], dtype=jnp.int32)
-  # n = jnp.array(cgto.pgto.angular.T, dtype=jnp.int32)[orig_idx]
-  # r = jnp.array(cgto.pgto.center.T)[orig_idx]
-  # z = jnp.array(cgto.pgto.exponent)[orig_idx]
-  
-
-  # min_a = jnp.array(static_args.min_a, dtype=jnp.int32)
-  # min_c = jnp.array(static_args.min_c, dtype=jnp.int32)
-  # max_ab = jnp.array(static_args.max_ab, dtype=jnp.int32)
-  # max_cd = jnp.array(static_args.max_cd, dtype=jnp.int32)
-  # Ms = jnp.array([static_args.max_xyz+1, static_args.max_yz+1, static_args.max_z+1], dtype=jnp.int32)
-
-  # pgto_coeff = jnp.array(cgto.coeff[orig_idx])
-  # pgto_normalization_factor = jnp.array(cgto.N[orig_idx])
 
   cgto_seg_idx = jnp.cumsum(jnp.array(cgto.cgto_splits))
   pgto_idx_to_cgto_idx = jnp.array(jnp.argmax(orig_idx[:, None] < cgto_seg_idx, axis=-1),dtype=jnp.int32)
@@ -346,8 +306,6 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
   pd_idx = rank_ab_idx[pd_mask]
   dd_idx = rank_ab_idx[dd_mask]
 
-  
-
   sorted_idx = [ss_idx[jnp.argsort(eri_abab[ss_idx])],
                 sp_idx[jnp.argsort(eri_abab[sp_idx])],
                 sd_idx[jnp.argsort(eri_abab[sd_idx])],
@@ -361,117 +319,45 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
                 eri_abab[sorted_idx[4]],
                 eri_abab[sorted_idx[5]]]
 
-
-
   # ss,ss
   # for (ss, ss) (pp, pp) (dd, dd), (sp, sp) ... need ensure idx > cnt. For anyone else, no need
   output = 0
-  eps = 1e-10
-  i = 0
-  j = 1
-  thread_load = 2**10
-  sorted_ab_idx = sorted_idx[i]
-  sorted_cd_idx = sorted_idx[j]
+  for i in range(6):
+    for j in range(i, 6):
+      eps = 1e-10
+      thread_load = 2**10
+      sorted_ab_idx = sorted_idx[i]
+      sorted_cd_idx = sorted_idx[j]
+      if len(sorted_ab_idx) == 0 or len(sorted_cd_idx) == 0:
+        continue
+      sorted_eri_abab = sorted_eri[i]
+      sorted_eri_cdcd = sorted_eri[j]
+      sorted_ab_thres = (eps / jnp.sqrt(sorted_eri_abab))**2
+      screened_cd_idx_start = jnp.searchsorted(sorted_eri_cdcd, sorted_ab_thres)
+      if i == j:
+        screened_cd_idx_start = jnp.maximum(jnp.array([e for e in range(len(sorted_eri_abab))]), screened_cd_idx_start)
+      cdcd_len = len(sorted_eri_cdcd)
+      # start_offset = jnp.concatenate((jnp.array([0]), jnp.cumsum(cdcd_len-screened_cd_idx_start)[:-1]), dtype=jnp.int32)
 
-  sorted_eri_abab = sorted_eri[i]
-  sorted_eri_cdcd = sorted_eri[j]
-  sorted_ab_thres = (eps / jnp.sqrt(sorted_eri_abab))**2
-  screened_cd_idx_start = jnp.searchsorted(sorted_eri_cdcd, sorted_ab_thres)
-  if i == j:
-    screened_cd_idx_start = jnp.maximum(jnp.array([e for e in range(len(sorted_eri_abab))]), screened_cd_idx_start)
-  cdcd_len = len(sorted_eri_cdcd)
-  # start_offset = jnp.concatenate((jnp.array([0]), jnp.cumsum(cdcd_len-screened_cd_idx_start)[:-1]), dtype=jnp.int32)
-
-  screened_cnt = jnp.sum(cdcd_len-screened_cd_idx_start)
-  cdcd_len_list = cdcd_len - screened_cd_idx_start
-  
-  ab_thread_num = jnp.ceil(cdcd_len_list/thread_load)
-  thread_num = jnp.sum(ab_thread_num)
-  ab_thread_offset = jnp.concatenate((jnp.array([0]), jnp.cumsum(ab_thread_num)[:-1]), dtype=jnp.int32)
-  print(i,j,screened_cnt)
-  output += abcd_eri_fun(cgto, orig_idx,sorted_ab_idx, 
-                          sorted_cd_idx, 
-                          screened_cd_idx_start, 
-                          # start_offset,
-                          jnp.sum(cdcd_len-screened_cd_idx_start),
-                          pgto_idx_to_cgto_idx, 
-                          rdm1,
-                          thread_load,
-                          thread_num,
-                          ab_thread_num,
-                          ab_thread_offset)
-  # for i in range(6):
-  #   for j in range(i, 6):
-  #     eps = 1e-10
-  #     thread_load = 2**10
-  #     sorted_ab_idx = sorted_idx[i]
-  #     sorted_cd_idx = sorted_idx[j]
-  #     if len(sorted_ab_idx) == 0 or len(sorted_cd_idx) == 0:
-  #       continue
-  #     sorted_eri_abab = sorted_eri[i]
-  #     sorted_eri_cdcd = sorted_eri[j]
-  #     sorted_ab_thres = (eps / jnp.sqrt(sorted_eri_abab))**2
-  #     screened_cd_idx_start = jnp.searchsorted(sorted_eri_cdcd, sorted_ab_thres)
-  #     if i == j:
-  #       screened_cd_idx_start = jnp.maximum(jnp.array([e for e in range(len(sorted_eri_abab))]), screened_cd_idx_start)
-  #     cdcd_len = len(sorted_eri_cdcd)
-  #     # start_offset = jnp.concatenate((jnp.array([0]), jnp.cumsum(cdcd_len-screened_cd_idx_start)[:-1]), dtype=jnp.int32)
-
-  #     screened_cnt = jnp.sum(cdcd_len-screened_cd_idx_start)
-  #     cdcd_len_list = cdcd_len - screened_cd_idx_start
+      screened_cnt = jnp.sum(cdcd_len-screened_cd_idx_start)
+      cdcd_len_list = cdcd_len - screened_cd_idx_start
       
-  #     ab_thread_num = jnp.ceil(cdcd_len_list/thread_load)
-  #     thread_num = jnp.sum(ab_thread_num)
-  #     ab_thread_offset = jnp.concatenate((jnp.array([0]), jnp.cumsum(ab_thread_num)[:-1]), dtype=jnp.int32)
-  #     print(i,j,screened_cnt)
-  #     output += abcd_eri_fun(cgto, orig_idx,sorted_ab_idx, 
-  #                             sorted_cd_idx, 
-  #                             screened_cd_idx_start, 
-  #                             # start_offset,
-  #                             jnp.sum(cdcd_len-screened_cd_idx_start),
-  #                             pgto_idx_to_cgto_idx, 
-  #                             rdm1,
-  #                             thread_load,
-  #                             thread_num,
-  #                             ab_thread_num,
-  #                             ab_thread_offset,)
-
-      # batch_number = int(jnp.ceil(screened_cnt / BATCH_SIZE))
-      # batch_start_end = [int(len(cdcd_len_list)/batch_number) * e for e in range(batch_number)] + [len(cdcd_len_list)]
-      
-      # print(i,j,screened_cnt, batch_number, batch_start_end)
-      # for batch_i in range(batch_number):
-      #   print(batch_i)
-      #   print(jnp.sum(cdcd_len-screened_cd_idx_start[batch_start_end[batch_i]:batch_start_end[batch_i+1]]))
-      #   output += abcd_eri_fun(cgto, orig_idx,sorted_ab_idx[batch_start_end[batch_i]:batch_start_end[batch_i+1]], 
-      #                          sorted_cd_idx, 
-      #                          screened_cd_idx_start[batch_start_end[batch_i]:batch_start_end[batch_i+1]], 
-      #                          start_offset[batch_start_end[batch_i]:batch_start_end[batch_i+1]],
-      #                          jnp.sum(cdcd_len-screened_cd_idx_start[batch_start_end[batch_i]:batch_start_end[batch_i+1]]),
-      #                          pgto_idx_to_cgto_idx, rdm1)
-      
-      
-
-  # if screened_cnt <= 0:
-  #   continue
-  
-  t2_internal = time.time()
-  # print("Number abab =", len(eri_abab))
-  # print("Number abcd =", screened_cnt)
-  # print("Preperation time abab =", t2_abab - t1_abab)
-  # print("Preperation time abcd =", t2_abcd - t1_abcd)
-  # print("Tensorization time abab =", t2_abab_tensor - t1_abab_tensor)
-  # print("Tensorization time abcd =", t2_abcd_tensor - t1_abcd_tensor)
-  # print("Total internal time =", t2_internal - t1_internal)
-  # print("Hartree Energy =", output)
+      ab_thread_num = jnp.ceil(cdcd_len_list/thread_load)
+      thread_num = jnp.sum(ab_thread_num)
+      ab_thread_offset = jnp.concatenate((jnp.array([0]), jnp.cumsum(ab_thread_num)[:-1]), dtype=jnp.int32)
+      print(i,j,screened_cnt)
+      output += abcd_eri_fun(cgto, orig_idx,sorted_ab_idx, 
+                              sorted_cd_idx, 
+                              screened_cd_idx_start, 
+                              # start_offset,
+                              jnp.sum(cdcd_len-screened_cd_idx_start),
+                              pgto_idx_to_cgto_idx, 
+                              rdm1,
+                              thread_load,
+                              thread_num,
+                              ab_thread_num,
+                              ab_thread_offset,)
   return output
-
-      # # print(s_num, p_num)
-  # abcd_idx = output[:2*screened_cnt].reshape((2,screened_cnt))
-  # # print(abcd_idx[:,-100:])
-  # for i in range(100):
-  #   print(ab_idx[abcd_idx[0,i]], symmetry.get_triu_ij_from_idx(N,abcd_idx[0,i]))
-  #   print(ab_idx[abcd_idx[1,i]], symmetry.get_triu_ij_from_idx(N,abcd_idx[1,i]))
 
 
 

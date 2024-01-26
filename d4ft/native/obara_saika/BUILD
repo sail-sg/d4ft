@@ -31,6 +31,7 @@ cc_library(
         "//d4ft/native/gamma:igamma",
         "//d4ft/native/gamma:lgamma",
         "@hemi",
+        ":comb",
     ],
 )
 

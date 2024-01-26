@@ -16,4 +16,8 @@
 
 #include <iostream>
 
-int main() { std::cout << BoysIgamma(1., 2.) << std::endl; }
+int main() { std::cout << BoysIgamma<double>(1., 2.) << std::endl; 
+            std::cout << BoysNeville<double>(1., 2.) << std::endl; 
+             std::cout << BoysPrecomp<double>(1., 2.) << std::endl; 
+             std::cout << BoysMacLaurin<double>(1., 2.) << std::endl; 
+}
