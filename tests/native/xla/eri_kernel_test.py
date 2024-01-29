@@ -83,9 +83,7 @@ class _ExampleTest(absltest.TestCase):
       return num_unique_ij(num_unique_ij(n))  
 
 
-    # To support higher angular, first adjust constants in eri.h: MAX_XYZ, MAX_YZ..
-    # 
-    # 
+    # To support higher angular, adjust constants in eri.h: MAX_XYZ, MAX_YZ..
     # pyscf_mol = get_pyscf_mol("C20-Ih", "sto-3g")
     # pyscf_mol = get_pyscf_mol("C30-D5h-1", "sto-3g")
     # pyscf_mol = get_pyscf_mol("C40-D5d-1", "sto-3g")
@@ -111,155 +109,16 @@ class _ExampleTest(absltest.TestCase):
     key = jax.random.PRNGKey(42)
     self.Mo_coeff = jax.random.normal(key,(2, self.cgto.n_cgtos, self.cgto.n_cgtos))
 
-    # 4c tensors
-    # ab_idx, counts_ab = self.ab_idx_counts[:, :2], self.ab_idx_counts[:, 2]
-    # self.abab_idx_count = jnp.hstack([ab_idx, ab_idx,
-    #                             counts_ab[:, None]*counts_ab[:, None]]).astype(int)
-
-    # num_4c_idx = symmetry.num_unique_ij(n_2c_idx)
-    # self.num_4c_idx = num_4c_idx
-    # batch_size: int = 2**23
-    # i = 0
-    # start = batch_size * i
-    # end = num_4c_idx
-    # slice_size = num_4c_idx - start
-    # start_idx = symmetry.get_triu_ij_from_idx(n_2c_idx, start)
-    # end_idx = symmetry.get_triu_ij_from_idx(n_2c_idx, end)
-    # self.abcd_idx_counts = symmetry.get_4c_sym_idx_range(
-    #   self.ab_idx_counts, n_2c_idx, start_idx, end_idx, slice_size
-    # )
-
-
-    # Ns = cgto.N
-    # abcd_idx = self.abcd_idx_counts[:, :4]
-    # gtos_abcd, self.coeffs_abcd = zip(
-    #   *[
-    #     cgto.map_pgto_params(lambda gto_param, i=i: gto_param[abcd_idx[:, i]])
-    #     for i in range(4)
-    #   ]
-    # )
-    # counts_abcd_i = self.abcd_idx_counts[:, 4]
-    # self.N_abcd = Ns[abcd_idx].prod(-1) * counts_abcd_i
-    # self.n_segs = symmetry.num_unique_ijkl(cgto.n_cgtos)
-    # self.cgto_seg_id = symmetry.get_cgto_segment_id_sym(
-    #     self.abcd_idx_counts[:, :-1], cgto.cgto_splits, four_center=True
-    #   )
-    
-    # nmo = cgto.n_cgtos  # assuming same number of MOs and AOs
-    # mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
-    # self.mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
-    # self.rdm1 = get_rdm1(self.Mo_coeff).sum(0)
-    # self.rdm1_ab = self.rdm1[self.mo_abcd_idx_counts[:, 0], self.mo_abcd_idx_counts[:, 1]]
-    # self.rdm1_cd = self.rdm1[self.mo_abcd_idx_counts[:, 2], self.mo_abcd_idx_counts[:, 3]]
-    # self.a, self.b, self.c, self.d = gtos_abcd
-    # self.N = cgto.n_pgtos
-    # self.n = jnp.array(deepcopy(cgto.pgto.angular.T.reshape((3*self.N,))), dtype=jnp.int32)
-    # self.r = jnp.array(deepcopy(cgto.pgto.center.T.reshape((3*self.N,))))
-    # self.z = jnp.array(deepcopy(cgto.pgto.exponent))
-    
-    # # self.s = angular_stats.angular_static_args(self.a[0],self.b[0],self.c[0],self.d[0])
-    # self.min_a = jnp.array(self.s.min_a, dtype=jnp.int32)
-    # self.min_c = jnp.array(self.s.min_c, dtype=jnp.int32)
-    # self.max_ab = jnp.array(self.s.max_ab, dtype=jnp.int32)
-    # self.max_cd = jnp.array(self.s.max_cd, dtype=jnp.int32)
-    # self.Ms = jnp.array([self.s.max_xyz+1, self.s.max_yz+1, self.s.max_z+1], dtype=jnp.int32)
-
   def test_abcd(self) -> None:
     out_abcd = compute_hartree_test(self.cgto, self.s, self.Mo_coeff)
     print(out_abcd)
-    # # print(len(self.abcd_idx_counts))
-    # # for e in self.abcd_idx_counts[:10000]:
-    # #   np.testing.assert_equal(jnp.array(get_symmetry_count(e[0],e[1],e[2],e[3])), e[4])
-    # # t1 = time.time()
-    # # hartree_energy_cuda = compute_hartree_test(self.cgto, self.s, self.Mo_coeff)
-    # # t2 = time.time()
-    # # print("Overall Computing Time =", t2-t1)
-    # pgto_4c_fn = tensorization.tensorize_4c_cgto_cuda(self.s, cgto=False)
-    # pgto_4c_fn_gt = tensorization.tensorize_4c_cgto(electron_repulsion_integral, self.s, cgto=False)
-    # # cgto_4c_fn = tensorization.tensorize_4c_cgto_range(eri_fn, s4)
-    # eri_abab = pgto_4c_fn(self.cgto, self.abab_idx_count, None, None)
-
-    # eri_abab_gt = pgto_4c_fn_gt(self.cgto, self.abab_idx_count, None, None)
-    
-    # sorted_idx = jnp.argsort(eri_abab)
-    # sorted_abab = eri_abab[sorted_idx]
-    # eps = 1e-10
-    # sorted_cd_thres = (eps / jnp.sqrt(sorted_abab))**2
-    # cnt = jnp.array([e for e in range(len(self.abab_idx_count))])
-    # idx = jnp.maximum(cnt, jnp.searchsorted(sorted_abab, sorted_cd_thres))
-    # idx = jnp.array(idx)
-    # # idx = idx[idx < len(sorted_idx)]
-
-    # abab_len = len(sorted_idx)
-    # screened_cnt = jnp.sum(abab_len-idx)
-    # # print(abab_len)
-    
-
-    # # N = self.cgto.n_pgtos
-    # # Ns = self.cgto.N
-    
-    # # n = jnp.array(self.cgto.pgto.angular.T, dtype=jnp.int32)
-    # # r = jnp.array(self.cgto.pgto.center.T)
-    # # z = jnp.array(self.cgto.pgto.exponent)
-    
-    # # min_a = jnp.array(self.s.min_a, dtype=jnp.int32)
-    # # min_c = jnp.array(self.s.min_c, dtype=jnp.int32)
-    # # max_ab = jnp.array(self.s.max_ab, dtype=jnp.int32)
-    # # max_cd = jnp.array(self.s.max_cd, dtype=jnp.int32)
-    # # Ms = jnp.array([self.s.max_xyz+1, self.s.max_yz+1, self.s.max_z+1], dtype=jnp.int32)
-    # # abab_idx = self.abab_idx_count[:, :4]
-
-    # abcd = [jnp.array([sorted_idx[cnt] * jnp.ones(len(sorted_idx)-idx[cnt]), sorted_idx[cd_idx:]]).T for cd_idx, cnt in zip(idx,range(len(idx)))]
-    
-    # abcd = jnp.vstack(abcd)
-    # abcd = jnp.array(abcd, dtype=jnp.int32)
-    # abcd_offdiag = (abcd[:,0] != abcd[:,1])
-    # abcd_block = abcd_offdiag + jnp.ones(len(abcd_offdiag))
-    # abcd_counts = self.ab_idx_counts[abcd[:,0], -1] * self.ab_idx_counts[abcd[:,1], -1] * abcd_block
-    # abcd_counts.astype(jnp.int32)
-    # self.screened_abcd_idx_counts = jnp.hstack([self.ab_idx_counts[abcd[:,0],:2],
-    #                                        self.ab_idx_counts[abcd[:,1],:2],
-    #                                        abcd_counts.reshape((abcd_counts.shape[0],1))],dtype=jnp.int32)
-      
-    # self.screened_cgto_seg_id = symmetry.get_cgto_segment_id_sym(
-    #     self.screened_abcd_idx_counts[:, :-1], self.cgto.cgto_splits, four_center=True
-    #   )
-    
-    # cgto_4c_fn = tensorization.tensorize_4c_cgto_cuda(self.s, cgto=True)
-    # # cgto_4c_fn_gt = tensorization.tensorize_4c_cgto(electron_repulsion_integral, self.s)
-    # e_screened = cgto_4c_fn(self.cgto, self.screened_abcd_idx_counts, 
-    #                         self.screened_cgto_seg_id, self.n_segs)   
-    # # e_screened_gt = cgto_4c_fn_gt(self.cgto, self.screened_abcd_idx_counts, 
-    # #                         self.screened_cgto_seg_id, self.n_segs)
-    # # e_raw = cgto_4c_fn(self.cgto, self.abcd_idx_counts, self.cgto_seg_id, self.n_segs) 
-    # # e_raw_gt = cgto_4c_fn_gt(self.cgto, self.abcd_idx_counts, self.cgto_seg_id, self.n_segs)
-    # # print("original length =", len(self.abcd_idx_counts))
-    # # print("screened length =", len(self.screened_abcd_idx_counts))
-    # # np.testing.assert_allclose(e_screened,e_screened_gt,atol=1e-5)
-    # # np.testing.assert_allclose(e_raw,e_raw_gt,atol=1e-5)
-    # # np.testing.assert_allclose(e_screened,e_raw,atol=1e-5)
-    # # hartree_e_raw_gt = jnp.sum(e_raw_gt * self.rdm1_ab * self.rdm1_cd)
-    # # hartree_e_screened_gt = jnp.sum(e_screened_gt * self.rdm1_ab * self.rdm1_cd)
-    # # hartree_e_raw = jnp.sum(e_raw * self.rdm1_ab * self.rdm1_cd)
-    # hartree_e_screened = jnp.sum(e_screened * self.rdm1_ab * self.rdm1_cd)
-    
-    # np.testing.assert_array_equal(out_abcd,abcd)
-    # print(hartree_e_screened)
-    
-    # np.testing.assert_allclose(hartree_e_screened,out_abcd,atol=1e-5)
-    # print(hartree_e_raw_gt, hartree_e_screened_gt, hartree_e_raw, hartree_e_screened, hartree_energy_cuda)
-
-    # logging.info(f"block diag (ab|ab) computed, size: {eri_abab.shape}")
 
 
 
 def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
-  t1_internal = time.time()
-  BATCH_SIZE = 2e8
   l_xyz = jnp.sum(cgto.pgto.angular, 1)
   orig_idx = jnp.argsort(l_xyz)
 
-  t1_abab = time.time()
   ab_idx_counts = symmetry.get_2c_sym_idx(cgto.n_pgtos)
   ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
   abab_idx_counts = jnp.hstack([ab_idx, ab_idx,
@@ -269,13 +128,8 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
   abab_eri_fun = get_cuda_abab_fun(static_args)
   abcd_eri_fun = get_4c_contracted_hartree_fun(static_args)
   # Compute eri abab
-  t2_abab = time.time()
-  
-  t1_abab_tensor = time.time()
   eri_abab = abab_eri_fun(cgto, abab_idx_counts, orig_idx)
-  t2_abab_tensor = time.time()
 
-  t1_abcd = time.time()
   eri_abab = jnp.array(eri_abab)
 
   # current support s, p, d
@@ -319,8 +173,8 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
                 eri_abab[sorted_idx[4]],
                 eri_abab[sorted_idx[5]]]
 
-  # ss,ss
-  # for (ss, ss) (pp, pp) (dd, dd), (sp, sp) ... need ensure idx > cnt. For anyone else, no need
+
+  # for (ss, ss) (pp, pp) (dd, dd), (sp, sp) ... need to ensure idx > cnt. For anyone else, no need
   output = 0
   for i in range(6):
     for j in range(i, 6):
@@ -362,12 +216,10 @@ def compute_hartree_test(cgto: CGTO, static_args: AngularStats, Mo_coeff_spin):
 
 
 def get_4c_contracted_hartree_fun(static_args: AngularStats):
-  """4c centers tensorization with provided index set.
-  where the tensor is contracted to cgto.
-  Used for incore/precompute.
+  """Get the function to compute ERI (contracted)
 
   Args:
-    cgto: if True, contract the tensor into cgto basis
+    static_args: statis arguments for orbitals
   """
 
   # @partial(jax.jit)
@@ -428,13 +280,12 @@ def get_4c_contracted_hartree_fun(static_args: AngularStats):
   return tensorize
 
 
-def get_cuda_abab_fun(static_args):
-  """4c centers tensorization with provided index set.
-  where the tensor is contracted to cgto.
-  Used for incore/precompute.
+def get_cuda_abab_fun(static_args: AngularStats):
+  """Get the function to compute ERI for all abab to do pre
+    screen by cuda.
 
   Args:
-    cgto: if True, contract the tensor into cgto basis
+    static_args: statis arguments for orbitals
   """
 
   # @partial(jax.jit, static_argnames=["n_segs"])
@@ -459,7 +310,6 @@ def get_cuda_abab_fun(static_args):
 
     har_jit = jax.jit(hartree_uncontracted)
     t1 = time.time()
-    # for cnt in range(10):
     t_abcd = har_jit(jnp.array([N], dtype=jnp.int32), jnp.array(abcd_idx,dtype=jnp.int32), n, r, z, min_a, min_c, max_ab, max_cd, Ms)
     jax.block_until_ready(t_abcd)
     t2 = time.time()
