@@ -102,8 +102,9 @@ def get_cgto_sym_tensor_fns(
   # counts_ab[:, None]]).astype(int)
 
   # pgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4, cgto=False)
-  # cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
-  cgto_4c_fn = tensorization.tensorize_4c_cgto_cuda(s4)
+  cgto_4c_fn = tensorization.tensorize_4c_cgto(eri_fn, s4)
+  # cgto_4c_fn = tensorization.compute_hartree
+  # cgto_4c_fn = tensorization.tensorize_4c_cgto_cuda(s4)
   # cgto_4c_fn = tensorization.tensorize_4c_cgto_range(eri_fn, s4)
 
   # NOTE: these are only needed for prescreening
@@ -141,5 +142,9 @@ def get_cgto_sym_tensor_fns(
       )
       eri_abcd_cgto += eri_abcd_i
     return eri_abcd_cgto
+
+  # def eri_abcd_fn(cgto: CGTO) -> Tensor4C:
+  #   eri_abcd_cgto = partial(tensorization.compute_hartree, cgto, s4)
+  #   return eri_abcd_cgto
 
   return CGTOSymTensorFns(ovlp_ab_fn, kin_ab_fn, ext_ab_fn, eri_abcd_fn)

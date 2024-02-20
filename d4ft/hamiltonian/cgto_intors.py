@@ -19,7 +19,7 @@ import jax.numpy as jnp
 import pyscf
 from jaxtyping import Array, Float
 
-from d4ft.integral.gto import symmetry
+from d4ft.integral.gto import symmetry, tensorization
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.obara_saika.driver import CGTOSymTensorFns
 from d4ft.types import (
@@ -95,14 +95,15 @@ def get_cgto_intor(
   # rate = 0.5
 
   def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
-    rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
-    rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
-    rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
+    # rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
+    # rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
+    # rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
     # key = hk.next_rng_key()
     # mask = jax.random.bernoulli(key, rate, shape=eri.shape)
     # e_har = jnp.sum(eri * mask * rdm1_ab * rdm1_cd) / rate
     # NOTE: 0.5 prefactor already included in the eri
-    e_har = jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ab * rdm1_cd)
+    # e_har = jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ab * rdm1_cd)
+    e_har = tensorization.compute_hartree(cgto, mo_coeff)
     return e_har
 
   def exc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
