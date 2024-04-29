@@ -29,7 +29,7 @@ from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
 
 def scipy_opt(
   solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
-  key: jax.random.KeyArray
+  key: jax.Array
 ) -> float:
   energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff, key)[0])
   import jaxopt
@@ -40,7 +40,7 @@ def scipy_opt(
 
 def sgd(
   solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
-  key: jax.random.KeyArray
+  key: jax.Array
 ) -> Tuple[RunLogger, Trajectory]:
 
   @jax.jit

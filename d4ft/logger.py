@@ -51,7 +51,7 @@ class RunLogger:
   def get_segment_summary(self) -> pd.DataFrame:
     segment_df = self.data_df[self.last_t:]
     self.last_t = self.data_df.index[-1]
-    logging.info(f"Iter: {self.last_t}\n{segment_df.mean()}")
+    logging.info(f"Iter: {self.last_t}\n{segment_df.iloc[-1]}")
     return segment_df
 
   def log_summary(self) -> None:
