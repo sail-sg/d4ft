@@ -28,8 +28,7 @@ from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
 
 
 def scipy_opt(
-  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
-  key: jax.Array
+  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.Array
 ) -> float:
   energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff, key)[0])
   import jaxopt
@@ -39,8 +38,7 @@ def scipy_opt(
 
 
 def sgd(
-  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
-  key: jax.Array
+  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.Array
 ) -> Tuple[RunLogger, Trajectory]:
 
   @jax.jit
@@ -102,6 +100,18 @@ def sgd(
 
     logger.log_step(energies, step, e_total_std)
     logger.get_segment_summary()
+
+    center = state.params['~']['center']
+    logging.info(f"{center=}")
+
+    grads, _ = jax.grad(H.energy_fn, has_aux=True)(state.params, state.rng_key)
+    dE_dR = grads['~']['center']
+    logging.info(f"{dE_dR=}")
+    breakpoint()
+
+    # g1 = jax.grad(partial(e_nuclear, charge=cgto.charge))(cgto.atom_coords)
+    # g2, _ = jax.jacfwd(H.energy_fn, has_aux=True)(state.params, state.rng_key)
+    # breakpoint()
 
     mo_coeff = H.mo_coeff_fn(state.params, state.rng_key, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)

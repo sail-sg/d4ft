@@ -143,6 +143,7 @@ def nuclear_attraction_integral(
     return jnp.einsum("a,am->m", w, A_0[min_b[i]:, :])
 
   prefactor = 2 * (jnp.pi / zeta) * jnp.exp(-xi * jnp.dot(ab, ab))  # Eqn.A20
+  # TODO(geo_opt): this gives nan
   A_0_0 = jax.vmap(boys.Boys, in_axes=(0, None))(jnp.arange(M, dtype=int), U)
 
   if use_horizontal:

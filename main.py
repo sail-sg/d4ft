@@ -16,8 +16,8 @@ import pickle
 import string
 from pathlib import Path
 from typing import Any
-import jax
 
+import jax
 import matplotlib.pyplot as plt
 import pandas as pd
 import shortuuid
@@ -62,6 +62,7 @@ def get_rxn_energy(rxn: str, benchmark: str, df: pd.DataFrame) -> float:
 def main(_: Any) -> None:
   jax.config.update("jax_enable_x64", FLAGS.use_f64)
   jax.config.update("jax_debug_nans", FLAGS.debug_nans)
+  # jax.config.update("jax_disable_jit", True)
 
   cfg: D4FTConfig = FLAGS.config
   print(cfg)

@@ -510,10 +510,6 @@ class CGTO(NamedTuple):
     """Build CGTO from pyscf mol."""
     return build_cgto_from_mol(mol)
 
-  @staticmethod
-  def from_cart(cgto_cart: CGTO) -> CGTO:
-    return build_cgto_sph_from_mol(cgto_cart)
-
   def to_hk(
     self,
     optimizable_params: Sequence[Literal[

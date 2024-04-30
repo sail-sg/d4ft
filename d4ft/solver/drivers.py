@@ -27,6 +27,7 @@ from absl import logging
 from d4ft.config import D4FTConfig
 from d4ft.hamiltonian.cgto_intors import get_cgto_fock_fn, get_cgto_intor
 from d4ft.hamiltonian.mf_cgto import mf_cgto
+from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
@@ -71,7 +72,16 @@ def build_mf_cgto(cfg: D4FTConfig):
   vxc_ab_fn = get_lda_vxc(
     grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
   )
-  cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
+  if cfg.intor_cfg.incore:
+    cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
+  else:
+    cgto_fock_fn = None
+
+  # # DEBUG
+  # g1 = jax.grad(partial(e_nuclear, charge=cgto.charge))(cgto.atom_coords)
+  # g2 = jax.jacfwd(partial(e_nuclear, charge=cgto.charge))(cgto.atom_coords)
+  # print(g1, g2)
+  # breakpoint()
 
   def H_factory(with_mo_coeff: bool = True) -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""

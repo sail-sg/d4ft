@@ -17,15 +17,11 @@ import jax.numpy as jnp
 from jaxtyping import Array, Float, Int
 
 
-def set_diag_zero(x: Array) -> Array:
-  """Set diagonal items to zero."""
-  return x.at[jnp.diag_indices(x.shape[0])].set(0)
-
-
 def e_nuclear(center: Float[Array, "n_atoms 3"],
               charge: Int[Array, "n_atoms"]) -> Float[Array, ""]:
   """Potential energy between atomic nuclears."""
-  dist_nuc = jnp.linalg.norm(center - center[:, None], axis=-1)
+  dist_diff = center - center[:, None]
+  dist_nuc = jnp.sqrt(jnp.sum(dist_diff**2, axis=-1) + 1e-20)
+  dist_nuc = jnp.where(dist_nuc <= 1e-9, 1e20, dist_nuc)
   charge_outer = jnp.outer(charge, charge)
-  charge_outer = set_diag_zero(charge_outer)
-  return 0.5 * jnp.sum(charge_outer / (dist_nuc + 1e-15))
+  return 0.5 * jnp.sum(charge_outer / dist_nuc)
