@@ -13,15 +13,19 @@
 # limitations under the License.
 """Solve DFT with gradient descent"""
 
+from functools import partial
 from typing import Tuple
 
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
 from absl import logging
 
 from d4ft.config import GDConfig
+from d4ft.hamiltonian.nuclear import e_nuclear
+from d4ft.integral.gto.cgto import CGTO
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
 from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
@@ -38,7 +42,8 @@ def scipy_opt(
 
 
 def sgd(
-  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.Array
+  solver_cfg: GDConfig, H: Hamiltonian, cgto: CGTO, params: hk.Params,
+  key: jax.Array
 ) -> Tuple[RunLogger, Trajectory]:
 
   @jax.jit
@@ -104,14 +109,34 @@ def sgd(
     center = state.params['~']['center']
     logging.info(f"{center=}")
 
-    grads, _ = jax.grad(H.energy_fn, has_aux=True)(state.params, state.rng_key)
-    dE_dR = grads['~']['center']
+    # grads, _ = jax.grad(H.energy_fn, has_aux=True)(state.params, state.rng_key)
+    # dE_dR = grads['~']['center']
+    # logging.info(f"{dE_dR=}")
+    # breakpoint()
+
+    g1 = jax.grad(partial(e_nuclear, charge=cgto.charge))(cgto.atom_coords)
+    logging.info(f"{g1=}")
+
+    # g2, _ = jax.jacfwd(H.energy_fn, has_aux=True)(state.params, state.rng_key)
+
+    def e_fn(center):
+      state.params['~']['center'] = center
+      return H.energy_fn(state.params, state.rng_key)[0]
+
+    cur_center = state.params['~']['center']
+    center = np.zeros_like(cur_center)
+    center[0, 0] = 1.
+    new_e = e_fn(center)
+    logging.info(f"{new_e=}")
+
+    tangent = np.zeros_like(cur_center)
+    tangent[0, 0] = 1.
+    primal_out, tangent_out = jax.jvp(
+      e_fn, primals=(cur_center,), tangents=(tangent,)
+    )
+    dE_dR = tangent_out
     logging.info(f"{dE_dR=}")
     breakpoint()
-
-    # g1 = jax.grad(partial(e_nuclear, charge=cgto.charge))(cgto.atom_coords)
-    # g2, _ = jax.jacfwd(H.energy_fn, has_aux=True)(state.params, state.rng_key)
-    # breakpoint()
 
     mo_coeff = H.mo_coeff_fn(state.params, state.rng_key, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)

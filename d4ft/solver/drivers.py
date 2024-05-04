@@ -171,13 +171,13 @@ def cgto_direct(
   where CGTO basis are used and the energy tensors are precomputed/incore."""
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
 
-  pyscf_mol, H_factory, _, _ = build_mf_cgto(cfg)
+  pyscf_mol, H_factory, cgto, _ = build_mf_cgto(cfg)
 
   H_transformed = hk.multi_transform(H_factory)
   params = H_transformed.init(key)
   H_hk = Hamiltonian(*H_transformed.apply)
 
-  logger, traj = sgd(cfg.solver_cfg, H_hk, params, key)
+  logger, traj = sgd(cfg.solver_cfg, H_hk, cgto, params, key)
 
   min_e_step = logger.data_df.e_total.astype(float).idxmin()
   logging.info(f"lowest total energy: \n {logger.data_df.iloc[min_e_step]}")
