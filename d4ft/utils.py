@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import string
 from numbers import Number
 from pathlib import Path
 from typing import Any, Callable, Iterable, Type, Union
@@ -21,11 +22,17 @@ import einops
 import jax
 import jax.numpy as jnp
 import numpy as np
+import shortuuid
 from jax import lax
 from jaxtyping import Array, Num
 from ml_collections import ConfigDict
 
 from d4ft.types import RDM1, MoCoeff
+
+
+def get_uuid(size: int = 8) -> str:
+  return shortuuid.ShortUUID(alphabet=string.ascii_lowercase + string.digits
+                            ).random(size)
 
 
 def complex_norm_square(x):

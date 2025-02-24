@@ -19,6 +19,8 @@ from ml_collections import ConfigDict
 from pydantic.config import ConfigDict as PydanticConfigDict
 from pydantic.dataclasses import dataclass
 
+from d4ft.utils import get_uuid
+
 pydantic_config = PydanticConfigDict({"validate_assignment": True})
 
 
@@ -151,6 +153,10 @@ class D4FTConfig(ConfigDict):
   uuid: str
   save_dir: str
 
+  wandb: bool
+  """whether to use wandb"""
+  name: str
+
   def __init__(self, config_string: str) -> None:
     method, solver, sys = config_string.split("-")
 
@@ -181,8 +187,10 @@ class D4FTConfig(ConfigDict):
         "solver_cfg": solver_cls(),
         "intor_cfg": IntorConfig(),
         "sys_cfg": sys_cls(),
-        "uuid": "",
+        "uuid": get_uuid(),
         "save_dir": "_exp",
+        "wandb": False,
+        "name": "",
       }
     )
 
@@ -190,6 +198,13 @@ class D4FTConfig(ConfigDict):
     if self.method_cfg.restricted and self.sys_cfg.mol not in ["bh76_h", "h"]:
       assert spin == 0 and charge == 0, \
         "RESTRICTED only supports closed-shell molecules"
+
+  def get_run_name(self) -> str:
+    if self.name == "":
+      run_name = f"{self.uuid}"
+    else:
+      run_name = f"{self.name}-{self.uuid}"
+    return run_name
 
   def get_save_dir(self) -> Path:
     return Path(f"{self.save_dir}/{self.uuid}/{self.sys_cfg.mol}")

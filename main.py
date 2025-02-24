@@ -16,14 +16,15 @@ import pickle
 import string
 from pathlib import Path
 from typing import Any
-import jax
 
+import jax
 import matplotlib.pyplot as plt
 import pandas as pd
 import shortuuid
 from absl import app, flags, logging
 from ml_collections.config_flags import config_flags
 
+import wandb
 from d4ft.config import D4FTConfig
 from d4ft.constants import HARTREE_TO_KCAL_PER_MOL
 from d4ft.solver.drivers import (
@@ -65,6 +66,13 @@ def main(_: Any) -> None:
 
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
+
+  if cfg.wandb:
+    name = cfg.get_run_name()
+    cfg_dict = cfg.to_dict()
+    wandb.init(
+      name=name, project='d4ft', config=cfg_dict, group=name, job_type="train"
+    )
 
   if FLAGS.save:
     with cfg.unlocked():

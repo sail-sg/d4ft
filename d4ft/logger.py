@@ -17,6 +17,7 @@ import time
 from typing import NamedTuple
 
 import pandas as pd
+import wandb
 from absl import logging
 
 from d4ft.config import D4FTConfig
@@ -40,6 +41,8 @@ class RunLogger:
     self.data_df.to_csv(csv_path)
 
   def log_step(self, metrics: NamedTuple, t: int, thresh: float) -> None:
+    if wandb.run is not None:
+      wandb.log(metrics._asdict(), step=t)
     step_df = pd.DataFrame([metrics], index=[t])
     # log step time
     now = time.time()
