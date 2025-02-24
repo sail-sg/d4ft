@@ -51,6 +51,7 @@ def mf_cgto(
   that computes the total energy with logging.
   """
 
+
   def nuc_fn() -> Float[Array, ""]:
     return e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
 
@@ -66,6 +67,7 @@ def mf_cgto(
       mo_energies = [e_fn(mo_coeff) for e_fn in cgto_intors[1:]]
       grads = None
     e_kin, e_ext, e_har, e_xc = mo_energies
+
     e_nuc = nuc_fn()
     e_total = sum(mo_energies) + e_nuc
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)

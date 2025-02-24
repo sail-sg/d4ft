@@ -208,7 +208,7 @@ To load config for other algorithms, do
 Some examples:
 1. Kohn-Sham DFT with SCF
 ``` shell
-python main.py --run scf --config d4ft/config.py:KS-SCF-MOL --config.sys_cfg.mol O --config.method_cfg.xc_type "1*gga_c_pbe+1*gga_x_pbe" --use_f64 --config.solver_cfg.momentum 0.5
+python main.py --config d4ft/config.py:KS-SCF-MOL --config.sys_cfg.mol O --config.method_cfg.xc_type "1*gga_c_pbe+1*gga_x_pbe" --use_f64 --config.solver_cfg.momentum 0.5
 ```
 2. Direct optimization Hartree-Fock
 ``` shell

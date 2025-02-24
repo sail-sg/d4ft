@@ -71,7 +71,12 @@ def build_mf_cgto(cfg: D4FTConfig):
   vxc_ab_fn = get_lda_vxc(
     grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
   )
-  cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
+
+  if cfg.intor_cfg.incore:
+    cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
+  else:
+    cgto_fock_fn = None
+
 
   def H_factory(with_mo_coeff: bool = True) -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
@@ -135,7 +140,7 @@ def incore_cgto_scf(
   assert cfg.intor_cfg.incore
   key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
 
-  pyscf_mol, H_factory, cgto, cgto_fock_fn = build_mf_cgto(cfg)
+  _, H_factory, cgto, cgto_fock_fn = build_mf_cgto(cfg)
   H = H_factory(with_mo_coeff=False)[1]
   ovlp = H.cgto_intors.ovlp_fn()
   cgto_fock_jit = jax.jit(cgto_fock_fn)
