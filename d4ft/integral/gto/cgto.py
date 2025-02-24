@@ -339,9 +339,10 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
       element_basis.append(cgto_i)
     basis.append(element_basis)
 
+  atom_coords = pgto.center[jnp.cumsum(jnp.array(atom_splits)) - 1]
   cgto = CGTO(
     pgto, pgto.norm_inv(), jnp.array(coeffs), cgto_splits, cgto_seg_id,
-    jnp.array(atom_splits), mol.atom_charges, mol.nocc, basis
+    jnp.array(atom_splits), mol.atom_charges, mol.nocc, basis, atom_coords
   )
 
   return cgto
@@ -458,6 +459,9 @@ class CGTO(NamedTuple):
   """Cccupation mask for alpha and beta spin"""
   basis: Sequence[Sequence[Tuple[int, Sequence[Sequence[float]]]]]
   """basis in PySCF format"""
+  atom_coords: Float[Array, "n_atoms 3"]
+  """atom center var when using floating orbitals, i.e. orbitals that are not
+  centered on the atom"""
 
   @property
   def n_pgtos(self) -> int:
@@ -475,9 +479,11 @@ class CGTO(NamedTuple):
   def n_atoms(self) -> int:
     return len(self.atom_splits)
 
-  @property
-  def atom_coords(self) -> Float[Array, "n_atoms 3"]:
-    return self.pgto.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
+  # def atom_coords(self) -> Float[Array, "n_atoms 3"]:
+  #   if self.center_ is not None:
+  #     self.center_
+  #   else:
+  #     return self.pgto.center[jnp.cumsum(jnp.array(self.atom_splits)) - 1]
 
   def map_pgto_params(self, f: Callable) -> Tuple[PGTO, Float[Array, "*batch"]]:
     """Apply function f to PGTO parameters and contraction coeffs.
@@ -517,7 +523,7 @@ class CGTO(NamedTuple):
   def to_hk(
     self,
     optimizable_params: Sequence[Literal[
-      "center",
+      "center_flob",
       "exponent",
       "coeff",
     ]] = ("coeff",),
@@ -525,19 +531,43 @@ class CGTO(NamedTuple):
     """Convert optimizable parameters to hk.Params. Must be haiku transformed.
     Can be used for basis optimization.
     """
-    if "center" in optimizable_params:
+    if "center_flob" in optimizable_params:  # floating orbitals
       center_init = self.atom_coords
-      center_param = hk.get_parameter(
-        "center", center_init.shape, init=make_constant_fn(center_init)
-      )
-      center = jnp.repeat(
-        center_param,
+      center_init_rep = jnp.repeat(
+        center_init,
         jnp.array(self.atom_splits),
         axis=0,
         total_repeat_length=self.n_pgtos
       )
+      center = hk.get_parameter(
+        "center_flob",
+        center_init_rep.shape,
+        init=make_constant_fn(center_init_rep)
+      )
+
+      if "center" in optimizable_params:  # geometry optimization in flob
+        atom_coords = hk.get_parameter(
+          "center", center_init.shape, init=make_constant_fn(center_init)
+        )
+      else:
+        atom_coords = center_init
+
+    elif "center" in optimizable_params:  # geometry optimization
+      center_init = self.atom_coords
+      center_params = hk.get_parameter(
+        "center", center_init.shape, init=make_constant_fn(center_init)
+      )
+      center = jnp.repeat(
+        center_params,
+        jnp.array(self.atom_splits),
+        axis=0,
+        total_repeat_length=self.n_pgtos
+      )
+      atom_coords = center_params
+
     else:
       center = self.pgto.center
+      atom_coords = self.atom_coords
 
     if "exponent" in optimizable_params or "coeff" in optimizable_params:
       coeff, exponent = reparameterize(
@@ -550,7 +580,7 @@ class CGTO(NamedTuple):
       exponent = self.pgto.exponent
 
     pgto = PGTO(self.pgto.angular, center, exponent)
-    return self._replace(pgto=pgto, coeff=coeff)
+    return self._replace(pgto=pgto, coeff=coeff, atom_coords=atom_coords)
 
   # TODO: instead of using occupation mask, we can orthogonalize a non-square
   # matrix directly

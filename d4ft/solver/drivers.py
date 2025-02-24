@@ -77,7 +77,6 @@ def build_mf_cgto(cfg: D4FTConfig):
   else:
     cgto_fock_fn = None
 
-
   def H_factory(with_mo_coeff: bool = True) -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
     if cfg.solver_cfg.basis_optim != "":

@@ -317,32 +317,33 @@ def electron_repulsion_integral(
     return I
 
   def horizontal(i, I):
-    """Horizontal recursion to transfer from `a` to `b` and `c` to `d`.
-    This function takes a matrix of shape `(A, C, M)` that represents
-    `I(a=[0:A],b=0,c=[0:C],d=0,m=[0:M])`. It computes the vector
-    `I(a=na,b=nb,c=nc,d=nd,m=[0:M])`.
-
-    Args:
-      i: index of the coordinate, `(0, 1, 2)` reprenseting `(x, y, z)`.
-      I: A `(A, C, M)` matrix to represent `I(a=[0:A],b=0,c=[0:C],d=0,m=[0:M])`.
-      min_a: Minimum value of `na`, when integral is computed for a batch
-        of GTOs, `min_a` is chosen to be the minimum value of `na` in the
-        batch.
-      min_c: Similar to `min_a` but for `nc`.
-
-    Returns:
-      I: A `(M,)` vector representing `I(a=na,b=nb,c=nc,d=nd,m=[0:M])`.
-    """
+    """Horizontal recursion with numerical safeguards."""
     ja = jnp.arange(s.min_a[i], I.shape[0])
     mask_a = jnp.logical_and(ja >= na[i], ja <= na[i] + nb[i])
-    on_true = utils.comb[nb[i], ja - na[i]] * (ab[i])**(nb[i] - ja + na[i])
+    
+    # Add numerical safeguards
+    power_a = nb[i] - ja + na[i]
+    # Clip power to avoid numerical instabilities
+    power_a = jnp.clip(power_a, -100, 100)
+    # Add small epsilon to avoid 0^negative
+    ab_safe = jnp.where(jnp.abs(ab[i]) < 1e-10, 1e-10, ab[i])
+    
+    on_true = utils.comb[nb[i], ja - na[i]] * (ab_safe)**power_a
     on_false = jnp.zeros_like(ja, dtype=float)
-    wa = mask_a * on_true + (1 - mask_a) * on_false
+    wa = jnp.where(mask_a, on_true, on_false)
+    
+    # Similar safeguards for c,d terms
     jc = jnp.arange(s.min_c[i], I.shape[1])
     mask_c = jnp.logical_and(jc >= nc[i], jc <= nc[i] + nd[i])
-    on_true = utils.comb[nd[i], jc - nc[i]] * (cd[i])**(nd[i] - jc + nc[i])
+    
+    power_c = nd[i] - jc + nc[i]
+    power_c = jnp.clip(power_c, -100, 100)
+    cd_safe = jnp.where(jnp.abs(cd[i]) < 1e-10, 1e-10, cd[i])
+    
+    on_true = utils.comb[nd[i], jc - nc[i]] * (cd_safe)**power_c
     on_false = jnp.zeros_like(jc, dtype=float)
-    wc = mask_c * on_true + (1 - mask_c) * on_false
+    wc = jnp.where(mask_c, on_true, on_false)
+    
     return jnp.einsum("a,c,acm->m", wa, wc, I[s.min_a[i]:, s.min_c[i]:])
 
   prefactor = (zeta + eta)**(-1 / 2) * k_ab * k_cd  # Eqn.44
@@ -399,18 +400,7 @@ def electron_repulsion_integral(
         I = I.at[a].set(I_a + I_shift)
 
       # horizontal (a0|c0)^[m] -> (ab|cd)^[m]
-      ja = jnp.arange(s.min_a[i], I.shape[0])
-      mask_a = jnp.logical_and(ja >= na[i], ja <= na[i] + nb[i])
-      on_true = utils.comb[nb[i], ja - na[i]] * (ab[i])**(nb[i] - ja + na[i])
-      on_false = jnp.zeros_like(ja, dtype=float)
-      wa = mask_a * on_true + (1 - mask_a) * on_false
-      jc = jnp.arange(s.min_c[i], I.shape[1])
-      mask_c = jnp.logical_and(jc >= nc[i], jc <= nc[i] + nd[i])
-      on_true = utils.comb[nd[i], jc - nc[i]] * (cd[i])**(nd[i] - jc + nc[i])
-      on_false = jnp.zeros_like(jc, dtype=float)
-      wc = mask_c * on_true + (1 - mask_c) * on_false
-      # new I_0_0
-      I_0_0 = jnp.einsum("a,c,acm->m", wa, wc, I[s.min_a[i]:, s.min_c[i]:])
+      I_0_0 = horizontal(i, I)
 
   result = 0.5 * prefactor * I_0_0[0]
 

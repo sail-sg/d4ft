@@ -18,18 +18,43 @@ from typing import Tuple
 import haiku as hk
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
+import plotly.graph_objects as go
 from absl import logging
 
+import wandb
 from d4ft.config import GDConfig
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
 from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
 
 
+def get_unique_centers_with_indices(centers, tol=1e-8):
+  """Extract unique 3D coordinates and their indices from centers array.
+
+    Args:
+        centers: Array of shape (..., 3) containing 3D coordinates
+        tol: Tolerance for considering coordinates as identical
+
+    Returns:
+        unique_centers: Array of shape (n_unique, 3) containing unique coordinates
+        indices: Array containing indices mapping each original coordinate to unique ones
+    """
+  # Reshape to 2D array (n_points, 3)
+  flat_centers = centers.reshape(-1, 3)
+
+  # Round to tolerance to avoid floating point issues
+  rounded = jnp.round(flat_centers / tol) * tol
+
+  # Get unique rows and indices
+  unique_centers, indices = jnp.unique(rounded, axis=0, return_inverse=True)
+
+  return unique_centers, indices
+
+
 def scipy_opt(
-  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
-  key: jax.Array
+  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.Array
 ) -> float:
   energy_fn_jit = jax.jit(lambda mo_coeff: H.energy_fn(mo_coeff, key)[0])
   import jaxopt
@@ -39,8 +64,7 @@ def scipy_opt(
 
 
 def sgd(
-  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params,
-  key: jax.Array
+  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.Array
 ) -> Tuple[RunLogger, Trajectory]:
 
   @jax.jit
@@ -91,6 +115,12 @@ def sgd(
   converged = False
   logger = RunLogger()
   e_total_std = 0.
+
+  # get original atom coords
+  if 'center_flob' in state.params['~']:
+    centers = state.params['~']['center_flob']
+    unique_coords, atom_indices = get_unique_centers_with_indices(centers)
+
   for step in range(solver_cfg.epochs):
 
     if solver_cfg.meta_opt == "none":
@@ -102,6 +132,10 @@ def sgd(
 
     logger.log_step(energies, step, e_total_std)
     logger.get_segment_summary()
+
+    if wandb.run is not None and 'center_flob' in new_state.params['~']:
+      cur_centers = state.params['~']['center_flob']
+      plot_centers_3d(unique_coords, cur_centers, step)
 
     mo_coeff = H.mo_coeff_fn(state.params, state.rng_key, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)
@@ -124,3 +158,69 @@ def sgd(
   logging.info(f"Converged: {converged}")
 
   return logger, traj
+
+
+def plot_centers_3d(unique_coords, cur_centers, step):
+  """Create a 3D scatter plot of original atoms and basis centers using plotly.
+
+    Args:
+        unique_coords: Array of shape (n_atoms, 3) containing atomic positions
+        cur_centers: Array of shape (n_basis, 3) containing basis centers
+        step: Current optimization step
+    """
+  # Convert to numpy for plotting
+  atoms = np.array(unique_coords)
+  basis = np.array(cur_centers)
+
+  # Create the 3D scatter plot
+  fig = go.Figure()
+
+  # Add atoms
+  fig.add_trace(
+    go.Scatter3d(
+      x=atoms[:, 0],
+      y=atoms[:, 1],
+      z=atoms[:, 2],
+      mode='markers',
+      name='Atoms',
+      marker=dict(size=10, color='blue', symbol='circle')
+    )
+  )
+
+  # Add basis centers
+  fig.add_trace(
+    go.Scatter3d(
+      x=basis[:, 0],
+      y=basis[:, 1],
+      z=basis[:, 2],
+      mode='markers',
+      name='Basis Centers',
+      marker=dict(size=6, color='red', symbol='circle')
+    )
+  )
+
+  # Update layout
+  fig.update_layout(
+    title=f'Atom and Basis Centers (Step {step})',
+    scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'),
+    width=800,
+    height=800,
+    showlegend=True
+  )
+
+  # Calculate distances for statistics
+  distances = np.linalg.norm(basis[:, None] - atoms[None], axis=2).min(axis=1)
+
+  # Log to wandb
+  wandb.log(
+    {
+      "centers_plot": wandb.Html(fig.to_html()),
+      "basis_stats":
+        {
+          "max_distance_to_atom": float(distances.max()),
+          "mean_distance_to_atom": float(distances.mean()),
+          "std_distance_to_atom": float(distances.std())
+        },
+      "step": step
+    }
+  )

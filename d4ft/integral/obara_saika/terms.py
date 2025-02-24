@@ -21,7 +21,9 @@ import jax.numpy as jnp
 
 def xi(za, zb):
   """z are exponents. Ref eqn.13."""
-  return za * zb / zeta(za, zb)
+  zeta_val = zeta(za, zb)
+  zeta_safe = jnp.where(jnp.abs(zeta_val) < 1e-10, 1e-10, zeta_val)
+  return za * zb / zeta_safe
 
 
 def zeta(za, zb):
@@ -60,11 +62,18 @@ def K(z1, z2, r1, r2):
 def compute_common_terms(a, b):
   (_, ra, za), (_, rb, zb) = a, b
   assert ra.shape == (3,), "do not pass batch data for this function, use vmap."
+  
+  # Add numerical safeguards
+  zeta_val = zeta(za, zb)
+  zeta_safe = jnp.where(jnp.abs(zeta_val) < 1e-10, 1e-10, zeta_val)
+  
   rp_ = rp(ra, rb, za, zb)
   pa = rp_ - ra
   pb = rp_ - rb
   ab = ra - rb
-  return zeta(za, zb), rp_, pa, pb, ab, xi(za, zb)
+  xi_val = xi(za, zb)
+  
+  return zeta_safe, rp_, pa, pb, ab, xi_val
 
 
 def s_overlap(ra, rb, za, zb):
@@ -76,5 +85,23 @@ def s_overlap(ra, rb, za, zb):
     ra, rb: centers
     za, zb: exponents
   """
-  ab2 = jnp.linalg.norm(ra - rb, ord=2)**2
-  return (jnp.pi / zeta(za, zb))**(3 / 2) * jnp.exp(-xi(za, zb) * ab2)
+  # Add numerical safeguards for the exponents
+  zeta_val = zeta(za, zb)
+  zeta_safe = jnp.where(jnp.abs(zeta_val) < 1e-10, 1e-10, zeta_val)
+  
+  # Compute xi with safeguards
+  xi_val = xi(za, zb)
+  xi_safe = jnp.where(jnp.abs(xi_val) < 1e-10, 1e-10, xi_val)
+  
+  # Compute distance squared with safeguards
+  diff = ra - rb
+  ab2 = jnp.sum(diff * diff)  # More stable than norm for derivatives
+  
+  # Compute prefactor with safeguards
+  prefactor = (jnp.pi / zeta_safe)**(3/2)
+  
+  # Clip the exponent in exp to avoid overflow
+  exp_arg = -xi_safe * ab2
+  exp_arg = jnp.clip(exp_arg, -100, 100)
+  
+  return prefactor * jnp.exp(exp_arg)
