@@ -156,6 +156,9 @@ class Hamiltonian(NamedTuple):
   mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]]
   """Function to get MO coefficient."""
   pgto_fn: Callable
+  """Function to get primitive GTOs"""
+  coeff_fn: Callable
+  """Function to get AO coefficients"""
 
 
 HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]

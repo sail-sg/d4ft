@@ -138,8 +138,9 @@ def sgd(
       step % 100 == 0
     ):
       pgto = H.pgto_fn(state.params, state.rng_key)
+      coeffs = H.coeff_fn(state.params, state.rng_key)
       plot_centers_3d(
-        unique_coords, pgto, step, atom_indices, state.params['~']
+        unique_coords, pgto, coeffs, step, atom_indices, state.params['~']
       )
 
     mo_coeff = H.mo_coeff_fn(state.params, state.rng_key, apply_spin_mask=False)
@@ -165,16 +166,9 @@ def sgd(
   return logger, traj
 
 
-def get_coeffs_from_params(params):
-  """Extract and combine all coefficient values from parameters."""
-  coeffs = []
-  for key in sorted(params.keys()):  # Sort to maintain order
-    if key.startswith('coeff/'):
-      coeffs.append(params[key])
-  return np.array(coeffs) if coeffs else None
-
-
-def plot_centers_3d(unique_coords, pgto, step, atom_indices, params=None):
+def plot_centers_3d(
+  unique_coords, pgto, coeffs, step, atom_indices, params=None
+):
   """Create a 3D scatter plot with PGTO information.
 
     Args:
@@ -192,9 +186,6 @@ def plot_centers_3d(unique_coords, pgto, step, atom_indices, params=None):
   basis = np.array(pgto.center)
   angular = np.array(pgto.angular)
   exponents = np.array(pgto.exponent)
-
-  # Get coefficients if available
-  coeffs = get_coeffs_from_params(params) if params is not None else None
 
   fig = go.Figure()
 
@@ -220,23 +211,17 @@ def plot_centers_3d(unique_coords, pgto, step, atom_indices, params=None):
   )
 
   # Default size based on coefficients if available
-  if coeffs is not None:
-    norm_coeffs = np.abs(coeffs)
-    sizes = 10 + 40 * (norm_coeffs - norm_coeffs.min()) / (
-      norm_coeffs.max() - norm_coeffs.min()
-    )  # Scale sizes
-  else:
-    sizes = np.ones(len(basis)) * 10  # Default size if no coefficients
+  norm_coeffs = np.abs(coeffs)
+  sizes = 10 + 40 * (norm_coeffs - norm_coeffs.min()
+                    ) / (norm_coeffs.max() - norm_coeffs.min())  # Scale sizes
 
   # Create hover text including atom indices
   hover_text = []
-  for i, (ang, l, pos, exp, a_idx) in enumerate(
-    zip(angular, l_values, basis, exponents, atom_indices)
-  ):
+  for i, (l, pos, exp,
+          a_idx) in enumerate(zip(l_values, basis, exponents, atom_indices)):
     text = [
       f"PGTO<br>",
-      f"Angular: ({ang[0]}, {ang[1]}, {ang[2]})<br>",
-      f"L: {l}<br>",
+      f"Total angular: {l}<br>",
       f"Position: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})<br>",
       f"Exponent: {exp:.3f}<br>",
       f"Atom Index: {a_idx}<br>",
@@ -253,7 +238,7 @@ def plot_centers_3d(unique_coords, pgto, step, atom_indices, params=None):
     elif l == 1:  # p orbital
       marker_types.append('diamond')
     elif l == 2:  # d orbital
-      marker_types.append('diamond')
+      marker_types.append('square')
     elif l == 3:  # f orbital
       marker_types.append('cross')
     else:

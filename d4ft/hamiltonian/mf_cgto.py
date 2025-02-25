@@ -85,6 +85,11 @@ def mf_cgto(
   )
   energy_fn_ = compose(energy_fn, mo_coeff_fn)
   hamiltonian = Hamiltonian(
-    cgto_intors_, nuc_fn, energy_fn_, mo_coeff_fn, pgto_fn=lambda: cgto.pgto
+    cgto_intors_,
+    nuc_fn,
+    energy_fn_,
+    mo_coeff_fn,
+    pgto_fn=lambda: cgto.pgto,
+    coeff_fn=lambda: cgto.coeff
   )
   return energy_fn_, hamiltonian

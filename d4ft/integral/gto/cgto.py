@@ -252,7 +252,9 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
   cgto_splits = []
   coeffs = []
 
-  # mol = add_orbital_to_basis(mol, exponents=(1,), coefficients=(1,))
+  # mol = add_orbital_to_basis(
+  #   mol, angular_momentum=2, exponents=(1.,), coefficients=(1.,)
+  # )
 
   # iter atoms
   for i, element in enumerate(mol.elements):
