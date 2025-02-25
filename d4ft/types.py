@@ -155,6 +155,7 @@ class Hamiltonian(NamedTuple):
   """Function to get total energy. Can be used as the loss function."""
   mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]]
   """Function to get MO coefficient."""
+  pgto_fn: Callable
 
 
 HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]

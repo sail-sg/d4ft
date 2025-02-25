@@ -133,9 +133,14 @@ def sgd(
     logger.log_step(energies, step, e_total_std)
     logger.get_segment_summary()
 
-    if wandb.run is not None and 'center_flob' in new_state.params['~']:
-      cur_centers = state.params['~']['center_flob']
-      plot_centers_3d(unique_coords, cur_centers, step)
+    if (
+      wandb.run is not None and 'center_flob' in new_state.params['~'] and
+      step % 100 == 0
+    ):
+      pgto = H.pgto_fn(state.params, state.rng_key)
+      plot_centers_3d(
+        unique_coords, pgto, step, atom_indices, state.params['~']
+      )
 
     mo_coeff = H.mo_coeff_fn(state.params, state.rng_key, apply_spin_mask=False)
     t = Transition(mo_coeff, energies, mo_grads)
@@ -160,19 +165,37 @@ def sgd(
   return logger, traj
 
 
-def plot_centers_3d(unique_coords, cur_centers, step):
-  """Create a 3D scatter plot of original atoms and basis centers using plotly.
+def get_coeffs_from_params(params):
+  """Extract and combine all coefficient values from parameters."""
+  coeffs = []
+  for key in sorted(params.keys()):  # Sort to maintain order
+    if key.startswith('coeff/'):
+      coeffs.append(params[key])
+  return np.array(coeffs) if coeffs else None
+
+
+def plot_centers_3d(unique_coords, pgto, step, atom_indices, params=None):
+  """Create a 3D scatter plot with PGTO information.
 
     Args:
         unique_coords: Array of shape (n_atoms, 3) containing atomic positions
-        cur_centers: Array of shape (n_basis, 3) containing basis centers
+        pgto: PGTO object containing angular, center, and exponent
         step: Current optimization step
+        atom_indices: Array of shape (n_atoms,) containing atom indices
+        params: Optional dictionary of parameters containing coefficients
     """
+  import numpy as np
+  import plotly.graph_objects as go
+
   # Convert to numpy for plotting
   atoms = np.array(unique_coords)
-  basis = np.array(cur_centers)
+  basis = np.array(pgto.center)
+  angular = np.array(pgto.angular)
+  exponents = np.array(pgto.exponent)
 
-  # Create the 3D scatter plot
+  # Get coefficients if available
+  coeffs = get_coeffs_from_params(params) if params is not None else None
+
   fig = go.Figure()
 
   # Add atoms
@@ -183,9 +206,58 @@ def plot_centers_3d(unique_coords, cur_centers, step):
       z=atoms[:, 2],
       mode='markers',
       name='Atoms',
-      marker=dict(size=10, color='blue', symbol='circle')
+      marker=dict(size=15, color='black', symbol='circle')
     )
   )
+
+  # Calculate derived quantities
+  l_values = np.sum(angular, axis=1)
+
+  # Create color values combining exponents
+  log_exponents = np.log10(exponents)
+  norm_exponents = (log_exponents - log_exponents.min()) / (
+    log_exponents.max() - log_exponents.min()
+  )
+
+  # Default size based on coefficients if available
+  if coeffs is not None:
+    norm_coeffs = np.abs(coeffs)
+    sizes = 10 + 40 * (norm_coeffs - norm_coeffs.min()) / (
+      norm_coeffs.max() - norm_coeffs.min()
+    )  # Scale sizes
+  else:
+    sizes = np.ones(len(basis)) * 10  # Default size if no coefficients
+
+  # Create hover text including atom indices
+  hover_text = []
+  for i, (ang, l, pos, exp, a_idx) in enumerate(
+    zip(angular, l_values, basis, exponents, atom_indices)
+  ):
+    text = [
+      f"PGTO<br>",
+      f"Angular: ({ang[0]}, {ang[1]}, {ang[2]})<br>",
+      f"L: {l}<br>",
+      f"Position: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})<br>",
+      f"Exponent: {exp:.3f}<br>",
+      f"Atom Index: {a_idx}<br>",
+    ]
+    if coeffs is not None:
+      text.append(f"Coefficient: {coeffs[i]:.3f}")
+    hover_text.append("".join(text))
+
+  # Define marker types based on angular momentum
+  marker_types = []
+  for l in l_values:
+    if l == 0:  # s orbital
+      marker_types.append('circle')
+    elif l == 1:  # p orbital
+      marker_types.append('diamond')
+    elif l == 2:  # d orbital
+      marker_types.append('diamond')
+    elif l == 3:  # f orbital
+      marker_types.append('cross')
+    else:
+      marker_types.append('circle')  # Default to circle for unknown types
 
   # Add basis centers
   fig.add_trace(
@@ -195,32 +267,61 @@ def plot_centers_3d(unique_coords, cur_centers, step):
       z=basis[:, 2],
       mode='markers',
       name='Basis Centers',
-      marker=dict(size=6, color='red', symbol='circle')
+      marker=dict(
+        size=sizes.tolist(),  # Use sizes based on coefficients
+        color=norm_exponents.tolist(),
+        colorscale='Viridis',
+        colorbar=dict(title='log10(Exponent)'),
+        symbol=marker_types  # Use the defined marker types
+      ),
+      text=hover_text,
+      hovertemplate="%{text}"
     )
   )
 
   # Update layout
   fig.update_layout(
-    title=f'Atom and Basis Centers (Step {step})',
-    scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'),
+    title=f'Atom and Basis Centers (Step {step})<br>Color: Exponent, Size: Coefficient',
+    scene=dict(
+      xaxis_title='X',
+      yaxis_title='Y',
+      zaxis_title='Z',
+      bgcolor='rgb(240,240,240)'
+    ),
     width=800,
     height=800,
     showlegend=True
   )
 
-  # Calculate distances for statistics
-  distances = np.linalg.norm(basis[:, None] - atoms[None], axis=2).min(axis=1)
+  # Prepare statistics
+  stats = {
+    "max_distance_to_atom":
+      float(
+        np.linalg.norm(basis[:, None] - atoms[None], axis=2).min(axis=1).max()
+      ),
+    "max_angular":
+      int(l_values.max()),
+    "mean_exponent":
+      float(exponents.mean()),
+    "angular_distribution":
+      wandb.Histogram(l_values),
+    "exponent_distribution":
+      wandb.Histogram(log_exponents),
+  }
+
+  if coeffs is not None:
+    stats.update(
+      {
+        "mean_coeff": float(coeffs.mean()),
+        "coeff_distribution": wandb.Histogram(coeffs)
+      }
+    )
 
   # Log to wandb
   wandb.log(
     {
       "centers_plot": wandb.Html(fig.to_html()),
-      "basis_stats":
-        {
-          "max_distance_to_atom": float(distances.max()),
-          "mean_distance_to_atom": float(distances.mean()),
-          "std_distance_to_atom": float(distances.std())
-        },
+      "basis_stats": stats,
       "step": step
     }
   )

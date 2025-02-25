@@ -51,7 +51,6 @@ def mf_cgto(
   that computes the total energy with logging.
   """
 
-
   def nuc_fn() -> Float[Array, ""]:
     return e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
 
@@ -85,5 +84,7 @@ def mf_cgto(
     *[compose(e_fn, mo_coeff_fn) for e_fn in cgto_intors]
   )
   energy_fn_ = compose(energy_fn, mo_coeff_fn)
-  hamiltonian = Hamiltonian(cgto_intors_, nuc_fn, energy_fn_, mo_coeff_fn)
+  hamiltonian = Hamiltonian(
+    cgto_intors_, nuc_fn, energy_fn_, mo_coeff_fn, pgto_fn=lambda: cgto.pgto
+  )
   return energy_fn_, hamiltonian
