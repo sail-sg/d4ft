@@ -204,10 +204,11 @@ class D4FTConfig(ConfigDict):
         "RESTRICTED only supports closed-shell molecules"
 
   def get_run_name(self) -> str:
+    basis = self.sys_cfg.basis
     if self.name == "":
-      run_name = f"{self.uuid}"
+      run_name = f"{basis}-{self.uuid}"
     else:
-      run_name = f"{self.name}-{self.uuid}"
+      run_name = f"{basis}-{self.name}-{self.uuid}"
     return run_name
 
   def get_save_dir(self) -> Path:
