@@ -99,6 +99,10 @@ class MoleculeConfig:
   """charge multiplicity"""
   geometry_source: Literal["cccdbd", "refdata", "pubchem"] = "cccdbd"
   """where to query the geometry from."""
+  add_basis: str = ""
+  """when flob is enable, add additional PGTO to the basis set with initial
+  contraction coefficients 1 and exponents 1. Format is comma separated list of
+  {angular}:{n_pgto}. Example: 's:1,p:2' means add 1 s and 2 p functions."""
 
 
 @dataclass(config=pydantic_config)

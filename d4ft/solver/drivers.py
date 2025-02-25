@@ -16,10 +16,11 @@
 
 import pickle
 from functools import partial
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Sequence, Tuple
 
 import haiku as hk
 import jax
+import jax.numpy as jnp
 import numpy as np
 import pyscf
 from absl import logging
@@ -30,6 +31,7 @@ from d4ft.hamiltonian.mf_cgto import mf_cgto
 from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
+from d4ft.integral.gto.utils import Shell
 from d4ft.integral.obara_saika.driver import get_cgto_sym_tensor_fns
 from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
@@ -39,6 +41,35 @@ from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import Hamiltonian
 from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
+
+
+def add_orbital_to_basis(
+  mol: Mol,
+  angular_momentum: int = 2,  # d-orbital by default
+  exponents: Sequence[float] = (2.0, 0.5, 0.1),
+  coefficients: Sequence[float] = (1.0, 1.0, 1.0)
+) -> Mol:
+  """Add an orbital of specified angular momentum to each atom's basis set."""
+  # Create new basis with additional orbitals
+  new_basis = {}
+  for element, basis in mol.basis.items():
+    new_basis[element] = list(basis)
+    new_basis[element].append(
+      [angular_momentum] + [[e, c] for e, c in zip(exponents, coefficients)]
+    )
+
+  # Calculate new number of basis functions
+  old_nao = mol.nocc.shape[1]  # original number of AOs
+  additional_funcs = (2 * angular_momentum +
+                      1) * len(mol.elements)  # number of new basis functions
+  new_nao = old_nao + additional_funcs
+
+  # Create new occupation array with zeros for new orbitals
+  new_nocc = jnp.zeros((2, new_nao))  # (2 spins, new_nao)
+  new_nocc = new_nocc.at[:, :old_nao].set(mol.nocc)  # copy old occupations
+
+  # Create new molecule with modified basis and occupations
+  return mol._replace(basis=new_basis, nocc=new_nocc)
 
 
 def build_mf_cgto(cfg: D4FTConfig):
@@ -51,6 +82,16 @@ def build_mf_cgto(cfg: D4FTConfig):
   )
   mol = Mol.from_pyscf_mol(pyscf_mol)
   cfg.validate(mol.spin, mol.charge)
+
+  if cfg.sys_cfg.add_basis != "":
+    for new_pgto in cfg.sys_cfg.add_basis.split(","):
+      shell, n = new_pgto.split(":")
+      l = Shell[shell].value
+      n = int(n)
+      mol = add_orbital_to_basis(
+        mol, angular_momentum=l, exponents=(1.,) * n, coefficients=(1.,) * n
+      )
+
   cgto = CGTO.from_mol(mol)
 
   # TODO: intor.split() for pmap / batched
