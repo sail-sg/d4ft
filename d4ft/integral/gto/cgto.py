@@ -53,21 +53,32 @@ def gaussian_integral(
   n: Int[Array, "*batch"],
   alpha: Float[Array, "*batch"],
 ) -> Float[Array, "*batch"]:
-  r"""Evaluate gaussian integral using the gamma function.
+  """Evaluate Gaussian integral with stabilized differentiation."""
+  np1_half = 0.5 * (n + 1)
+  return 0.5 * jnp.exp(
+    jax.scipy.special.gammaln(np1_half) - np1_half * jnp.log(alpha)
+  )
 
-  .. math::
-    \int_0^\infty x^n \exp(-\alpha x^2) dx
-    = \frac{\Gamma((n+1)/2)}{2 \alpha^{(n+1)/2}}
 
-  Args:
-    n: power of x
-    alpha: exponent
+# def gaussian_integral(
+#   n: Int[Array, "*batch"],
+#   alpha: Float[Array, "*batch"],
+# ) -> Float[Array, "*batch"]:
+#   r"""Evaluate gaussian integral using the gamma function.
 
-  Ref:
-  https://en.wikipedia.org/wiki/Gaussian_integral#Relation_to_the_gamma_function
-  """
-  np1_half = (n + 1) * .5
-  return jax.scipy.special.gamma(np1_half) / (2. * alpha**np1_half)
+#   .. math::
+#     \int_0^\infty x^n \exp(-\alpha x^2) dx
+#     = \frac{\Gamma((n+1)/2)}{2 \alpha^{(n+1)/2}}
+
+#   Args:
+#     n: power of x
+#     alpha: exponent
+
+#   Ref:
+#   https://en.wikipedia.org/wiki/Gaussian_integral#Relation_to_the_gamma_function
+#   """
+#   np1_half = (n + 1) * .5
+#   return jax.scipy.special.gamma(np1_half) / (2. * alpha**np1_half)
 
 
 def pgto_norm_inv(

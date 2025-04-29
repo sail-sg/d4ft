@@ -26,6 +26,8 @@ def e_nuclear(center: Float[Array, "n_atoms 3"],
               charge: Int[Array, "n_atoms"]) -> Float[Array, ""]:
   """Potential energy between atomic nuclears."""
   dist_nuc = jnp.linalg.norm(center - center[:, None], axis=-1)
+  # Use a larger epsilon to prevent numerical instability
+  safe_dist = jnp.maximum(dist_nuc, 1e-5)  # Set minimum distance threshold
   charge_outer = jnp.outer(charge, charge)
   charge_outer = set_diag_zero(charge_outer)
-  return 0.5 * jnp.sum(charge_outer / (dist_nuc + 1e-15))
+  return 0.5 * jnp.sum(charge_outer / safe_dist)

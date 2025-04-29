@@ -63,6 +63,7 @@ def get_rxn_energy(rxn: str, benchmark: str, df: pd.DataFrame) -> float:
 def main(_: Any) -> None:
   jax.config.update("jax_enable_x64", FLAGS.use_f64)
   jax.config.update("jax_debug_nans", FLAGS.debug_nans)
+  jax.config.update("jax_disable_jit", FLAGS.debug_nans)
 
   cfg: D4FTConfig = FLAGS.config
   print(cfg)
