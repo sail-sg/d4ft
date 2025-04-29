@@ -25,6 +25,7 @@ from absl import logging
 
 import wandb
 from d4ft.config import GDConfig
+from d4ft.constants import ANGSTRONG_TO_BOHR
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
 from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
@@ -134,8 +135,15 @@ def sgd(
     logger.get_segment_summary()
 
     if (
+      wandb.run is not None and 'center' in new_state.params['~'] and
+      step % 2 == 0
+    ):
+      atom_coords_angstrong = new_state.params['~']['center'] / ANGSTRONG_TO_BOHR
+      plot_atoms_3d(atom_coords_angstrong, step)
+
+    if (
       wandb.run is not None and 'center_flob' in new_state.params['~'] and
-      step % 100 == 0
+      step % 2 == 0
     ):
       pgto = H.pgto_fn(state.params, state.rng_key)
       coeffs = H.coeff_fn(state.params, state.rng_key)
@@ -310,3 +318,45 @@ def plot_centers_3d(
       "step": step
     }
   )
+
+
+def plot_atoms_3d(atom_coords, step):
+  """
+    Simple 3D scatter plot of atom coordinates.
+
+    Args:
+        atom_coords: Array-like of shape (n_atoms, 3) with atomic positions.
+        step: Current optimization step (for plot title).
+    """
+  import numpy as np
+  import plotly.graph_objects as go
+
+  atoms = np.array(atom_coords)
+
+  fig = go.Figure(
+    data=[
+      go.Scatter3d(
+        x=atoms[:, 0],
+        y=atoms[:, 1],
+        z=atoms[:, 2],
+        mode='markers',
+        marker=dict(size=10, color='blue'),
+        name='Atoms'
+      )
+    ]
+  )
+
+  fig.update_layout(
+    title=f'Atomic Coordinates (Step {step})',
+    scene=dict(
+      xaxis_title='X',
+      yaxis_title='Y',
+      zaxis_title='Z',
+      bgcolor='rgb(240,240,240)'
+    ),
+    width=600,
+    height=600,
+    showlegend=True
+  )
+
+  fig.show()
