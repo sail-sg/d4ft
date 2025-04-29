@@ -38,8 +38,9 @@ def BoysIgamma(m, T):
   Ref..
   https://www.wolframalpha.com/input?key=&i=int+t%5E%282*m%29*exp%28-T*t%5E2%29+dt+from+0+to+1
   """
+  # Use a more robust threshold for T
   if not jax.config.jax_enable_x64:
-    pred = (T < 1e-7)
+    pred = (T < 1e-10)
   else:
     pred = (T < 1e-20)
 
@@ -47,10 +48,22 @@ def BoysIgamma(m, T):
     return 1 / (2 * m + 1)
 
   def T_is_not_zero():
-    return (
-      1 / 2 * T**(-m - 1 / 2) * jnp.exp(lax.lgamma(m + 1 / 2)) *
-      lax.igamma(m + 1 / 2, T)
-    )
+    # Add numerical stability
+    T_safe = jnp.maximum(T, 1e-20)
+    m_plus_half = m + 0.5
+    log_T = jnp.log(T_safe)
+    log_gamma = lax.lgamma(m_plus_half)
+    log_igamma = jnp.log(lax.igamma(m_plus_half, T_safe))
+    
+    # Compute in log space for numerical stability
+    log_result = -m_plus_half * log_T + log_gamma + log_igamma - jnp.log(2)
+    result = jnp.exp(log_result)
+    
+    # Check for NaN or Inf
+    result = jnp.where(jnp.isnan(result) | jnp.isinf(result), 
+                      1 / (2 * m + 1),  # Fallback to T=0 case
+                      result)
+    return result
 
   return lax.cond(pred, T_is_zero, T_is_not_zero)
 
