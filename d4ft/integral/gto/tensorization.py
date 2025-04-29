@@ -49,8 +49,9 @@ def tensorize_2c_cgto(f: Callable, static_args, cgto: bool = True):
     ab_idx, counts_ab = ab_idx_counts[:, :2], ab_idx_counts[:, 2]
     pgtos_ab, coeffs_ab = zip(
       *[
-        cgto.map_pgto_params(lambda pgto_param, i=i: pgto_param[ab_idx[:, i]])
-        for i in range(2)
+        cgto.map_pgto_params(
+          lambda pgto_param, i=i: jnp.asarray(pgto_param)[ab_idx[:, i]]
+        ) for i in range(2)
       ]
     )
     N_ab = Ns[ab_idx].prod(-1) * counts_ab
@@ -90,8 +91,9 @@ def tensorize_4c_cgto(f: Callable, static_args, cgto: bool = True):
     abcd_idx = idx_counts[:, :4]
     gtos_abcd, coeffs_abcd = zip(
       *[
-        gtos.map_pgto_params(lambda gto_param, i=i: gto_param[abcd_idx[:, i]])
-        for i in range(4)
+        gtos.map_pgto_params(
+          lambda gto_param, i=i: jnp.asarray(gto_param)[abcd_idx[:, i]]
+        ) for i in range(4)
       ]
     )
     t_abcd = vmap_f(*gtos_abcd)
