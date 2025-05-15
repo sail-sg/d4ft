@@ -14,3 +14,5 @@ docs/_build/
 *profiler*
 /compile_commands.json
 *.whl
+/wandb/
+/_exp/

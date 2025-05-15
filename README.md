@@ -280,3 +280,14 @@ sphinx-autobuild --watch d4ft docs docs/_build/html
 
 The `conf.py` has been setup to support markdown, so we can mix `rst` and `md` files in this project. For example, a `test.md` file is created at `docs/math/test.md`, and it is added to `docs/math/index.rst`.
 
+
+
+``` shell
+cd /home/aiops/shizk/workspace/d4ft_devsg; eval "$(micromamba shell hook --shell zsh)"; micromamba activate; wandb login 20d729129686c9a3f766d60185d416b0acb7cef8; ./setup.sh
+
+./scripts/basis_optim.sh --config.name bod1 --config.sys_cfg.mol bh76-bh76_n2 --config.sys_cfg.geometry_source refdata --config.sys_cfg.add_basis d:1
+./scripts/basis_optim.sh --config.name bo --config.sys_cfg.mol bh76-bh76_n2 --config.sys_cfg.geometry_source refdata 
+./scripts/baseline.sh --config.sys_cfg.basis cc-PVDZ
+
+./scripts/geo_opt.sh --config.sys_cfg.mol o2_stretch
+```
