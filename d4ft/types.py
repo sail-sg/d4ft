@@ -139,9 +139,9 @@ class CGTOIntors(NamedTuple):
   """Maps mo_coeff to external (nuclear attraction) energy."""
   har_fn: MoCoeffScalarFn
   """Maps mo_coeff to hartree energy."""
-  xc_fn: MoCoeffScalarFn
-  """Maps mo_coeff to exact exchange energy, or the XC functional if
-  doing KS-DFT."""
+  # xc_fn: MoCoeffScalarFn
+  # """Maps mo_coeff to exact exchange energy, or the XC functional if
+  # doing KS-DFT."""
 
 
 # TODO: consider PBC / plane wave

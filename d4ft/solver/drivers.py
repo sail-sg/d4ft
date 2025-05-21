@@ -113,10 +113,10 @@ def build_mf_cgto(cfg: D4FTConfig):
     grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
   )
 
-  if cfg.intor_cfg.incore:
-    cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
-  else:
-    cgto_fock_fn = None
+  # if cfg.intor_cfg.incore:
+  #   cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
+  # else:
+  #   cgto_fock_fn = None
 
   def H_factory(with_mo_coeff: bool = True) -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
@@ -125,28 +125,30 @@ def build_mf_cgto(cfg: D4FTConfig):
       cgto_hk = cgto.to_hk(optimizable_params)
     else:
       cgto_hk = cgto
-    if cfg.intor_cfg.incore:
-      cgto_intor = get_cgto_intor(
-        cgto_hk,
-        cgto_e_tensors=cgto_e_tensors,
-        intor=cfg.intor_cfg.intor,
-      )
-    else:
-      cgto_intor = get_cgto_intor(
-        cgto_hk,
-        cgto_tensor_fns=cgto_tensor_fns,
-        intor=cfg.intor_cfg.intor,
-      )
+    # if cfg.intor_cfg.incore:
+    #   cgto_intor = get_cgto_intor(
+    #     cgto_hk,
+    #     cgto_e_tensors=cgto_e_tensors,
+    #     intor=cfg.intor_cfg.intor,
+    #   )
+    # else:
+    #   cgto_intor = get_cgto_intor(
+    #     cgto_hk,
+    #     cgto_tensor_fns=cgto_tensor_fns,
+    #     intor=cfg.intor_cfg.intor,
+    #   )
     if with_mo_coeff:
       mo_coeff_fn = partial(
         cgto_hk.get_mo_coeff,
         restricted=cfg.method_cfg.restricted,
         ortho_fn=qr_factor,
-        ovlp_sqrt_inv=sqrt_inv(cgto_intor.ovlp_fn()),
+        # ovlp_sqrt_inv=sqrt_inv(cgto_intor.ovlp_fn()),
       )
     else:
       mo_coeff_fn = None
+    xc_fn = None
     vxc_fn = None
+
     if cfg.method_cfg.name == "KS":
       polarized = not cfg.method_cfg.restricted
       xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
@@ -155,7 +157,7 @@ def build_mf_cgto(cfg: D4FTConfig):
       # treutler_atomic_radii_adjust is not differentiable yet
       # grids_and_weights = dg.build(cgto_hk.atom_coords)
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
-      cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
+      # cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
 
       # TODO: figure out the correct loss for vxc
       # vxc_ab_fn = get_lda_vxc(
@@ -163,9 +165,10 @@ def build_mf_cgto(cfg: D4FTConfig):
       # )
       # vxc_fn = get_vxc_intor(vxc_ab_fn)
 
-    return mf_cgto(cgto_hk, cgto_intor, mo_coeff_fn, vxc_fn=vxc_fn)
+    return mf_cgto(cgto_hk, cgto_tensor_fns, mo_coeff_fn, xc_fn, vxc_fn=vxc_fn)
 
-  return pyscf_mol, H_factory, cgto, cgto_fock_fn
+  # return pyscf_mol, H_factory, cgto, cgto_fock_fn
+  return pyscf_mol, H_factory, cgto, None
 
 
 def incore_cgto_scf(

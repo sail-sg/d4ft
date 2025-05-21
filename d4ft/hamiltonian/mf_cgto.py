@@ -18,6 +18,8 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
 
+from d4ft.hamiltonian.ortho import sqrt_inv
+from d4ft.hamiltonian.cgto_intors import get_cgto_intor
 from d4ft.hamiltonian.nuclear import e_nuclear
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import (
@@ -31,10 +33,15 @@ from d4ft.types import (
 from d4ft.utils import compose
 
 
+# TODO: add more API to H
+# 1. params -> cgto_tensor_fns -> cgto_e_tensors
+# 2. params,  -> e_fn -> cgto_e_tensors
 def mf_cgto(
   cgto: CGTO,
-  cgto_intors: CGTOIntors,
-  mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]] = None,
+  cgto_tensor_fns: Callable,
+  # cgto_intors: CGTOIntors,
+  mo_coeff_fn: Callable[[], MoCoeffFlat],
+  xc_fn: Optional[Callable] = None,
   vxc_fn: Optional[Callable] = None,
   ret_mo_grads: bool = False,
 ) -> Tuple[Callable, Hamiltonian]:
@@ -54,18 +61,23 @@ def mf_cgto(
   def nuc_fn() -> Float[Array, ""]:
     return e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
 
-  def energy_fn(mo_coeff: MoCoeffFlat) -> Tuple[Float[Array, ""], Aux]:
-    if ret_mo_grads:
-      val_and_grads = [
-        jax.value_and_grad(e_fn)(mo_coeff) for e_fn in cgto_intors
-      ]
-      mo_energies, mo_grads = zip(*val_and_grads)
-      grads = Grads(*mo_grads)
-    else:
-      # NOTE: first intor is the ovlp
-      mo_energies = [e_fn(mo_coeff) for e_fn in cgto_intors[1:]]
-      grads = None
-    e_kin, e_ext, e_har, e_xc = mo_energies
+  def energy_fn(
+    cgto_e_tensors: Optional[CGTOSymTensorIncore] = None
+  ) -> Tuple[Float[Array, ""], Aux]:
+    """
+    if cgto_e_tensors is not None, perform incore calculation, i.e.
+    use precomputed 2c/4c integrals
+    """
+    if cgto_e_tensors is not None: # incore
+      cgto_intor = get_cgto_intor(cgto, cgto_e_tensors=cgto_e_tensors)
+    else: # on-the-fly
+      cgto_intor = get_cgto_intor(cgto, cgto_tensor_fns=cgto_tensor_fns)
+
+    mo_coeff = mo_coeff_fn(ovlp_sqrt_inv=sqrt_inv(cgto_intor.ovlp_fn()))
+    mo_energies = [e_fn(mo_coeff) for e_fn in cgto_intors[1:]]
+    grads = None
+    e_kin, e_ext, e_har = mo_energies
+    e_xc = xc_fn(mo_coeff)
 
     e_nuc = nuc_fn()
     e_total = sum(mo_energies) + e_nuc
@@ -80,9 +92,9 @@ def mf_cgto(
   if mo_coeff_fn is None:
     return energy_fn, Hamiltonian(cgto_intors, nuc_fn, energy_fn, mo_coeff_fn)
 
-  cgto_intors_ = CGTOIntors(
-    *[compose(e_fn, mo_coeff_fn) for e_fn in cgto_intors]
-  )
+  # cgto_intors_ = CGTOIntors(
+  #   *[compose(e_fn, mo_coeff_fn) for e_fn in cgto_intors]
+  # )
   energy_fn_ = compose(energy_fn, mo_coeff_fn)
   hamiltonian = Hamiltonian(
     cgto_intors_,
