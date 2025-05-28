@@ -16,7 +16,6 @@
 2. on the fly
 """
 from functools import partial
-from typing import Callable, NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -26,28 +25,13 @@ from tqdm import tqdm
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto import symmetry, tensorization
 from d4ft.integral.gto.cgto import CGTO
-from d4ft.types import AngularStats, CGTOSymTensorIncore, Tensor2C, Tensor4C
-
-
-class CGTOSymTensorFns(NamedTuple):
-  """Functions that maps CGTO to symmetry reduced ovlp, kin, ext and eri
-  tensor."""
-  ovlp_ab_fn: Callable[[CGTO], Tensor2C]
-  """Maps CGTO to overlap tensor."""
-  kin_ab_fn: Callable[[CGTO], Tensor2C]
-  """Maps CGTO to kinetic tensor."""
-  ext_ab_fn: Callable[[CGTO], Tensor2C]
-  """Maps CGTO to external tensor."""
-  eri_abcd_fn: Callable[[CGTO], Tensor4C]
-  """Maps CGTO to eri tensor."""
-
-  def get_incore_tensors(self, cgto: CGTO) -> CGTOSymTensorIncore:
-    return CGTOSymTensorIncore(
-      ovlp_ab=self.ovlp_ab_fn(cgto),
-      kin_ab=self.kin_ab_fn(cgto),
-      ext_ab=self.ext_ab_fn(cgto),
-      eri_abcd=self.eri_abcd_fn(cgto),
-    )
+from d4ft.types import (
+  AngularStats,
+  CGTOSymTensorFns,
+  CGTOSymTensorIncore,
+  Tensor2C,
+  Tensor4C,
+)
 
 
 def get_cgto_sym_tensor_fns(

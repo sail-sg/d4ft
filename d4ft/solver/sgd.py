@@ -24,11 +24,17 @@ import plotly.graph_objects as go
 from absl import logging
 
 import wandb
-from d4ft.config import GDConfig
+from d4ft.config import D4FTConfig, GDConfig
 from d4ft.constants import ANGSTRONG_TO_BOHR
+from d4ft.hamiltonian.ortho import sqrt_inv
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
-from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
+from d4ft.types import (
+  Hamiltonian,
+  TrainingState,
+  Trajectory,
+  Transition,
+)
 
 
 def get_unique_centers_with_indices(centers, tol=1e-8):
@@ -64,15 +70,24 @@ def scipy_opt(
   return res
 
 
-def sgd(
-  solver_cfg: GDConfig, H: Hamiltonian, params: hk.Params, key: jax.Array
-) -> Tuple[RunLogger, Trajectory]:
+def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
+        key: jax.Array) -> Tuple[RunLogger, Trajectory]:
+  solver_cfg = cfg.solver_cfg
+
+  if cfg.intor_cfg.incore:
+    cgto_e_tensors = H.e_tensor_fn(params, key)
+  else:
+    cgto_e_tensors = None
+
+  def loss_fn(params, rng_key) -> float:
+    return H.energy_fn(params, rng_key, cgto_e_tensors)
 
   @jax.jit
   def update(state: TrainingState) -> Tuple:
     """update parameter, and accumulate gradients"""
     rng_key, next_rng_key = jax.random.split(state.rng_key)
-    val_and_grads_fn = jax.value_and_grad(H.energy_fn, has_aux=True)
+    # val_and_grads_fn = jax.value_and_grad(H.energy_fn, has_aux=True)
+    val_and_grads_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, aux), grad = val_and_grads_fn(state.params, rng_key)
     energies, mo_grads = aux
     updates, opt_state = optimizer.update(grad, state.opt_state, state.params)
@@ -127,14 +142,18 @@ def sgd(
     if solver_cfg.meta_opt == "none":
       loss, new_state, energies, mo_grads, grad = update(state)
 
-      # HACK: manual SGD
-      new_state.params['~']['center'] = state.params['~']['center'] - 1e-2 * grad['~']['center']
-      # calculate bond length
-      bond_length = jnp.linalg.norm(new_state.params['~']['center'][0] - new_state.params['~']['center'][1])
-      bond_length_angstrong = bond_length / ANGSTRONG_TO_BOHR
-      logging.info(f"{new_state.params['~']['center']=}")
-      logging.info(f"{bond_length_angstrong=}")
-      logging.info(f"{loss=}")
+      # # HACK: manual SGD
+      # new_state.params['~'][
+      #   'center'] = state.params['~']['center'] - 1e-2 * grad['~']['center']
+      # # calculate bond length
+      # bond_length = jnp.linalg.norm(
+      #   new_state.params['~']['center'][0] - new_state.params['~']['center'][1]
+      # )
+      # bond_length_angstrong = bond_length / ANGSTRONG_TO_BOHR
+      # logging.info(f"{new_state.params['~']['center']=}")
+      # logging.info(f"{bond_length_angstrong=}")
+      # logging.info(f"{loss=}")
+
     else:
       meta_state, new_state, energies, mo_grads = meta_step(state, meta_state)
       logging.info(f"cur lr: {jax.nn.sigmoid(meta_state.params):.4f}")
@@ -159,9 +178,15 @@ def sgd(
         unique_coords, pgto, coeffs, step, atom_indices, state.params['~']
       )
 
-    mo_coeff = H.mo_coeff_fn(state.params, state.rng_key, apply_spin_mask=False)
-    t = Transition(mo_coeff, energies, mo_grads)
+    # ovlp = H.cgto_intors.ovlp_fn(state.params, state.rng_key, cgto_e_tensors)
+    # mo_coeff = H.mo_coeff_fn(
+    #   state.params,
+    #   state.rng_key,
+    #   apply_spin_mask=False,
+    #   ovlp_sqrt_inv=sqrt_inv(ovlp)
+    # )
 
+    t = Transition(None, energies, None)
     traj.append(t)
 
     state = new_state
@@ -314,7 +339,7 @@ def plot_centers_3d(
     stats.update(
       {
         "mean_coeff": float(coeffs.mean()),
-        "coeff_distribution": wandb.Histogram(coeffs )
+        "coeff_distribution": wandb.Histogram(coeffs)
       }
     )
 

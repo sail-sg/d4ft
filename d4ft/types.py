@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, List, NamedTuple, Optional, Tuple, Union
+from typing import Callable, List, NamedTuple, Optional, Tuple, Union, TYPE_CHECKING
 
 import haiku as hk
 import jax
@@ -20,6 +20,9 @@ import numpy as np
 import optax
 from jaxtyping import Array, Float, Int
 from typing_extensions import TypeAlias
+
+if TYPE_CHECKING:
+    from d4ft.integral.gto.cgto import CGTO
 
 NPArray = Union[np.ndarray, Array]
 
@@ -56,7 +59,7 @@ Tensor4C: TypeAlias = Float[Array, "#abcd"]
 
 
 class CGTOSymTensorIncore(NamedTuple):
-  """symmetry reduced ovlp, kin, ext and eri tensor, stored incore"""
+  """symmetry reduced ovlp, kin, ext and eri tensor"""
   ovlp_ab: Tensor2C
   kin_ab: Tensor2C
   ext_ab: Tensor2C
@@ -129,19 +132,18 @@ so it takes no argument."""
 
 
 class CGTOIntors(NamedTuple):
-  """mean-field level intor for kinetic, external and electronic
-  repulsion (eri)."""
+  """Mean-field level intor for kinetic, external and electronic
+  repulsion (eri). All function requires incore tensor as input."""
   ovlp_fn: Callable
-  """Maps mo_coeff to overlap matrix."""
-  kin_fn: MoCoeffScalarFn
-  """Maps mo_coeff to kinetic energy."""
-  ext_fn: MoCoeffScalarFn
-  """Maps mo_coeff to external (nuclear attraction) energy."""
-  har_fn: MoCoeffScalarFn
-  """Maps mo_coeff to hartree energy."""
-  # xc_fn: MoCoeffScalarFn
-  # """Maps mo_coeff to exact exchange energy, or the XC functional if
-  # doing KS-DFT."""
+  """get overlap matrix."""
+  kin_fn: Callable
+  """mo_coeff to kinetic energy."""
+  ext_fn: Callable
+  """mo_coeff to external (nuclear attraction) energy."""
+  har_fn: Callable
+  """mo_coeff to hartree energy."""
+  exc_fn: Callable
+  """mo_coeff to exact exchange energy."""
 
 
 # TODO: consider PBC / plane wave
@@ -159,6 +161,8 @@ class Hamiltonian(NamedTuple):
   """Function to get primitive GTOs"""
   coeff_fn: Callable
   """Function to get AO coefficients"""
+  e_tensor_fn: Callable
+  """Function to get CGTO energy tensors, i.e. the 2c/4c integrals."""
 
 
 HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]
@@ -168,3 +172,24 @@ class TrainingState(NamedTuple):
   params: hk.Params
   opt_state: optax.OptState
   rng_key: jax.Array
+
+
+class CGTOSymTensorFns(NamedTuple):
+  """Functions that maps CGTO to symmetry reduced ovlp, kin, ext and eri
+  tensor."""
+  ovlp_ab_fn: Callable[["CGTO"], Tensor2C]
+  """Maps CGTO to overlap tensor."""
+  kin_ab_fn: Callable[["CGTO"], Tensor2C]
+  """Maps CGTO to kinetic tensor."""
+  ext_ab_fn: Callable[["CGTO"], Tensor2C]
+  """Maps CGTO to external tensor."""
+  eri_abcd_fn: Callable[["CGTO"], Tensor4C]
+  """Maps CGTO to eri tensor."""
+
+  def get_incore_tensors(self, cgto: "CGTO") -> CGTOSymTensorIncore:
+    return CGTOSymTensorIncore(
+      ovlp_ab=self.ovlp_ab_fn(cgto),
+      kin_ab=self.kin_ab_fn(cgto),
+      ext_ab=self.ext_ab_fn(cgto),
+      eri_abcd=self.eri_abcd_fn(cgto),
+    )

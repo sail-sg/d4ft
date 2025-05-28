@@ -26,9 +26,8 @@ import pyscf
 from absl import logging
 
 from d4ft.config import D4FTConfig
-from d4ft.hamiltonian.cgto_intors import get_cgto_fock_fn, get_cgto_intor
 from d4ft.hamiltonian.mf_cgto import mf_cgto
-from d4ft.hamiltonian.ortho import qr_factor, sqrt_inv
+from d4ft.hamiltonian.ortho import qr_factor
 from d4ft.integral import obara_saika as obsa
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.integral.gto.utils import Shell
@@ -40,7 +39,7 @@ from d4ft.solver.scf import scf
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
 from d4ft.types import Hamiltonian
-from d4ft.xc import get_lda_vxc, get_xc_functional, get_xc_intor
+from d4ft.xc import get_xc_functional, get_xc_intor
 
 
 def add_orbital_to_basis(
@@ -99,6 +98,7 @@ def build_mf_cgto(cfg: D4FTConfig):
   s4 = obsa.angular_static_args(*[cgto.pgto.angular] * 4)
   cgto_tensor_fns = get_cgto_sym_tensor_fns(cgto, s2, s4)
 
+  # dg = DifferentiableGrids(pyscf_mol)
   if cfg.method_cfg.name == "KS":
     dg = DifferentiableGrids(pyscf_mol)
     dg.level = cfg.intor_cfg.quad_level
@@ -106,48 +106,19 @@ def build_mf_cgto(cfg: D4FTConfig):
   else:
     grids_and_weights = None
 
-  if cfg.intor_cfg.incore:
-    cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
-
-  vxc_ab_fn = get_lda_vxc(
-    grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
-  )
-
-  # if cfg.intor_cfg.incore:
-  #   cgto_fock_fn = get_cgto_fock_fn(cgto, cgto_e_tensors, vxc_ab_fn)
-  # else:
-  #   cgto_fock_fn = None
-
-  def H_factory(with_mo_coeff: bool = True) -> Tuple[Callable, Hamiltonian]:
+  def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
     if cfg.solver_cfg.basis_optim != "":
       optimizable_params = cfg.solver_cfg.basis_optim.split(",")
       cgto_hk = cgto.to_hk(optimizable_params)
     else:
       cgto_hk = cgto
-    # if cfg.intor_cfg.incore:
-    #   cgto_intor = get_cgto_intor(
-    #     cgto_hk,
-    #     cgto_e_tensors=cgto_e_tensors,
-    #     intor=cfg.intor_cfg.intor,
-    #   )
-    # else:
-    #   cgto_intor = get_cgto_intor(
-    #     cgto_hk,
-    #     cgto_tensor_fns=cgto_tensor_fns,
-    #     intor=cfg.intor_cfg.intor,
-    #   )
-    if with_mo_coeff:
-      mo_coeff_fn = partial(
-        cgto_hk.get_mo_coeff,
-        restricted=cfg.method_cfg.restricted,
-        ortho_fn=qr_factor,
-        # ovlp_sqrt_inv=sqrt_inv(cgto_intor.ovlp_fn()),
-      )
-    else:
-      mo_coeff_fn = None
+    mo_coeff_fn = partial(
+      cgto_hk.get_mo_coeff,
+      restricted=cfg.method_cfg.restricted,
+      ortho_fn=qr_factor,
+    )
     xc_fn = None
-    vxc_fn = None
 
     if cfg.method_cfg.name == "KS":
       polarized = not cfg.method_cfg.restricted
@@ -157,17 +128,9 @@ def build_mf_cgto(cfg: D4FTConfig):
       # treutler_atomic_radii_adjust is not differentiable yet
       # grids_and_weights = dg.build(cgto_hk.atom_coords)
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
-      # cgto_intor = cgto_intor._replace(xc_fn=xc_fn)
 
-      # TODO: figure out the correct loss for vxc
-      # vxc_ab_fn = get_lda_vxc(
-      #   grids_and_weights, cgto, polarized=not cfg.method_cfg.restricted
-      # )
-      # vxc_fn = get_vxc_intor(vxc_ab_fn)
+    return mf_cgto(cgto_hk, cgto_tensor_fns, mo_coeff_fn, xc_fn)
 
-    return mf_cgto(cgto_hk, cgto_tensor_fns, mo_coeff_fn, xc_fn, vxc_fn=vxc_fn)
-
-  # return pyscf_mol, H_factory, cgto, cgto_fock_fn
   return pyscf_mol, H_factory, cgto, None
 
 
@@ -215,7 +178,7 @@ def cgto_direct(
   params = H_transformed.init(key)
   H_hk = Hamiltonian(*H_transformed.apply)
 
-  logger, traj = sgd(cfg.solver_cfg, H_hk, params, key)
+  logger, traj = sgd(cfg, H_hk, params, key)
 
   min_e_step = logger.data_df.e_total.astype(float).idxmin()
   logging.info(f"lowest total energy: \n {logger.data_df.iloc[min_e_step]}")
@@ -236,9 +199,7 @@ def cgto_direct(
 
   if run_pyscf_benchmark:
     assert cfg.intor_cfg.incore
-    pyscf_benchmark(
-      cfg, pyscf_mol, H_factory(with_mo_coeff=False)[1], compare_logger=logger
-    )
+    pyscf_benchmark(cfg, pyscf_mol, H_factory()[1], compare_logger=logger)
 
   if cfg.uuid != "":
     logger.save(cfg, "direct_opt")

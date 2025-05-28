@@ -58,8 +58,6 @@ def libcint_incore(
 
 def get_cgto_intor(
   cgto: CGTO,
-  cgto_tensor_fns: Optional[CGTOSymTensorFns] = None,
-  cgto_e_tensors: Optional[CGTOSymTensorIncore] = None,
   intor: Literal["obsa", "libcint", "quad"] = "obsa",
 ) -> CGTOIntors:
   """
@@ -74,19 +72,18 @@ def get_cgto_intor(
   mo_ab_idx_counts = symmetry.get_2c_sym_idx(nmo)
   mo_abcd_idx_counts = symmetry.get_4c_sym_idx(nmo)
 
-  if cgto_e_tensors is None:  # on-the-fly
-    assert cgto_tensor_fns is not None
-    cgto_e_tensors = cgto_tensor_fns.get_incore_tensors(cgto)
+  # this function unreduce the symmetry reduced 2c overlap integrals
+  ovlp_fn = lambda cgto_e_tensors: get_ovlp_incore(cgto, cgto_e_tensors)
 
-  ovlp_fn = lambda: get_ovlp_incore(cgto, cgto_e_tensors)
-
-  def kin_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+  def kin_fn(mo_coeff: MoCoeff,
+             cgto_e_tensors: CGTOSymTensorIncore) -> Float[Array, ""]:
     rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
     rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
     e_kin = jnp.sum(cgto_e_tensors.kin_ab * rdm1_2c_ab)
     return e_kin
 
-  def ext_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+  def ext_fn(mo_coeff: MoCoeff,
+             cgto_e_tensors: CGTOSymTensorIncore) -> Float[Array, ""]:
     rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
     rdm1_2c_ab = rdm1[mo_ab_idx_counts[:, 0], mo_ab_idx_counts[:, 1]]
     e_ext = jnp.sum(cgto_e_tensors.ext_ab * rdm1_2c_ab)
@@ -94,7 +91,8 @@ def get_cgto_intor(
 
   # rate = 0.5
 
-  def har_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+  def har_fn(mo_coeff: MoCoeff,
+             cgto_e_tensors: CGTOSymTensorIncore) -> Float[Array, ""]:
     rdm1 = get_rdm1(mo_coeff).sum(0)  # sum over spin
     rdm1_ab = rdm1[mo_abcd_idx_counts[:, 0], mo_abcd_idx_counts[:, 1]]
     rdm1_cd = rdm1[mo_abcd_idx_counts[:, 2], mo_abcd_idx_counts[:, 3]]
@@ -105,7 +103,8 @@ def get_cgto_intor(
     e_har = jnp.sum(cgto_e_tensors.eri_abcd * rdm1_ab * rdm1_cd)
     return e_har
 
-  def exc_fn(mo_coeff: MoCoeff) -> Float[Array, ""]:
+  def exc_fn(mo_coeff: MoCoeff,
+             cgto_e_tensors: CGTOSymTensorIncore) -> Float[Array, ""]:
     """NOTE: for K matrix, we cannot sum over spin first.
 
     Ref: https://psicode.org/psi4manual/master/scf.html

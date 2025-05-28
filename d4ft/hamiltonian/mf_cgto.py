@@ -18,19 +18,19 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Array, Float
 
-from d4ft.hamiltonian.ortho import sqrt_inv
 from d4ft.hamiltonian.cgto_intors import get_cgto_intor
 from d4ft.hamiltonian.nuclear import e_nuclear
+from d4ft.hamiltonian.ortho import sqrt_inv
 from d4ft.integral.gto.cgto import CGTO
 from d4ft.types import (
   Aux,
-  CGTOIntors,
+  CGTOSymTensorFns,
+  CGTOSymTensorIncore,
   Energies,
-  Grads,
   Hamiltonian,
+  MoCoeff,
   MoCoeffFlat,
 )
-from d4ft.utils import compose
 
 
 # TODO: add more API to H
@@ -38,12 +38,9 @@ from d4ft.utils import compose
 # 2. params,  -> e_fn -> cgto_e_tensors
 def mf_cgto(
   cgto: CGTO,
-  cgto_tensor_fns: Callable,
-  # cgto_intors: CGTOIntors,
-  mo_coeff_fn: Callable[[], MoCoeffFlat],
+  cgto_tensor_fns: CGTOSymTensorFns,
+  mo_coeff_fn: Callable,
   xc_fn: Optional[Callable] = None,
-  vxc_fn: Optional[Callable] = None,
-  ret_mo_grads: bool = False,
 ) -> Tuple[Callable, Hamiltonian]:
   r"""Mean-field level calculation with CGTO, i.e. electron Hamiltonian
   with single Slater determinant ansatz / Hartree-Fock, discretized the
@@ -57,6 +54,8 @@ def mf_cgto(
   It compose mo_coeff_fn with the cgto intors, and create a energy_fn
   that computes the total energy with logging.
   """
+  cgto_intors = get_cgto_intor(cgto, "obsa")
+  e_tensor_fn = lambda: cgto_tensor_fns.get_incore_tensors(cgto)
 
   def nuc_fn() -> Float[Array, ""]:
     return e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
@@ -68,40 +67,36 @@ def mf_cgto(
     if cgto_e_tensors is not None, perform incore calculation, i.e.
     use precomputed 2c/4c integrals
     """
-    if cgto_e_tensors is not None: # incore
-      cgto_intor = get_cgto_intor(cgto, cgto_e_tensors=cgto_e_tensors)
-    else: # on-the-fly
-      cgto_intor = get_cgto_intor(cgto, cgto_tensor_fns=cgto_tensor_fns)
+    if cgto_e_tensors is None:  # on-the-fly calculation
+      cgto_e_tensors = e_tensor_fn()
 
-    mo_coeff = mo_coeff_fn(ovlp_sqrt_inv=sqrt_inv(cgto_intor.ovlp_fn()))
-    mo_energies = [e_fn(mo_coeff) for e_fn in cgto_intors[1:]]
+    ovlp = cgto_intors.ovlp_fn(cgto_e_tensors)
+    mo_coeff = mo_coeff_fn(ovlp_sqrt_inv=sqrt_inv(ovlp))
+    mo_energies = [e_fn(mo_coeff, cgto_e_tensors) for e_fn in cgto_intors[1:]]
     grads = None
-    e_kin, e_ext, e_har = mo_energies
-    e_xc = xc_fn(mo_coeff)
+    e_kin, e_ext, e_har, e_exc = mo_energies
+
+    if xc_fn is not None:
+      # calculate the exchange-correlation energy using XC functional
+      e_xc = xc_fn(mo_coeff)
+
+    else:  # use the exact exchange energy
+      e_xc = e_exc
 
     e_nuc = nuc_fn()
     e_total = sum(mo_energies) + e_nuc
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
-    if vxc_fn is None:
-      loss = e_total
-    else:
-      vxc_loss = vxc_fn(mo_coeff)**2
-      loss = e_total + vxc_loss
+    loss = e_total
     return loss, (energies, grads)
 
-  if mo_coeff_fn is None:
-    return energy_fn, Hamiltonian(cgto_intors, nuc_fn, energy_fn, mo_coeff_fn)
-
-  # cgto_intors_ = CGTOIntors(
-  #   *[compose(e_fn, mo_coeff_fn) for e_fn in cgto_intors]
-  # )
-  energy_fn_ = compose(energy_fn, mo_coeff_fn)
   hamiltonian = Hamiltonian(
-    cgto_intors_,
+    cgto_intors,
     nuc_fn,
-    energy_fn_,
+    energy_fn,
     mo_coeff_fn,
     pgto_fn=lambda: cgto.pgto,
-    coeff_fn=lambda: cgto.coeff
+    coeff_fn=lambda: cgto.coeff,
+    e_tensor_fn=e_tensor_fn,
   )
-  return energy_fn_, hamiltonian
+
+  return energy_fn, hamiltonian
