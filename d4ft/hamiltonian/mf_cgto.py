@@ -83,7 +83,7 @@ def mf_cgto(
       e_xc = e_exc
 
     e_nuc = nuc_fn()
-    e_total = sum(mo_energies) + e_nuc
+    e_total = e_kin + e_ext + e_har + e_xc + e_nuc
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
     loss = e_total
     return loss, energies
