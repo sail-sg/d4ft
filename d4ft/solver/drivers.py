@@ -175,7 +175,7 @@ def init_from_cfg(cfg: D4FTConfig):
     rng_key, next_rng_key = jax.random.split(state.rng_key)
     val_and_grads_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, aux), grad = val_and_grads_fn(state.params, rng_key, cgto_e_tensors)
-    energies, _ = aux
+    energies = aux
     updates, opt_state = optimizer.update(grad, state.opt_state, state.params)
     params = optax.apply_updates(state.params, updates)
     return loss, TrainingState(params, opt_state, next_rng_key), energies
