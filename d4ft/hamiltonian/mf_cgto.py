@@ -73,7 +73,6 @@ def mf_cgto(
     ovlp = cgto_intors.ovlp_fn(cgto_e_tensors)
     mo_coeff = mo_coeff_fn(ovlp_sqrt_inv=sqrt_inv(ovlp))
     mo_energies = [e_fn(mo_coeff, cgto_e_tensors) for e_fn in cgto_intors[1:]]
-    grads = None
     e_kin, e_ext, e_har, e_exc = mo_energies
 
     if xc_fn is not None:
@@ -87,7 +86,7 @@ def mf_cgto(
     e_total = sum(mo_energies) + e_nuc
     energies = Energies(e_total, e_kin, e_ext, e_har, e_xc, e_nuc)
     loss = e_total
-    return loss, (energies, grads)
+    return loss, energies
 
   hamiltonian = Hamiltonian(
     cgto_intors,

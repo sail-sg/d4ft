@@ -22,6 +22,7 @@ import haiku as hk
 import jax
 import jax.numpy as jnp
 import numpy as np
+import optax
 import pyscf
 from absl import logging
 
@@ -34,11 +35,12 @@ from d4ft.integral.gto.utils import Shell
 from d4ft.integral.obara_saika.driver import get_cgto_sym_tensor_fns
 from d4ft.integral.quadrature.grids import DifferentiableGrids
 from d4ft.logger import RunLogger
+from d4ft.optimize import get_optimizer
 from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.scf import scf
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
-from d4ft.types import Hamiltonian
+from d4ft.types import Hamiltonian, TrainingState
 from d4ft.xc import get_xc_functional, get_xc_intor
 
 
@@ -153,6 +155,43 @@ def incore_cgto_scf(
     cfg.solver_cfg, cgto, mo_coeff, ovlp, cgto_fock_jit, energy_fn_jit,
     cfg.method_cfg.restricted
   )
+
+
+def init_from_cfg(cfg: D4FTConfig):
+  key = jax.random.PRNGKey(cfg.method_cfg.rng_seed)
+  _, H_factory, cgto, _ = build_mf_cgto(cfg)
+  H_transformed = hk.multi_transform(H_factory)
+  params = H_transformed.init(key)
+  H = Hamiltonian(*H_transformed.apply)
+  opt_states = get_optimizer(cfg.solver_cfg, params, key)
+  optimizer, state = opt_states["main"]
+
+  def loss_fn(params, rng_key, cgto_e_tensors) -> float:
+    return H.energy_fn(params, rng_key, cgto_e_tensors)
+
+  @jax.jit
+  def gd_step(state: TrainingState, cgto_e_tensors) -> Tuple:
+    """update parameter, and accumulate gradients"""
+    rng_key, next_rng_key = jax.random.split(state.rng_key)
+    val_and_grads_fn = jax.value_and_grad(loss_fn, has_aux=True)
+    (loss, aux), grad = val_and_grads_fn(state.params, rng_key, cgto_e_tensors)
+    energies, _ = aux
+    updates, opt_state = optimizer.update(grad, state.opt_state, state.params)
+    params = optax.apply_updates(state.params, updates)
+    return loss, TrainingState(params, opt_state, next_rng_key), energies
+
+  @jax.jit
+  def grad_fn(params, rng_key):
+    params_mo = params["~"]["mo_params"]
+    params_center = params["~"]["center"]
+
+    def e_fn(params_center, params_mo, rng_key):
+      params = {"~": {"mo_params": params_mo, "center": params_center}}
+      return H.energy_fn(params, rng_key)
+
+    return jax.grad(e_fn, has_aux=True)(params_center, params_mo, rng_key)
+
+  return H, state, gd_step, grad_fn
 
 
 def cgto_direct(

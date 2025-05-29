@@ -16,10 +16,11 @@
 import time
 from typing import NamedTuple
 
+import jax
 import pandas as pd
-import wandb
 from absl import logging
 
+import wandb
 from d4ft.config import D4FTConfig
 
 # pd.set_option('display.precision', 8)
@@ -43,7 +44,12 @@ class RunLogger:
   def log_step(self, metrics: NamedTuple, t: int, thresh: float) -> None:
     if wandb.run is not None:
       wandb.log(metrics._asdict(), step=t)
-    step_df = pd.DataFrame([metrics], index=[t])
+    # Convert any JAX arrays to float values
+    metrics_dict = {
+      k: float(v) if isinstance(v, jax.Array) else v
+      for k, v in metrics._asdict().items()
+    }
+    step_df = pd.DataFrame([metrics_dict], index=[t])
     # log step time
     now = time.time()
     step_df['time'] = now - self._time

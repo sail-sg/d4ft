@@ -89,12 +89,10 @@ def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
     # val_and_grads_fn = jax.value_and_grad(H.energy_fn, has_aux=True)
     val_and_grads_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, aux), grad = val_and_grads_fn(state.params, rng_key)
-    energies, mo_grads = aux
+    energies = aux
     updates, opt_state = optimizer.update(grad, state.opt_state, state.params)
     params = optax.apply_updates(state.params, updates)
-    return loss, TrainingState(
-      params, opt_state, next_rng_key
-    ), energies, mo_grads, grad
+    return loss, TrainingState(params, opt_state, next_rng_key), energies
 
   @jax.jit
   def meta_loss(meta_params: hk.Params, state: TrainingState):
@@ -140,7 +138,7 @@ def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
   for step in range(solver_cfg.epochs):
 
     if solver_cfg.meta_opt == "none":
-      loss, new_state, energies, mo_grads, grad = update(state)
+      loss, new_state, energies = update(state)
 
       # # HACK: manual SGD
       # new_state.params['~'][
