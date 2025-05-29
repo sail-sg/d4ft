@@ -26,7 +26,7 @@ D4FT also provides examples for standard algorithms, similar to the "train" scri
 ## Calculating the ground state energy of Oxygen molecule
 Let's calculate the ground state energy of Oxygen molecule with direct minimization DFT:
 ``` shell
-python main.py --run opt --config d4ft/config.py:KS-GD-MOL --config.sys_cfg.mol O2
+python main.py --run opt --config d4ft/config.py:KS-GD-MOL --config.sys_cfg.mol O2 --use_f64
 ```
 
 and you should see the following log after the calculation has converged:

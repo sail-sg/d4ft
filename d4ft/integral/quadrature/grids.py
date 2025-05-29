@@ -31,8 +31,8 @@ def treutler_atomic_radii_adjust(mol, atomic_radii):
   rad = jnp.sqrt(atomic_radii[charges]) + 1e-200
   rr = rad.reshape(-1, 1) * (1. / rad)
   a = .25 * (rr.T - rr)
-  a = a.at[a < -0.5].set(-0.5)
-  a = a.at[a > 0.5].set(0.5)
+  a = jnp.where(a < -0.5, -0.5, a)
+  a = jnp.where(a > 0.5, 0.5, a)
 
   def fadjust(i, j, g):
     g1 = g**2
@@ -77,18 +77,17 @@ def get_partition(
     grid_dist = jnp.sqrt(jnp.einsum('ijk,ijk->ij', dc, dc))  # [natom, ngrid]
     pbecke = jnp.ones((mol.natm, ngrids))  # [natom, ngrid]
 
-    ix, jx = jnp.tril_indices(mol.natm, k=-1)
+    natm = mol.natm
+    for i in range(natm):
+      for j in range(i + 1, natm):
+        g = 1 / atm_dist[i, j] * (grid_dist[i] - grid_dist[j])
+        if f_radii_adjust is not None:
+          g = f_radii_adjust(i, j, g)
+        g = becke_scheme(g)
+        # Update weights for both atoms i and j
+        pbecke = pbecke.at[i].mul(0.5 * (1. - g))
+        pbecke = pbecke.at[j].mul(0.5 * (1. + g))
 
-    def pbecke_g(i, j):
-      g = 1 / atm_dist[i, j] * (grid_dist[i] - grid_dist[j])
-      if f_radii_adjust is not None:
-        g = f_radii_adjust(i, j, g)
-      g = becke_scheme(g)
-      return g
-
-    g = jax.vmap(pbecke_g)(ix, jx)
-    pbecke = pbecke.at[ix].mul(0.5 * (1. - g))
-    pbecke = pbecke.at[jx].mul(0.5 * (1. + g))
     return pbecke
 
   coords_all = []

@@ -13,11 +13,10 @@
 # limitations under the License.
 """Solvers"""
 
-from .drivers import cgto_direct, incore_cgto_scf, mf_cgto
+from .drivers import build_mf_cgto, cgto_direct, incore_cgto_scf
 
 __all__ = [
-  "mf_cgto",
+  "build_mf_cgto",
   "cgto_direct",
   "incore_cgto_scf",
-  "mf_cgto",
 ]

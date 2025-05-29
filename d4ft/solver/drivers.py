@@ -98,13 +98,7 @@ def build_mf_cgto(cfg: D4FTConfig):
   s4 = obsa.angular_static_args(*[cgto.pgto.angular] * 4)
   cgto_tensor_fns = get_cgto_sym_tensor_fns(cgto, s2, s4)
 
-  # dg = DifferentiableGrids(pyscf_mol)
-  if cfg.method_cfg.name == "KS":
-    dg = DifferentiableGrids(pyscf_mol)
-    dg.level = cfg.intor_cfg.quad_level
-    grids_and_weights = dg.build(pyscf_mol.atom_coords())
-  else:
-    grids_and_weights = None
+  dg = DifferentiableGrids(pyscf_mol)
 
   def H_factory() -> Tuple[Callable, Hamiltonian]:
     """Auto-grad scope"""
@@ -123,10 +117,7 @@ def build_mf_cgto(cfg: D4FTConfig):
     if cfg.method_cfg.name == "KS":
       polarized = not cfg.method_cfg.restricted
       xc_func = get_xc_functional(cfg.method_cfg.xc_type, polarized)
-      # TODO: fix this to enable geometry optimization
-      # NOTE: geometry optimization is not working yet since the function
-      # treutler_atomic_radii_adjust is not differentiable yet
-      # grids_and_weights = dg.build(cgto_hk.atom_coords)
+      grids_and_weights = dg.build(cgto_hk.atom_coords)
       xc_fn = get_xc_intor(grids_and_weights, cgto_hk, xc_func, polarized)
 
     return mf_cgto(cgto_hk, cgto_tensor_fns, mo_coeff_fn, xc_fn)
