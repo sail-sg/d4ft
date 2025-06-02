@@ -29,12 +29,7 @@ from d4ft.constants import ANGSTRONG_TO_BOHR
 from d4ft.hamiltonian.ortho import sqrt_inv
 from d4ft.logger import RunLogger
 from d4ft.optimize import get_optimizer
-from d4ft.types import (
-  Hamiltonian,
-  TrainingState,
-  Trajectory,
-  Transition,
-)
+from d4ft.types import Hamiltonian, TrainingState, Trajectory, Transition
 
 
 def get_unique_centers_with_indices(centers, tol=1e-8):
@@ -92,7 +87,7 @@ def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
     energies = aux
     updates, opt_state = optimizer.update(grad, state.opt_state, state.params)
     params = optax.apply_updates(state.params, updates)
-    return loss, TrainingState(params, opt_state, next_rng_key), energies
+    return loss, TrainingState(params, opt_state, next_rng_key), energies, grad
 
   @jax.jit
   def meta_loss(meta_params: hk.Params, state: TrainingState):
@@ -138,11 +133,11 @@ def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
   for step in range(solver_cfg.epochs):
 
     if solver_cfg.meta_opt == "none":
-      loss, new_state, energies = update(state)
+      loss, new_state, energies, grad = update(state)
 
-      # # HACK: manual SGD
+      # HACK: manual SGD
       # new_state.params['~'][
-      #   'center'] = state.params['~']['center'] - 1e-2 * grad['~']['center']
+      #   'center'] = state.params['~']['center'] - 1e-4 * grad['~']['center']
       # # calculate bond length
       # bond_length = jnp.linalg.norm(
       #   new_state.params['~']['center'][0] - new_state.params['~']['center'][1]
@@ -150,7 +145,6 @@ def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
       # bond_length_angstrong = bond_length / ANGSTRONG_TO_BOHR
       # logging.info(f"{new_state.params['~']['center']=}")
       # logging.info(f"{bond_length_angstrong=}")
-      # logging.info(f"{loss=}")
 
     else:
       meta_state, new_state, energies, mo_grads = meta_step(state, meta_state)

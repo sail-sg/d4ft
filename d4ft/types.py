@@ -12,7 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, List, NamedTuple, Optional, Tuple, Union, TYPE_CHECKING
+from typing import (
+  TYPE_CHECKING,
+  Callable,
+  List,
+  NamedTuple,
+  Optional,
+  Tuple,
+  Union,
+)
 
 import haiku as hk
 import jax
@@ -22,7 +30,7 @@ from jaxtyping import Array, Float, Int
 from typing_extensions import TypeAlias
 
 if TYPE_CHECKING:
-    from d4ft.integral.gto.cgto import CGTO
+  from d4ft.integral.gto.cgto import CGTO
 
 NPArray = Union[np.ndarray, Array]
 
@@ -172,6 +180,7 @@ class TrainingState(NamedTuple):
   params: hk.Params
   opt_state: optax.OptState
   rng_key: jax.Array
+  step: int = 0
 
 
 class CGTOSymTensorFns(NamedTuple):
