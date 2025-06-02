@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import string
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -75,6 +76,10 @@ def get_mol_geometry(
   if ".xyz" in name:
     with open(name, "r") as f:
       geometry = f.read()
+      # check if need to remove header
+      if geometry[0] in string.digits:
+        # remove header
+        geometry = "\n".join(geometry.split("\n")[2:])
 
   if name.capitalize() in periodic_table:  # check if it is a single atom
     geometry = f"{name.capitalize()} 0.0000 0.0000 0.0000"

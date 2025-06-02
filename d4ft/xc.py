@@ -16,7 +16,7 @@ from typing import Callable
 
 import einops
 import jax.numpy as jnp
-# import jax_xc
+import jax_xc
 from jaxtyping import Array, Float
 
 from d4ft.integral.gto.cgto import CGTO
@@ -24,7 +24,7 @@ from d4ft.integral.quadrature.utils import quadrature_integral, wave2density
 from d4ft.types import Fock, MoCoeff, QuadGridsNWeights
 
 
-def _lda_density(density_fn, r):
+def _lda_density(density, r):
   r"""Calculate the LDA exchange-correlation energy density.
 
   Implements the Local Density Approximation (LDA) for the exchange-correlation
@@ -47,17 +47,29 @@ def _lda_density(density_fn, r):
     Float[Array, '*d x y z']: LDA exchange-correlation energy density.
       Preserves any batch dimensions from the input.
   """
-  density_r = density_fn(r)
   t3 = 3**(0.1e1 / 0.3e1)
   t4 = jnp.pi**(0.1e1 / 0.3e1)
   t8 = 2.220446049250313e-16**(0.1e1 / 0.3e1)
   t10 = jnp.where(0.1e1 <= 2.22044604925e-16, t8 * 2.22044604925e-16, 1)
-  t11 = density_r**(0.1e1 / 0.3e1)
+  t11 = density**(0.1e1 / 0.3e1)
   t15 = jnp.where(
-    density_r / 0.2e1 <= 1e-15, 0, -0.3e1 / 0.8e1 * t3 / t4 * t10 * t11
+    density / 0.2e1 <= 1e-15, 0, -0.3e1 / 0.8e1 * t3 / t4 * t10 * t11
   )
   res = 0.2e1 * 1. * t15
   return res
+
+
+def _lda(density_fn, r):
+  density = density_fn(r)
+  polarized = density.shape[0] == 2
+  if polarized:
+    f_up = _lda_density(2 * density[0], r)
+    f_dn = _lda_density(2 * density[1], r)
+    f_val = 0.5 * (f_up + f_dn)
+  else:
+    f_val = _lda_density(density, r)
+  return f_val
+
 
 def get_xc_functional(xc_type: str, polarized: bool) -> Callable:
   """Returns (a linear combination of) xc functional.
@@ -66,23 +78,23 @@ def get_xc_functional(xc_type: str, polarized: bool) -> Callable:
     xc_type: Name of the xc functional to use. To mix two XC functional, use the
       syntax a*xc_name_1+b*xc_name_2 where a, b are numbers.
   """
-  return _lda_density
-  # xc_type = xc_type.lower()
-  # if "+" in xc_type:
-  #   weights, xc_names = zip(*(map(lambda x: x.split("*"), xc_type.split("+"))))
-  #   weights = list(map(float, weights))
-  #   xc_funcs = [getattr(jax_xc, xc_name)(polarized) for xc_name in xc_names]
+  # return _lda
+  xc_type = xc_type.lower()
+  if "+" in xc_type:
+    weights, xc_names = zip(*(map(lambda x: x.split("*"), xc_type.split("+"))))
+    weights = list(map(float, weights))
+    xc_funcs = [getattr(jax_xc, xc_name)(polarized) for xc_name in xc_names]
 
-  #   def xc_func(density: Callable, r: Float[Array, "3"]) -> float:
-  #     ret = 0.
-  #     for w, xc_func in zip(weights, xc_funcs):
-  #       ret += w * xc_func(density, r)
-  #     return ret
+    def xc_func(density: Callable, r: Float[Array, "3"]) -> float:
+      ret = 0.
+      for w, xc_func in zip(weights, xc_funcs):
+        ret += w * xc_func(density, r)
+      return ret
 
-  # else:
-  #   xc_func = getattr(jax_xc, xc_type)(polarized)
+  else:
+    xc_func = getattr(jax_xc, xc_type)(polarized)
 
-  # return xc_func
+  return xc_func
 
 
 def get_xc_intor(

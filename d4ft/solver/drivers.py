@@ -169,13 +169,26 @@ def init_from_cfg(cfg: D4FTConfig):
   def loss_fn(params, rng_key, cgto_e_tensors) -> float:
     return H.energy_fn(params, rng_key, cgto_e_tensors)
 
-  @jax.jit
-  def gd_step(state: TrainingState, cgto_e_tensors) -> Tuple:
+  @partial(jax.jit, static_argnames=("filter_grad",))
+  def gd_step(state: TrainingState, cgto_e_tensors, filter_grad=None) -> Tuple:
     """update parameter, and accumulate gradients"""
     rng_key, next_rng_key = jax.random.split(state.rng_key)
     val_and_grads_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, aux), grad = val_and_grads_fn(state.params, rng_key, cgto_e_tensors)
     energies = aux
+
+    # Filter gradients if filter_grad is provided
+    if filter_grad is not None:
+      filtered_grad = {k: v for k, v in grad['~'].items() if k in filter_grad}
+      # Zero out gradients for parameters not in filter_grad
+      grad = {
+        '~':
+          {
+            k: filtered_grad.get(k, jnp.zeros_like(v))
+            for k, v in grad['~'].items()
+          }
+      }
+
     updates, opt_state = optimizer.update(grad, state.opt_state, state.params)
     params = optax.apply_updates(state.params, updates)
     return loss, TrainingState(params, opt_state, next_rng_key), energies
