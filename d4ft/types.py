@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations  # forward declaration
 
 from typing import (
   TYPE_CHECKING,
@@ -172,9 +173,12 @@ class Hamiltonian(NamedTuple):
   e_tensor_fn: Callable
   """Function to get CGTO energy tensors, i.e. the 2c/4c integrals."""
   xc_fn: Optional[Callable] = None
+  """XC Functional"""
 
 
 HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]
+
+PRNGKey = jax.random.PRNGKey
 
 
 class TrainingState(NamedTuple):
@@ -182,6 +186,25 @@ class TrainingState(NamedTuple):
   opt_state: optax.OptState
   rng_key: jax.Array
   step: int = 0
+
+  def reset(
+    self,
+    optimizer: optax.GradientTransformation,
+    new_step=None
+  ) -> TrainingState:
+    return TrainingState(
+      self.params, optimizer.init(self.params), self.rng_key, new_step or
+      self.step
+    )
+
+  def split_rng(self) -> Tuple[PRNGKey, TrainingState]:
+    key, rng = jax.random.split(self.rng_key)
+    return key, TrainingState(
+      self.params,
+      self.opt_state,
+      rng,
+      self.step,
+    )
 
 
 class CGTOSymTensorFns(NamedTuple):

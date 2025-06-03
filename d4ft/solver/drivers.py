@@ -207,7 +207,7 @@ def init_from_cfg(cfg: D4FTConfig):
 
     return jax.grad(e_fn, has_aux=not debug)(params_center, params_mo, rng_key)
 
-  return H, state, gd_step, grad_fn
+  return H, state, gd_step, grad_fn, optimizer
 
 
 def cgto_direct(
