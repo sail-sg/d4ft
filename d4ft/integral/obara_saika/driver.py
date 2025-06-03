@@ -55,11 +55,25 @@ def get_cgto_sym_tensor_fns(
   kin_fn = partial(obsa.kinetic_integral, use_horizontal=use_horizontal)
   eri_fn = obsa.electron_repulsion_integral
 
-  def ext_fn(a, b, static_args):
+  def ext_fn(a, b, static_args, cgto):
+    """External (nuclear attraction) two-center integral.
+
+    NOTE: We must use the *true* nuclear coordinates for the kernel 1/|r-R|.
+    When floating orbitals ("center_flob") are optimized the PGTO centers move,
+    but the nuclear positions remain unchanged.  Using the (possibly shifted)
+    PGTO centers, as was done previously, yields an incorrect external
+    potential and therefore an erroneous total energy (e.g. the -68 Ha
+    instead of -145 Ha reported by the user).
+    """
+
     ni = obsa.nuclear_attraction_integral
-    atom_coords = cgto.pgto.center[jnp.cumsum(jnp.array(cgto.atom_splits)) - 1]
-    return jax.vmap(lambda Z, C: Z * ni(C, a, b, static_args, use_horizontal)
-                   )(cgto.charge, atom_coords).sum()
+    # Use the fixed nuclear coordinates stored in cgto.atom_coords instead of
+    # the (mutable) PGTO centers.
+    atom_coords = cgto.atom_coords  # shape (n_atoms, 3)
+
+    return jax.vmap(
+      lambda Z, C: Z * ni(C, a, b, static_args, use_horizontal)
+    )(cgto.charge, atom_coords).sum()
 
   # 2c tensors
   ab_idx_counts = symmetry.get_2c_sym_idx(cgto.n_pgtos)
@@ -74,9 +88,9 @@ def get_cgto_sym_tensor_fns(
   kin_ab_fn = lambda cgto_: tensorization.tensorize_2c_cgto(kin_fn, s2)(
     cgto_, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
   )
-  ext_ab_fn = lambda cgto_: tensorization.tensorize_2c_cgto(ext_fn, s2)(
-    cgto_, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c
-  )
+  ext_ab_fn = lambda cgto_: tensorization.tensorize_2c_cgto(
+    partial(ext_fn, cgto=cgto_), s2
+  )(cgto_, ab_idx_counts, cgto_2c_seg_id, n_cgto_segs_2c)
   n_2c_idx = len(ab_idx_counts)
   logging.info(f"2c tensor size: {n_2c_idx}")
 
