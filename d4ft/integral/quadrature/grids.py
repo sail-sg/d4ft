@@ -45,7 +45,10 @@ def treutler_atomic_radii_adjust(mol, atomic_radii):
 
 
 def inter_distance(coords):
-  rr = jnp.linalg.norm(coords.reshape(-1, 1, 3) - coords, axis=2)
+  # Compute pairwise differences with broadcasting
+  diff = coords[:, None, :] - coords[None, :, :]
+  # Add small epsilon to avoid numerical instability
+  rr = jnp.sqrt(jnp.sum(diff * diff, axis=2) + 1e-10)
   return rr.at[jnp.diag_indices(rr.shape[0])].set(0.)
 
 

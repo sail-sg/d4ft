@@ -171,6 +171,7 @@ class Hamiltonian(NamedTuple):
   """Function to get AO coefficients"""
   e_tensor_fn: Callable
   """Function to get CGTO energy tensors, i.e. the 2c/4c integrals."""
+  xc_fn: Optional[Callable] = None
 
 
 HamiltonianHKFactory = Callable[[], Tuple[MoCoeffScalarFn, Hamiltonian]]

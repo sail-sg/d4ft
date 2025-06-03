@@ -88,6 +88,16 @@ def mf_cgto(
     loss = e_total
     return loss, energies
 
+  def _xc_fn(
+    cgto_e_tensors: Optional[CGTOSymTensorIncore] = None
+  ) -> Float[Array, ""]:
+    """Get the XC functional, if any."""
+    if cgto_e_tensors is None:  # on-the-fly calculation
+      cgto_e_tensors = e_tensor_fn()
+    ovlp = cgto_intors.ovlp_fn(cgto_e_tensors)
+    mo_coeff = mo_coeff_fn(ovlp_sqrt_inv=sqrt_inv(ovlp))
+    return xc_fn(mo_coeff)
+
   hamiltonian = Hamiltonian(
     cgto_intors,
     nuc_fn,
@@ -96,6 +106,7 @@ def mf_cgto(
     pgto_fn=lambda: cgto.pgto,
     coeff_fn=lambda: cgto.coeff,
     e_tensor_fn=e_tensor_fn,
+    xc_fn=_xc_fn,
   )
 
   return energy_fn, hamiltonian

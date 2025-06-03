@@ -193,16 +193,19 @@ def init_from_cfg(cfg: D4FTConfig):
     params = optax.apply_updates(state.params, updates)
     return loss, TrainingState(params, opt_state, next_rng_key), energies
 
-  @jax.jit
-  def grad_fn(params, rng_key):
+  @partial(jax.jit, static_argnames=("debug"))
+  def grad_fn(params, rng_key, debug=False):
     params_mo = params["~"]["mo_params"]
     params_center = params["~"]["center"]
 
     def e_fn(params_center, params_mo, rng_key):
       params = {"~": {"mo_params": params_mo, "center": params_center}}
-      return H.energy_fn(params, rng_key)
+      if debug:
+        return H.xc_fn(params, rng_key)
+      else:
+        return H.energy_fn(params, rng_key)
 
-    return jax.grad(e_fn, has_aux=True)(params_center, params_mo, rng_key)
+    return jax.grad(e_fn, has_aux=not debug)(params_center, params_mo, rng_key)
 
   return H, state, gd_step, grad_fn
 
