@@ -29,7 +29,6 @@ from d4ft.types import (
   Energies,
   Hamiltonian,
   MoCoeff,
-  MoCoeffFlat,
 )
 
 
@@ -62,7 +61,7 @@ def mf_cgto(
 
   def energy_fn(
     cgto_e_tensors: Optional[CGTOSymTensorIncore] = None,
-    mo_coeff: MoCoeffFlat = None
+    mo_coeff: Optional[MoCoeff] = None
   ) -> Tuple[Float[Array, ""], Aux]:
     """
     if cgto_e_tensors is not None, perform incore calculation, i.e.
@@ -107,8 +106,9 @@ def mf_cgto(
     nuc_fn,
     energy_fn,
     mo_coeff_fn,
-    pgto_fn=lambda: cgto.pgto,
-    coeff_fn=lambda: cgto.coeff,
+    cgto_fn=lambda: cgto,
+    # pgto_fn=lambda: cgto.pgto,
+    # coeff_fn=lambda: cgto.coeff,
     e_tensor_fn=e_tensor_fn,
     xc_fn=_xc_fn,
   )

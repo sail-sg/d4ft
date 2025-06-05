@@ -154,7 +154,7 @@ class D4FTConfig(ConfigDict):
   """whether to use wandb"""
   name: str
 
-  def __init__(self, config_string: str) -> None:
+  def __init__(self, config_string: str, extra=None) -> None:
     method, solver, sys = config_string.split("-")
 
     if method.lower() == "hf":
@@ -188,7 +188,8 @@ class D4FTConfig(ConfigDict):
         "save_dir": "_exp",
         "wandb": False,
         "name": "",
-      }
+        **(extra if extra is not None else {}),
+      },
     )
 
   def validate(self, spin: int, charge: int) -> None:
@@ -206,7 +207,8 @@ class D4FTConfig(ConfigDict):
 
   def get_save_dir(self) -> Path:
     mol_name = self.sys_cfg.mol.replace(".xyz", "")
-    return Path(f"{self.save_dir}/{mol_name}/{self.uuid}")
+    run_name = self.get_run_name()
+    return Path(f"{self.save_dir}/{mol_name}/{run_name}")
 
   def get_core_cfg_str(self) -> str:
     return "+".join([self.sys_cfg.basis, self.method_cfg.xc_type])

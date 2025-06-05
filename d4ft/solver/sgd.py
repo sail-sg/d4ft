@@ -164,10 +164,10 @@ def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
       wandb.run is not None and 'center_flob' in new_state.params['~'] and
       step % 2 == 0
     ):
-      pgto = H.pgto_fn(state.params, state.rng_key)
-      coeffs = H.coeff_fn(state.params, state.rng_key)
+      cgto = H.cgto_fn(state.params, state.rng_key)
       plot_centers_3d(
-        unique_coords, pgto, coeffs, step, atom_indices, state.params['~']
+        unique_coords, cgto.pgto, cgto.coeffs, step, atom_indices,
+        state.params['~']
       )
 
     # ovlp = H.cgto_intors.ovlp_fn(state.params, state.rng_key, cgto_e_tensors)

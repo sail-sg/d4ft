@@ -421,6 +421,29 @@ class PGTO(NamedTuple):
     return angular_cart * exp
 
 
+ATOMIC_NUMBER_TO_SYMBOL = {
+  1: 'H',
+  2: 'He',
+  3: 'Li',
+  4: 'Be',
+  5: 'B',
+  6: 'C',
+  7: 'N',
+  8: 'O',
+  9: 'F',
+  10: 'Ne',
+  11: 'Na',
+  12: 'Mg',
+  13: 'Al',
+  14: 'Si',
+  15: 'P',
+  16: 'S',
+  17: 'Cl',
+  18: 'Ar',
+  # Add more as needed
+}
+
+
 class CGTO(NamedTuple):
   """Contracted GTO, i.e. linear combinations of PGTO.
   Stored as a batch of PGTOs, and a list of contraction coefficients.
@@ -452,6 +475,10 @@ class CGTO(NamedTuple):
   atom_coords: Float[Array, "n_atoms 3"]
   """atom center var when using floating orbitals, i.e. orbitals that are not
   centered on the atom"""
+
+  @property
+  def atom_symbols(self) -> Sequence[str]:
+    return [ATOMIC_NUMBER_TO_SYMBOL[c] for c in self.charge]
 
   @property
   def n_pgtos(self) -> int:

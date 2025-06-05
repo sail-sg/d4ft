@@ -166,10 +166,8 @@ class Hamiltonian(NamedTuple):
   """Function to get total energy. Can be used as the loss function."""
   mo_coeff_fn: Optional[Callable[[], MoCoeffFlat]]
   """Function to get MO coefficient."""
-  pgto_fn: Callable
-  """Function to get primitive GTOs"""
-  coeff_fn: Callable
-  """Function to get AO coefficients"""
+  cgto_fn: Callable
+  """Function to get CGTO"""
   e_tensor_fn: Callable
   """Function to get CGTO energy tensors, i.e. the 2c/4c integrals."""
   xc_fn: Optional[Callable] = None
