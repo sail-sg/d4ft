@@ -60,27 +60,6 @@ def gaussian_integral(
   )
 
 
-# def gaussian_integral(
-#   n: Int[Array, "*batch"],
-#   alpha: Float[Array, "*batch"],
-# ) -> Float[Array, "*batch"]:
-#   r"""Evaluate gaussian integral using the gamma function.
-
-#   .. math::
-#     \int_0^\infty x^n \exp(-\alpha x^2) dx
-#     = \frac{\Gamma((n+1)/2)}{2 \alpha^{(n+1)/2}}
-
-#   Args:
-#     n: power of x
-#     alpha: exponent
-
-#   Ref:
-#   https://en.wikipedia.org/wiki/Gaussian_integral#Relation_to_the_gamma_function
-#   """
-#   np1_half = (n + 1) * .5
-#   return jax.scipy.special.gamma(np1_half) / (2. * alpha**np1_half)
-
-
 def pgto_norm_inv(
   angular: Int[Array, "*batch 3"], exponent: Float[Array, "*batch"]
 ) -> Int[Array, "*batch"]:
@@ -360,7 +339,7 @@ def build_cgto_from_mol(mol: Mol) -> CGTO:
 
 
 class PGTO(NamedTuple):
-  r"""Batch of Primitive Gaussian-Type Orbitals (PGTO).
+  r"""Batch of Cartesian Primitive Gaussian-Type Orbitals (PGTO).
 
   .. math::
     PGTO_{nlm}(\vb{r})
@@ -520,10 +499,6 @@ class CGTO(NamedTuple):
   def from_mol(mol: Mol) -> CGTO:
     """Build CGTO from pyscf mol."""
     return build_cgto_from_mol(mol)
-
-  @staticmethod
-  def from_cart(cgto_cart: CGTO) -> CGTO:
-    return build_cgto_sph_from_mol(cgto_cart)
 
   def to_hk(
     self,
