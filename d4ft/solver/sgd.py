@@ -196,7 +196,7 @@ def sgd(cfg: D4FTConfig, H: Hamiltonian, params: hk.Params,
 
   logging.info(f"Converged: {converged}")
 
-  return logger, traj
+  return logger, state
 
 
 def plot_centers_3d(

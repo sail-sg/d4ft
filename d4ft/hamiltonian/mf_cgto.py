@@ -61,7 +61,8 @@ def mf_cgto(
     return e_nuclear(jnp.array(cgto.atom_coords), jnp.array(cgto.charge))
 
   def energy_fn(
-    cgto_e_tensors: Optional[CGTOSymTensorIncore] = None
+    cgto_e_tensors: Optional[CGTOSymTensorIncore] = None,
+    mo_coeff: MoCoeffFlat = None
   ) -> Tuple[Float[Array, ""], Aux]:
     """
     if cgto_e_tensors is not None, perform incore calculation, i.e.
@@ -71,7 +72,10 @@ def mf_cgto(
       cgto_e_tensors = e_tensor_fn()
 
     ovlp = cgto_intors.ovlp_fn(cgto_e_tensors)
-    mo_coeff = mo_coeff_fn(ovlp_sqrt_inv=sqrt_inv(ovlp))
+
+    if mo_coeff is None:
+      mo_coeff = mo_coeff_fn(ovlp_sqrt_inv=sqrt_inv(ovlp))
+
     mo_energies = [e_fn(mo_coeff, cgto_e_tensors) for e_fn in cgto_intors[1:]]
     e_kin, e_ext, e_har, e_exc = mo_energies
 

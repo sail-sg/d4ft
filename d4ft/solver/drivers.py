@@ -15,6 +15,7 @@
 """High level routine for full calculations"""
 
 import pickle
+import time
 from functools import partial
 from typing import Callable, Optional, Sequence, Tuple
 
@@ -40,7 +41,7 @@ from d4ft.solver.pyscf_wrapper import pyscf_wrapper
 from d4ft.solver.scf import scf
 from d4ft.solver.sgd import sgd
 from d4ft.system.mol import Mol, get_pyscf_mol
-from d4ft.types import Hamiltonian, TrainingState
+from d4ft.types import Energies, Hamiltonian, TrainingState
 from d4ft.xc import get_xc_functional, get_xc_intor
 
 
@@ -201,7 +202,7 @@ def init_from_cfg(cfg: D4FTConfig):
     def e_fn(params_center, params_mo, rng_key):
       params = {"~": {"mo_params": params_mo, "center": params_center}}
       if debug:
-        return H.xc_fn(params, rng_key)
+        return H.nuc_fn(params, rng_key)
       else:
         return H.energy_fn(params, rng_key)
 
@@ -224,7 +225,7 @@ def cgto_direct(
   params = H_transformed.init(key)
   H_hk = Hamiltonian(*H_transformed.apply)
 
-  logger, traj = sgd(cfg, H_hk, params, key)
+  logger, state = sgd(cfg, H_hk, params, key)
 
   min_e_step = logger.data_df.e_total.astype(float).idxmin()
   logging.info(f"lowest total energy: \n {logger.data_df.iloc[min_e_step]}")
@@ -245,12 +246,12 @@ def cgto_direct(
 
   if run_pyscf_benchmark:
     assert cfg.intor_cfg.incore
-    pyscf_benchmark(cfg, pyscf_mol, H_factory()[1], compare_logger=logger)
+    pyscf_benchmark(cfg, pyscf_mol, H_hk, state, logger)
 
-  if cfg.uuid != "":
-    logger.save(cfg, "direct_opt")
-    with (cfg.get_save_dir() / "traj.pkl").open("wb") as f:
-      pickle.dump(traj[-1], f)
+  # if cfg.uuid != "":
+  #   logger.save(cfg, "direct_opt")
+  #   with (cfg.get_save_dir() / "traj.pkl").open("wb") as f:
+  #     pickle.dump(traj[-1], f)
 
   return lowest_e
 
@@ -258,47 +259,53 @@ def cgto_direct(
 def incore_cgto_pyscf_benchmark(cfg: D4FTConfig) -> RunLogger:
   assert cfg.intor_cfg.incore
   pyscf_mol, H_factory, _, _ = build_mf_cgto(cfg)
-  return pyscf_benchmark(cfg, pyscf_mol, H_factory(with_mo_coeff=False)[1])
+  return pyscf_benchmark(cfg, pyscf_mol, H_factory())
 
 
 def pyscf_benchmark(
   cfg: D4FTConfig,
   pyscf_mol: pyscf.gto.mole.Mole,
-  H,
+  H: Hamiltonian,
+  state: Optional[TrainingState] = None,
   compare_logger: Optional[RunLogger] = None,
 ) -> RunLogger:
   """Call PySCF to solve for ground state of a molecular system with SCF DFT,
   then load the computed MO coefficients from PySCF and redo the energy integral
   with obsa, where the energy tensors are precomputed/incore."""
   # solve for ground state with PySCF and get the mo_coeff
-  atom_mf, mo_coeff = pyscf_wrapper(pyscf_mol, cfg)
+  start_time = time.time()
+  atom_mf, pyscf_mo_coeff = pyscf_wrapper(pyscf_mol, cfg)
+  end_time = time.time()
+  pyscf_time = end_time - start_time
 
   # add spin and apply occupation mask
   nocc = Mol.get_nocc(pyscf_mol)
-  mo_coeff *= nocc[:, :, None]
+  pyscf_mo_coeff *= nocc[:, :, None]
 
-  _, (energies, _) = H.energy_fn(mo_coeff)
-  e1 = energies.e_kin + energies.e_ext
+  e_fn_jit = jax.jit(H.energy_fn)
+  _, pyscf_energies = e_fn_jit(
+    state.params, state.rng_key, mo_coeff=pyscf_mo_coeff
+  )
 
-  logger = RunLogger()  # start timer
-  logger.log_step(energies, 0, 0)
+  e1 = pyscf_energies.e_kin + pyscf_energies.e_ext
+
+  logger = RunLogger()
+  logger.log_step(pyscf_energies, 0, 0)
   logger.get_segment_summary()
-  logging.info(f"1e energy:{e1}")
 
-  # check results
+  # check integration results
   assert np.allclose(e1, atom_mf.scf_summary['e1'])
-
   if cfg.method_cfg.name == "KS":
-    assert np.allclose(energies.e_har, atom_mf.scf_summary['coul'])
-    assert np.allclose(energies.e_xc, atom_mf.scf_summary['exc'])
+    assert np.allclose(pyscf_energies.e_har, atom_mf.scf_summary['coul'])
+    assert np.allclose(pyscf_energies.e_xc, atom_mf.scf_summary['exc'])
   elif cfg.method_cfg.name == "HF":
-    e2_hf = energies.e_har + energies.e_xc
+    e2_hf = pyscf_energies.e_har + pyscf_energies.e_xc
     assert np.allclose(e2_hf, atom_mf.scf_summary['e2'])
 
   if cfg.uuid != "":
     logger.save(cfg, "pyscf")
     with (cfg.get_save_dir() / "pyscf_mo_coeff.pkl").open("wb") as f:
-      pickle.dump(mo_coeff, f)
+      pickle.dump(pyscf_mo_coeff, f)
 
   if compare_logger is not None:
     logging.info("energy diff")
@@ -307,10 +314,8 @@ def pyscf_benchmark(
       logger.data_df.iloc[-1] - compare_logger.data_df.iloc[min_e_step]
     )
     logging.info("time diff")
-    pyscf_e_total = logger.data_df.e_total[0]
-    e_lower_step = (compare_logger.data_df.e_total < pyscf_e_total).argmax()
-    t_total = compare_logger.data_df.iloc[:e_lower_step].time.sum()
-    logging.info(f"pyscf time: {logger.data_df.time[0]}")
+    t_total = compare_logger.data_df.time.sum()
+    logging.info(f"pyscf time: {pyscf_time}")
     logging.info(f"d4ft time: {t_total}")
 
   return logger
