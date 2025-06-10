@@ -204,6 +204,15 @@ class TrainingState(NamedTuple):
       self.step,
     )
 
+  def clone(self) -> "TrainingState":
+    """Creates a deep copy of the training state."""
+    return TrainingState(
+      params=jax.tree_util.tree_map(lambda x: x.copy(), self.params),
+      opt_state=jax.tree_util.tree_map(lambda x: x.copy(), self.opt_state),
+      rng_key=self.rng_key.copy(),
+      step=self.step,
+    )
+
 
 class CGTOSymTensorFns(NamedTuple):
   """Functions that maps CGTO to symmetry reduced ovlp, kin, ext and eri
