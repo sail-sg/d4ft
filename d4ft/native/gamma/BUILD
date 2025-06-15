@@ -19,7 +19,7 @@ cc_library(
     name = "constants",
     hdrs = ["constants.h"],
     deps = [
-        "@cuda//:cudart_static",
+        "@rules_cuda//cuda:runtime",
         "@hemi",
     ],
 )

@@ -15,7 +15,8 @@
 """D4FT pip requirements and cuda, load after workspace0."""
 
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
-load("@rules_cuda//cuda:dependencies.bzl", "rules_cuda_dependencies")
+load("@rules_cuda//cuda:repositories.bzl", "register_detected_cuda_toolchains", "rules_cuda_dependencies")
+load("@rules_python//python:repositories.bzl", "python_register_toolchains")
 
 def workspace():
     """Configure pip requirements."""
@@ -23,6 +24,17 @@ def workspace():
         name = "local_config_python",
         python_version = "3",
     )
+    
+    # Register Python toolchains
+    python_register_toolchains(
+        name = "python_3_9",
+        python_version = "3.9",
+    )
+    
+    # Configure CUDA dependencies
     rules_cuda_dependencies()
+    
+    # Register CUDA toolchains with explicit detection
+    register_detected_cuda_toolchains()
 
 workspace1 = workspace

@@ -17,10 +17,29 @@
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("//third_party/cuda:cuda.bzl", "cuda_configure")
 
 def workspace():
     """Load requested packages."""
+
+    # Add bazel_skylib dependency first
+    maybe(
+        http_archive,
+        name = "bazel_skylib",
+        sha256 = "66ffd9315665bfaafc96b52278f57c7e2dd09f5ede279ea6d39b2be471e7e3aa",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-1.4.2.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.2/bazel-skylib-1.4.2.tar.gz",
+        ],
+    )
+
+    # Add rules_cc dependency
+    maybe(
+        http_archive,
+        name = "rules_cc",
+        sha256 = "2037875b9a4456dce4a79d112a8ae885bbc4aad968e6587dca6e64f3a0900cdf",
+        strip_prefix = "rules_cc-0.0.9",
+        urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.9/rules_cc-0.0.9.tar.gz"],
+    )
 
     # # this version doesn't work
     # maybe(
@@ -52,9 +71,9 @@ def workspace():
     maybe(
         http_archive,
         name = "rules_cuda",
-        sha256 = "f80438bee9906e9ecb1a8a4ae2365374ac1e8a283897281a2db2fb7fcf746333",
-        strip_prefix = "runtime-b1c7cce21ba4661c17ac72421c6a0e2015e7bef3/third_party/rules_cuda",
-        urls = ["https://github.com/tensorflow/runtime/archive/b1c7cce21ba4661c17ac72421c6a0e2015e7bef3.tar.gz"],
+        sha256 = "c92b334d769a07cd991b7675b2f6076b8b95cd3b28b14268a2f379f8baae58e0",
+        strip_prefix = "rules_cuda-v0.2.3",
+        urls = ["https://github.com/bazel-contrib/rules_cuda/releases/download/v0.2.3/rules_cuda-v0.2.3.tar.gz"],
     )
 
     maybe(
@@ -84,10 +103,6 @@ def workspace():
         urls = ["https://github.com/pybind/pybind11/archive/v{}.tar.gz".format(pybind11_version)],
     )
 
-    maybe(
-        cuda_configure,
-        name = "cuda",
-    )
 
     maybe(
         http_archive,

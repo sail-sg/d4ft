@@ -58,7 +58,7 @@ py_library(
     srcs = ["tensorization.py"],
     data = [
         "//d4ft/native/obara_saika:eri_kernel.so",
-        "@cuda//:bin",
+        "@rules_cuda//cuda:runtime",
     ],
     deps = [
         ":cgto",

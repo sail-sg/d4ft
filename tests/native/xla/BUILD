@@ -80,7 +80,7 @@ package(default_visibility = ["//visibility:public"])
 #     deps = [
 #         "@hemi",
 #         ":eri_kernel_h",
-#         "@cuda//:cudart_static",
+#         "@rules_cuda//cuda:runtime",
 #         "eri_h",
 #     ],
 # )
@@ -104,7 +104,7 @@ py_test(
     srcs = ["eri_kernel_test.py"],
     data = [
         "//d4ft/native/obara_saika:eri_kernel.so",
-        "@cuda//:bin",
+        "@rules_cuda//cuda:runtime",
     ],
     deps = [
         "//d4ft/integral/gto",
