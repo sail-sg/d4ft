@@ -11,7 +11,10 @@ build --action_env=CC=gcc-13
 
 build --action_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm
 build --action_env=BAZEL_LINKOPTS=-static-libgcc
+build --action_env=PYTHON_BIN_PATH=/bin/python3.11
 build --incompatible_strict_action_env --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --client_env=BAZEL_CXXOPTS=-std=c++17
+
+# Python toolchain automatically registered by rules_python
 
 build:debug --compilation_mode=dbg -s
 build:test --copt=-g0 --copt=-O3 --copt=-DNDEBUG --copt=-msse --copt=-msse2 --copt=-mmmx

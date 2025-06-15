@@ -15,3 +15,7 @@ workspace2()
 load("//d4ft:pip.bzl", pip_workspace = "workspace")
 
 pip_workspace()
+
+# Install pip dependencies
+load("@pip_requirements//:requirements.bzl", "install_deps")
+install_deps()

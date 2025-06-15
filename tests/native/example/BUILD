@@ -70,3 +70,8 @@ py_test(
         requirement("jaxlib"),
     ],
 )
+
+py_test(
+    name = "simple_test",
+    srcs = ["simple_test.py"],
+)

@@ -14,11 +14,9 @@
 
 """cc tool chains, load after workspace1."""
 
-load("@rules_cc//cc:repositories.bzl", "rules_cc_toolchains")
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 def workspace():
     bazel_skylib_workspace()
-    rules_cc_toolchains()
 
 workspace2 = workspace
