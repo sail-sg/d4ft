@@ -1,17 +1,17 @@
 build --cxxopt=-std=c++17
-build --repo_env=CUDA_DIR=/opt/cuda
-build --repo_env=CUDA_PATH=/opt/cuda
+build --repo_env=CUDA_DIR=/usr/local/cuda-12.6
+build --repo_env=CUDA_PATH=/usr/local/cuda-12.6
 build --repo_env=CC=gcc-13
-build --repo_env=CUDA_TOOLKIT_ROOT=/opt/cuda
+build --repo_env=CUDA_TOOLKIT_ROOT=/usr/local/cuda-12.6
 # TODO: check whether both env var are needed
-build --action_env=CUDA_DIR=/opt/cuda
-build --action_env=CUDA_PATH=/opt/cuda
-build --action_env=CUDA_TOOLKIT_ROOT=/opt/cuda
+build --action_env=CUDA_DIR=/usr/local/cuda-12.6
+build --action_env=CUDA_PATH=/usr/local/cuda-12.6
+build --action_env=CUDA_TOOLKIT_ROOT=/usr/local/cuda-12.6
 build --action_env=CC=gcc-13
 
 build --action_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm
 build --action_env=BAZEL_LINKOPTS=-static-libgcc
-build --action_env=PYTHON_BIN_PATH=/bin/python3.11
+build --action_env=PYTHON_BIN_PATH=/usr/bin/python3
 build --incompatible_strict_action_env --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --client_env=BAZEL_CXXOPTS=-std=c++17
 
 # Python toolchain automatically registered by rules_python

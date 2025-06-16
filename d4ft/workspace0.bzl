@@ -55,10 +55,10 @@ def workspace():
     maybe(
         http_archive,
         name = "rules_python",
-        sha256 = "5868e73107a8e85d8f323806e60cad7283f34b32163ea6ff1020cf27abef6036",
-        strip_prefix = "rules_python-0.25.0",
+        sha256 = "c68bdc4fbec25de5b5493b8819cfc877c4ea299c0dcb15c244c5a00208cde311",
+        strip_prefix = "rules_python-0.31.0",
         urls = [
-            "https://github.com/bazelbuild/rules_python/releases/download/0.25.0/rules_python-0.25.0.tar.gz",
+            "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
         ],
     )
 
@@ -87,22 +87,25 @@ def workspace():
         remote = "https://github.com/harrism/hemi.git",
     )
 
-    pybind11_bazel_version = "fc56ce8a8b51e3dd941139d329b63ccfea1d304b"  # Latest @ 2023-04-27
+
+    pybind11_bazel_version = "b162c7c88a253e3f6b673df0c621aca27596ce6b"  # Latest @ 2024-01-11
     maybe(
         http_archive,
         name = "pybind11_bazel",
         strip_prefix = "pybind11_bazel-{}".format(pybind11_bazel_version),
         urls = ["https://github.com/pybind/pybind11_bazel/archive/{}.zip".format(pybind11_bazel_version)],
+        sha256 = "b72c5b44135b90d1ffaba51e08240be0b91707ac60bea08bb4d84b47316211bb",
     )
 
     # We still require the pybind library.
-    pybind11_version = "2.10.4"
+    pybind11_version = "2.11.1"
     maybe(
         http_archive,
         name = "pybind11",
         build_file = "@pybind11_bazel//:pybind11.BUILD",
         strip_prefix = "pybind11-{}".format(pybind11_version),
         urls = ["https://github.com/pybind/pybind11/archive/v{}.tar.gz".format(pybind11_version)],
+        sha256 = "d475978da0cdc2d43b73f30910786759d593a9d8ee05b1b6846d1eb16c6d2e0c",
     )
 
 

@@ -3,5 +3,6 @@ numpy<2.0
 scipy>=1.9.0
 ml_dtypes>=0.2.0
 opt_einsum>=3.0.0
-jax==0.4.19
-jaxlib==0.4.19
+# Use JAX without CUDA to avoid cuDNN mismatch
+jax==0.6.0
+jaxlib==0.6.0

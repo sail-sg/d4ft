@@ -28,12 +28,6 @@ def workspace():
     # Initialize Python rules dependencies
     py_repositories()
     
-    # Register Python toolchains  
-    python_register_toolchains(
-        name = "python_3_11",
-        python_version = "3.11",
-    )
-    
     # Configure CUDA dependencies
     rules_cuda_dependencies()
     

@@ -22,7 +22,7 @@ def workspace():
     if "pip_requirements" not in native.existing_rules().keys():
         pip_parse(
             name = "pip_requirements",
-            python_interpreter = "python3.11",
+            python_interpreter = "python3",
             # default timeout value is 600, change it if you failed.
             # timeout = 3600,
             quiet = False,

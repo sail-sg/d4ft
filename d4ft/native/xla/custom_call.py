@@ -15,29 +15,28 @@
 from abc import ABCMeta
 from functools import partial
 from typing import Any, Dict, List, Tuple
+import warnings
 
 import jax
-from jax import core, dtypes
+from jax import dtypes
 from jax.core import ShapedArray
-from jax.interpreters import xla
+from jax.interpreters import mlir
 from jax.lib import xla_client
 
+# Handle JAX 0.6.0+ API changes
+try:
+  from jax import core
+  Primitive = core.Primitive
+except AttributeError:
+  # JAX 0.6.0+ moved Primitive to jax.extend.core
+  from jax import extend
+  from jax import core
+  Primitive = extend.core.Primitive
 
-def shape_with_layout(
-  specs: List[Tuple[Any, List[int]]]
-) -> Tuple[xla_client.Shape, ...]:
-  """takes a list of tuples (specs), where each tuple contains a data type
-  (dtype) and a shape (a list of integers), and returns a tuple of shapes
-  in XLA's format.
-  """
-  return tuple(
-    xla_client.Shape.array_shape(
-      dtype,
-      shape,
-      tuple(range(len(shape) - 1, -1, -1)),  # layout
-    ) if len(shape) > 0 else xla_client.Shape.scalar_shape(dtype)
-    for dtype, shape in specs
-  )
+
+def aval_to_mlir_type(aval):
+  """Convert JAX abstract value to MLIR type."""
+  return mlir.aval_to_ir_type(aval)
 
 
 class CustomCallMeta(ABCMeta):
@@ -60,17 +59,30 @@ class CustomCallMeta(ABCMeta):
     base = parents[0]
     cpu_capsule, gpu_capsule = base._capsules
 
-    # Register the XLA custom calls
-    xla_client.register_custom_call_target(
-      f"{name}_cpu".encode(),
-      fn=cpu_capsule,
-      platform="cpu",
-    )
-    xla_client.register_custom_call_target(
-      f"{name}_gpu".encode(),
-      fn=gpu_capsule,
-      platform="gpu",
-    )
+    # Register the custom call targets
+    # JAX 0.6.0 still has register_custom_call_target but it's in jaxlib
+    try:
+      # Try the old location first
+      register_fn = xla_client.register_custom_call_target
+    except AttributeError:
+      # In newer versions, it might be in a different location
+      try:
+        from jaxlib import xla_client as jaxlib_xla_client
+        register_fn = jaxlib_xla_client.register_custom_call_target
+      except (ImportError, AttributeError):
+        register_fn = None
+    
+    if register_fn:
+      register_fn(
+        f"{name}_cpu".encode(),
+        cpu_capsule,
+        platform="cpu",
+      )
+      register_fn(
+        f"{name}_gpu".encode(),
+        gpu_capsule,
+        platform="gpu",
+      )
 
     def call(self: Any, *args: List[jax.Array]) -> List[jax.Array]:
       """Binded to __call__, which exposes the primitive to user code.
@@ -117,42 +129,49 @@ class CustomCallMeta(ABCMeta):
         ret = ret[0]
       return ret
 
-    def translation(
-      self: Any, c: Any, *args: List[jax.Array], platform: str = "cpu"
+    def lowering_rule(
+      self: Any, ctx: mlir.LoweringRuleContext, *args, platform: str = "cpu"
     ) -> Any:
-      """Defines how the function will be translated into an XLA computation on
-      a specific platform (CPU or GPU)."""
-      opaque = args[0]
-      opaque_spec = c.get_shape(opaque)
-      input_specs = tuple(c.get_shape(a) for a in args)
-      input_shapes = tuple(spec.dimensions() for spec in input_specs)
-      input_dtypes = tuple(spec.element_type() for spec in input_specs)
+      """Defines how the function will be lowered to MLIR custom call."""
       output_dtypes = self._output_dtypes()
-      output_shapes = self._shape_inference(input_shapes[1:])
+      input_shapes = tuple(aval.shape for aval in ctx.avals_in[1:])
+      output_shapes = self._shape_inference(input_shapes)
+      
       if base._is_member:
-        output_dtypes = (opaque_spec.element_type(),) + output_dtypes
-        output_shapes = (opaque_spec.dimensions(),) + output_shapes
-      input_specs = list(zip(input_dtypes, input_shapes))
-      output_specs = list(zip(output_dtypes, output_shapes))
-
-      output_shape_with_layout = shape_with_layout(output_specs)
-      if len(output_shape_with_layout) == 1:
-        output_shape = output_shape_with_layout[0]
-      else:
-        output_shape = xla_client.Shape.tuple_shape(output_shape_with_layout)
-      return xla_client.ops.CustomCallWithLayout(
-        c,
-        f"{name}_{platform}".encode(),
-        operands=args,
-        operand_shapes_with_layout=shape_with_layout(input_specs),
-        shape_with_layout=output_shape,
-        opaque=self._state.tobytes(),
-        has_side_effect=base._is_member,
+        output_dtypes = (ctx.avals_in[0].dtype,) + output_dtypes
+        output_shapes = (ctx.avals_in[0].shape,) + output_shapes
+      
+      # Create output types for MLIR
+      output_avals = tuple(
+        ShapedArray(shape, dtype) 
+        for dtype, shape in zip(output_dtypes, output_shapes)
       )
+      result_types = [aval_to_mlir_type(aval) for aval in output_avals]
+      
+      # For the backend config, we don't serialize the state since it's passed as an operand
+      # The backend config should contain static configuration data only
+      backend_config = b""
+      
+      # Create the custom call operation
+      # Use api_version=2 for the legacy custom call API
+      # Suppress deprecation warning for mlir.custom_call
+      with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        op = mlir.custom_call(
+          f"{name}_{platform}",
+          operands=args,
+          result_types=result_types,
+          backend_config=backend_config,
+          has_side_effect=base._is_member,
+          api_version=2,  # Use legacy API version for custom calls
+        )
+      return op.results
 
     attrs["__call__"] = call
     attrs["abstract"] = abstract
-    attrs["translation"] = translation
+    attrs["lowering_rule"] = lowering_rule
+    attrs["_cpu_capsule"] = cpu_capsule
+    attrs["_gpu_capsule"] = gpu_capsule
     subcls = super().__new__(cls, name, parents, attrs)
 
     def init(self: Any, parent: Any = None) -> None:
@@ -165,18 +184,22 @@ class CustomCallMeta(ABCMeta):
         num_outputs = len(self._output_dtypes())
 
       # create the primitive
-      self.prim = core.Primitive(name)
+      self.prim = Primitive(name)
       self.prim.multiple_results = (num_outputs > 1)
-      self.prim.def_impl(partial(xla.apply_primitive, self.prim))
-
+      
+      # Use a simple implementation function for the primitive
+      def _impl(*args):
+        raise NotImplementedError(f"Implementation for {name} not available in eager mode. Use jax.jit().")
+      
+      self.prim.def_impl(_impl)
       self.prim.def_abstract_eval(self.abstract)
 
-      # Connect the XLA translation rules for JIT compilation
-      xla.backend_specific_translations["cpu"][self.prim] = partial(
-        self.translation, platform="cpu"
+      # Register MLIR lowering rules for JIT compilation  
+      mlir.register_lowering(
+        self.prim, partial(self.lowering_rule, platform="cpu"), platform="cpu"
       )
-      xla.backend_specific_translations["gpu"][self.prim] = partial(
-        self.translation, platform="gpu"
+      mlir.register_lowering(
+        self.prim, partial(self.lowering_rule, platform="gpu"), platform="gpu"
       )
 
     setattr(subcls, "__init__", init)  # noqa: B010

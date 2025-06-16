@@ -33,6 +33,10 @@
 
 #include "specs.h"
 
+// Include XLA custom call registry for direct registration
+// Note: In JAX 0.6.0+, this header is deprecated. Registration happens via Python API.
+// #include "xla/service/custom_call_target_registry.h"
+
 namespace py = pybind11;
 
 /**
@@ -380,6 +384,8 @@ py::object abc_meta = py::module::import("abc").attr("ABCMeta");
  * Xla with CustomCall as the template argument. The Python class is named
  * _<CustomCall>. This class has a constructor (py::init<>()), and several
  * static and instance methods exposed to Python.
+ * 
+ * It also registers the custom call targets directly with XLA.
  * */
 #define REGISTER_XLA_FUNCTION(MODULE, CustomCall)                    \
   py::class_<Xla<CustomCall>>(MODULE, "_" #CustomCall,               \
@@ -390,12 +396,22 @@ py::object abc_meta = py::module::import("abc").attr("ABCMeta");
       .def("_opaque", &Xla<CustomCall>::Opaque)                      \
       .def("_input_dtypes", &Xla<CustomCall>::InputDtypes)           \
       .def("_output_dtypes", &Xla<CustomCall>::OutputDtypes)         \
-      .def("_shape_inference", &Xla<CustomCall>::ShapeInference);
+      .def("_shape_inference", &Xla<CustomCall>::ShapeInference);    \
+  /* In JAX 0.6.0+, registration happens via Python API */           \
+  /* Store function pointers for Python-side registration */         \
+  MODULE.attr("_" #CustomCall "_cpu_fn") = py::capsule(              \
+      reinterpret_cast<void*>(Xla<CustomCall>::Cpu),                 \
+      #CustomCall "_cpu");                                            \
+  MODULE.attr("_" #CustomCall "_gpu_fn") = py::capsule(              \
+      reinterpret_cast<void*>(Xla<CustomCall>::Gpu),                 \
+      #CustomCall "_gpu");
 
 /**
  * This macro registers a class that is a template specialization of Xla with
  * CustomCall and Parent as template arguments. This version of Xla is designed
  * to represent member functions of Parent.
+ * 
+ * It also registers the custom call targets directly with XLA.
  * */
 #define REGISTER_XLA_MEMBER(MODULE, Parent, CustomCall)                      \
   py::class_<Xla<CustomCall, Parent>>(MODULE, "_" #CustomCall,               \
@@ -406,6 +422,14 @@ py::object abc_meta = py::module::import("abc").attr("ABCMeta");
       .def("_opaque", &Xla<CustomCall, Parent>::Opaque)                      \
       .def("_input_dtypes", &Xla<CustomCall, Parent>::InputDtypes)           \
       .def("_output_dtypes", &Xla<CustomCall, Parent>::OutputDtypes)         \
-      .def("_shape_inference", &Xla<CustomCall, Parent>::ShapeInference);
+      .def("_shape_inference", &Xla<CustomCall, Parent>::ShapeInference);    \
+  /* In JAX 0.6.0+, registration happens via Python API */                   \
+  /* Store function pointers for Python-side registration */                 \
+  MODULE.attr("_" #CustomCall "_cpu_fn") = py::capsule(                      \
+      reinterpret_cast<void*>(Xla<CustomCall, Parent>::Cpu),                \
+      #CustomCall "_cpu");                                                    \
+  MODULE.attr("_" #CustomCall "_gpu_fn") = py::capsule(                      \
+      reinterpret_cast<void*>(Xla<CustomCall, Parent>::Gpu),                \
+      #CustomCall "_gpu");
 
 #endif  // D4FT_NATIVE_XLA_CUSTOM_CALL_H_

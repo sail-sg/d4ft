@@ -69,6 +69,9 @@ py_test(
         requirement("jax"),
         requirement("jaxlib"),
     ],
+    env = {
+        "JAX_PLATFORMS": "cpu",
+    },
 )
 
 py_test(
