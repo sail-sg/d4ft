@@ -2,7 +2,7 @@
 FROM mambaorg/micromamba:1.5.8 as micromamba
 
 # This is the image we are going add micromaba to:
-FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
