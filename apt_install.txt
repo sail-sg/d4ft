@@ -1,5 +1,5 @@
 build-essential
-clang-format-11
+clang-format
 cmake
 g++
 git
