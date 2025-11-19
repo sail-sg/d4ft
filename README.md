@@ -288,7 +288,7 @@ cd /home/aiops/shizk/workspace/d4ft_devsg; eval "$(micromamba shell hook --shell
 ./scripts/basis_optim.sh --config.name bod1 --config.sys_cfg.mol bh76-bh76_n2 --config.sys_cfg.geometry_source refdata --config.sys_cfg.add_basis d:1
 ./scripts/basis_optim.sh --config.name bo --config.sys_cfg.mol bh76-bh76_n2 --config.sys_cfg.geometry_source refdata 
 
-./scripts/basis_optim.sh --config.name bo --config.sys_cfg.mol O2 --config.sys_cfg.mol O2
+./scripts/basis_optim.sh --config.name bo --config.sys_cfg.mol O2
 
 ./scripts/baseline.sh --config.sys_cfg.basis cc-PVDZ
 
